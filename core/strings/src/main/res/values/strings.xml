@@ -826,6 +826,8 @@
     <string name="settings_dimension_save">Save name</string>
     <string name="settings_dimension_weight_label">Weight</string>
     <string name="settings_disabled">Disabled</string>
+    <string name="settings_exact_alarm_body">Without this, reminders can arrive a few minutes late. Tap to open the system setting.</string>
+    <string name="settings_exact_alarm_title">Allow exact reminder times</string>
     <string name="settings_font_family">Font Family</string>
     <string name="settings_import_dialog_backup_hint">Consider exporting your current data first as a backup.</string>
     <string name="settings_import_dialog_data_loss">All current tasks, time entries, notes, and settings will be permanently lost.</string>
@@ -854,6 +856,7 @@
     <string name="settings_life_dimensions_title">Life Dimensions</string>
     <string name="settings_loading_preferences">Loading preferences...</string>
     <string name="settings_manual_backup_in_progress">Backup in progress…</string>
+    <string name="settings_reminders_title">Reminders</string>
     <string name="settings_scoring_description">Customize how task scores are calculated by adjusting factor weights and level values.</string>
     <string name="settings_scoring_title">Scoring Configuration</string>
     <string name="settings_security_title">Security &amp; Timeout</string>
@@ -917,6 +920,7 @@
     <string name="tab_visibility_warning">Changes to individual tabs will override the active preset</string>
     <string name="task_notification_action_complete">Complete</string>
     <string name="task_notification_action_skip">Skip</string>
+    <string name="task_notification_action_more">More</string>
     <string name="widget_tracking_status_active">Active</string>
     <string name="loc_time_scale_1m">1m</string>
     <string name="loc_time_scale_2m">2m</string>

@@ -564,6 +564,7 @@ enum class SettingsSection {
     FOCUS_MODE,
     DIMENSIONS,
     AUTO_TRACK_HABIT_TIME,
+    REMINDERS,
     TIME_INSIGHTS,
     AUTO_BACKUP,
     SCORING,

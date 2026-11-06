@@ -78,6 +78,12 @@ object TestTags {
 
         /** The Data Management section header. */
         const val DATA_MANAGEMENT_CARD = "settings.data_management_card"
+
+        /** The Reminders section header, rendered only while exact alarms are unavailable. */
+        const val REMINDERS_CARD = "settings.reminders_card"
+
+        /** The exact-alarm row: its tap opens the system screen that grants it. */
+        const val EXACT_ALARM_ROW = "settings.exact_alarm_row"
     }
 
     /**

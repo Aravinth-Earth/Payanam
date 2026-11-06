@@ -313,6 +313,13 @@ fun SettingsScreenContent(
                     )
                 }
             }
+            SettingsRemindersSection(
+                expanded = expandedSection == SettingsSection.REMINDERS,
+                onToggleExpanded = {
+                    logSectionToggle(logger, expandedSection, "reminders", SettingsSection.REMINDERS)
+                    expandedSection = expandedSection.toggle(SettingsSection.REMINDERS)
+                },
+            )
             SettingsCard(
                 title = strings.settingsDayBoundaryTitle,
                 icon = Icons.Default.Timer,

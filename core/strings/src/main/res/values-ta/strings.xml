@@ -827,6 +827,8 @@
     <string name="settings_dimension_save">பெயர் சேமி</string>
     <string name="settings_dimension_weight_label">எடை</string>
     <string name="settings_disabled">முடக்கப்பட்டது</string>
+    <string name="settings_exact_alarm_body">இது இல்லாமல், நினைவூட்டல்கள் சில நிமிடங்கள் தாமதமாக வரலாம். அமைப்புகளைத் திறக்க தட்டவும்.</string>
+    <string name="settings_exact_alarm_title">துல்லியமான நினைவூட்டல் நேரங்களை அனுமதிக்கவும்</string>
     <string name="settings_font_family">எழுத்துரு குடும்பம்</string>
     <string name="settings_import_dialog_backup_hint">முதலில் உங்கள் தற்போதைய தரவை காப்புப்பிரதியாக ஏற்றுமதி செய்ய பரிந்துரைக்கப்படுகிறது.</string>
     <string name="settings_import_dialog_data_loss">தற்போதைய அனைத்து பணிகள், நேர பதிவுகள், குறிப்புகள், அமைப்புகள் நிரந்தரமாக அழியும்.</string>
@@ -855,6 +857,7 @@
     <string name="settings_life_dimensions_title">வாழ்க்கை பரிமாணங்கள்</string>
     <string name="settings_loading_preferences">விருப்பங்கள் ஏற்றப்படுகிறது...</string>
     <string name="settings_manual_backup_in_progress">காப்புப்பிரதி நடைபெறுகிறது…</string>
+    <string name="settings_reminders_title">நினைவூட்டல்கள்</string>
     <string name="settings_scoring_description">காரண எடைகள் மற்றும் நிலை மதிப்புகளை மாற்றி பணி மதிப்பெண் கணக்கீட்டை தனிப்பயனாக்கவும்.</string>
     <string name="settings_scoring_title">மதிப்பெண் அமைப்பு</string>
     <string name="settings_security_title">பாதுகாப்பு &amp; நேரமுடிவு</string>
@@ -918,6 +921,7 @@
     <string name="tab_visibility_warning">தனிப்பட்ட தாவல் மாற்றங்கள் செயலில் உள்ள முன்னமைவை மாற்றும்</string>
     <string name="task_notification_action_complete">முடி</string>
     <string name="task_notification_action_skip">தவிர்</string>
+    <string name="task_notification_action_more">மேலும்</string>
     <string name="widget_tracking_status_active">செயலில்</string>
     <string name="loc_time_scale_1m">1நி</string>
     <string name="loc_time_scale_2m">2நி</string>

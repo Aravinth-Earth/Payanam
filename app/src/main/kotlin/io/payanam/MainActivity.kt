@@ -5,6 +5,7 @@
 package io.payanam
 
 import android.annotation.SuppressLint
+import android.app.AlarmManager
 import android.app.LocaleManager
 import android.content.Intent
 import android.content.res.Configuration
@@ -102,6 +103,9 @@ class MainActivity : FragmentActivity() {
     private val pendingExternalCommand = MutableStateFlow<PayanamExternalNavigationCommand?>(null)
     private var hasEnteredForegroundOnce = false
     private var lastStoppedAtElapsedMs: Long? = null
+
+    /** Exact-alarm availability at the last resume, or null before this activity has looked. */
+    private var exactAlarmsUnavailableAtLastLook: Boolean? = null
 
     @Inject
     lateinit var notificationScheduler: Lazy<NotificationScheduler>
@@ -694,6 +698,7 @@ class MainActivity : FragmentActivity() {
         super.onResume()
         logger.d("MainActivity.onResume", "Activity resumed")
         handleReminderActionIntent(intent)
+        rearmRemindersWhenExactAlarmsBecomeAvailable()
         // Safety-net: if the process stayed alive but the DB session is gone (e.g., SessionManager
         // timer fired and closed the DB without killing the process, which shouldn't happen but is
         // defensive), restart the process for a clean cold-boot auth flow.
@@ -711,6 +716,41 @@ class MainActivity : FragmentActivity() {
             }
             showPassphraseUnlock = true
             return
+        }
+    }
+
+    /**
+     * Re-arms pending reminders once exact alarms become allowed.
+     *
+     * The grant happens on a system screen that reports nothing back, so the only observable moment is the
+     * next resume. Re-arming replaces the same PendingIntents the inexact pass armed, so it cannot leave a
+     * stale inexact alarm behind. Nothing runs on a resume where the answer did not change, so an install
+     * that already holds the permission takes no extra work.
+     */
+    @Suppress("TooGenericExceptionCaught") // Intentional: the scheduler read can fail on a locked database
+    private fun rearmRemindersWhenExactAlarmsBecomeAvailable() {
+        if (!FeatureFlags.remindersEnabled) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        if (showDatabaseInit || showPassphraseSetup || showPassphraseUnlock) return
+        val alarmManager = getSystemService(AlarmManager::class.java) ?: return
+        val available = alarmManager.canScheduleExactAlarms()
+        val wasUnavailable = exactAlarmsUnavailableAtLastLook
+        exactAlarmsUnavailableAtLastLook = !available
+        if (!available || wasUnavailable != true) return
+        startupMaintenanceScope.launch {
+            try {
+                val taskCount = notificationScheduler.get().scheduleAllPendingTasks()
+                logger.i(
+                    "MainActivity.onResume",
+                    "Exact alarms granted; re-armed pending task reminders",
+                    mapOf("tasks" to taskCount),
+                )
+            } catch (e: CancellationException) {
+                logger.d("MainActivity.onResume", "Reminder re-arm after exact-alarm grant cancelled")
+                throw e
+            } catch (e: Exception) {
+                logger.e("MainActivity.onResume", "Failed to re-arm task reminders after exact-alarm grant", e)
+            }
         }
     }
 

@@ -7,6 +7,7 @@ import android.app.PendingIntent
 import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import dagger.hilt.android.AndroidEntryPoint
 import io.payanam.FeatureFlags
@@ -17,7 +18,10 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.common.util.DateTimeUtil
 import io.payanam.common.util.PersistedDateTime
 import io.payanam.domain.repository.NotificationRepository
+import io.payanam.notification.ASSUMED_VISIBLE_ACTIONS
 import io.payanam.notification.NotificationActionCoordinator
+import io.payanam.notification.ReminderActionSlot
+import io.payanam.notification.reminderActionSlots
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -28,7 +32,7 @@ import kotlin.math.abs
 
 /**
  * Alarm-fired task reminder: validates extras, posts the notification on the
- * right channel (with complete/skip/snooze/miss actions), and marks it
+ * right channel (with the action set the platform renders), and marks it
  * delivered.
  */
 @AndroidEntryPoint
@@ -120,7 +124,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
         }
         val openAppPendingIntent = PendingIntent.getActivity(
             context,
-            notificationIdInt,
+            notificationIdInt + REQUEST_CODE_CONTENT_OFFSET,
             openAppIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
@@ -134,20 +138,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
             notificationIdInt = notificationIdInt,
             taskId = taskId,
         )
-        val skipIntent = reminderActionIntent(
-            context = context,
-            intentAction = NotificationActionReceiver.ACTION_SKIP_TASK,
-            actionType = NotificationActionCoordinator.ACTION_TYPE_SKIP,
-            notificationIdInt = notificationIdInt,
-            taskId = taskId,
-        )
-        val snoozeIntent = reminderActionIntent(
-            context = context,
-            intentAction = NotificationActionReceiver.ACTION_SNOOZE_TASK,
-            actionType = NotificationActionCoordinator.ACTION_TYPE_SNOOZE,
-            notificationIdInt = notificationIdInt,
-            taskId = taskId,
-        )
         val missIntent = reminderActionIntent(
             context = context,
             intentAction = NotificationActionReceiver.ACTION_MISS_TASK,
@@ -157,27 +147,35 @@ class TaskReminderReceiver : BroadcastReceiver() {
         )
         val completePendingIntent = PendingIntent.getActivity(
             context,
-            notificationIdInt + 1,
+            notificationIdInt + REQUEST_CODE_COMPLETE_OFFSET,
             completeIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val skipPendingIntent = PendingIntent.getActivity(
-            context,
-            notificationIdInt + 2,
-            skipIntent,
-            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
-        )
-        val snoozePendingIntent = PendingIntent.getActivity(
-            context,
-            notificationIdInt + 3,
-            snoozeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val missPendingIntent = PendingIntent.getActivity(
             context,
-            notificationIdInt + 4,
+            notificationIdInt + REQUEST_CODE_MISS_OFFSET,
             missIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        // More reuses the content intent object, so it opens exactly the destination a body tap
+        // opens. Only the request code differs, which keeps the two PendingIntents distinct.
+        val morePendingIntent = PendingIntent.getActivity(
+            context,
+            notificationIdInt + REQUEST_CODE_MORE_OFFSET,
+            openAppIntent,
+            PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
+        )
+        val actionSlots = reminderActionSlots()
+        logger.i(
+            "TaskReminderReceiver.showNotification",
+            "Reminder action set selected",
+            mapOf(
+                "sdkInt" to Build.VERSION.SDK_INT,
+                "assumedVisibleActions" to ASSUMED_VISIBLE_ACTIONS,
+                "actions" to actionSlots.joinToString(",") { it.name },
+                "type" to notificationType,
+                "isSnoozed" to isSnoozed,
+            ),
         )
         val timeText = dueAt?.let { DateTimeUtil.formatTime(it.toLocalTime(), use24Hour = false) }
         val body = when {
@@ -202,29 +200,26 @@ class TaskReminderReceiver : BroadcastReceiver() {
             .setAutoCancel(true)
             .setPriority(NotificationCompat.PRIORITY_HIGH)
             .setCategory(NotificationCompat.CATEGORY_REMINDER)
-            .addAction(
-                android.R.drawable.checkbox_on_background,
-                context.getString(R.string.task_notification_action_complete),
-                completePendingIntent,
-            )
-            .addAction(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                context.getString(R.string.task_notification_action_skip),
-                skipPendingIntent,
-            )
-        if (!isSnoozed) {
-            builder.addAction(
-                android.R.drawable.ic_lock_idle_alarm,
-                context.getString(R.string.task_notification_action_snooze),
-                snoozePendingIntent,
-            )
-        }
-        if (notificationType == TYPE_HABIT_TRACKING) {
-            builder.addAction(
-                android.R.drawable.ic_menu_close_clear_cancel,
-                context.getString(R.string.loc_miss),
-                missPendingIntent,
-            )
+        actionSlots.forEach { slot ->
+            when (slot) {
+                ReminderActionSlot.COMPLETE -> builder.addAction(
+                    android.R.drawable.checkbox_on_background,
+                    context.getString(R.string.task_notification_action_complete),
+                    completePendingIntent,
+                )
+
+                ReminderActionSlot.MISS -> builder.addAction(
+                    android.R.drawable.ic_menu_close_clear_cancel,
+                    context.getString(R.string.loc_miss),
+                    missPendingIntent,
+                )
+
+                ReminderActionSlot.MORE -> builder.addAction(
+                    android.R.drawable.ic_menu_more,
+                    context.getString(R.string.task_notification_action_more),
+                    morePendingIntent,
+                )
+            }
         }
 
         notificationManager.notify(notificationIdInt, builder.build())
@@ -274,5 +269,12 @@ class TaskReminderReceiver : BroadcastReceiver() {
         const val TYPE_TASK_REMINDER = "task_reminder"
         const val TYPE_HABIT_TRACKING = "habit_tracking"
         const val TYPE_MISSED_TASK = "missed_task"
+
+        // One distinct request code per PendingIntent of the same notification: two PendingIntents
+        // built from equal Intents share one slot unless their request codes differ.
+        private const val REQUEST_CODE_CONTENT_OFFSET = 0
+        private const val REQUEST_CODE_COMPLETE_OFFSET = 1
+        private const val REQUEST_CODE_MISS_OFFSET = 2
+        private const val REQUEST_CODE_MORE_OFFSET = 3
     }
 }
