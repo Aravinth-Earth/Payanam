@@ -320,6 +320,8 @@ fun SettingsCard(
     icon: ImageVector,
     expanded: Boolean,
     onToggleExpanded: () -> Unit,
+    /** Applies to the section header, which is the only tappable node: a flow opens the card through it. */
+    modifier: Modifier = Modifier,
     content: @Composable () -> Unit,
 ) {
     val strings = LocalUiStrings.current
@@ -337,7 +339,8 @@ fun SettingsCard(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 modifier = Modifier
                     .fillMaxWidth()
-                    .clickable { onToggleExpanded() },
+                    .clickable { onToggleExpanded() }
+                    .then(modifier),
             ) {
                 Row(
                     verticalAlignment = Alignment.CenterVertically,

@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -352,7 +353,9 @@ fun HabitCard(
                             onCardClick()
                         },
                         onLongClick = { }, // Could add multi-select later
-                    ).padding(horizontal = 3.dp, vertical = 3.dp),
+                    )
+                    .testTag(TestTags.Habits.row(task.id))
+                    .padding(horizontal = 3.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Life dimension color bar indicator (Phase 4: use dimensionId)

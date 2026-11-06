@@ -31,12 +31,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.settings.StatRow
 import io.payanam.feature.settings.ApkBuildType
 import io.payanam.feature.settings.versionFromFileName
@@ -82,7 +84,7 @@ internal fun DebugLogExportActions(
                         }
                     }
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag(TestTags.LogExport.EXPORT_LATEST_BUTTON),
             ) {
                 Icon(
                     imageVector = Icons.Default.CloudUpload,
@@ -111,7 +113,7 @@ internal fun DebugLogExportActions(
                         }
                     }
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag(TestTags.LogExport.EXPORT_ALL_BUTTON),
             ) {
                 Icon(
                     imageVector = Icons.Default.Storage,

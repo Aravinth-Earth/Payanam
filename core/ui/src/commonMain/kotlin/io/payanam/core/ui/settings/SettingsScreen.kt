@@ -40,10 +40,12 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.IMPORT_PICKER_MIME
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.components.toDimensionHexString
 import io.payanam.core.ui.focus.focusModeSettingsContent
 import io.payanam.core.ui.preferences.AppPreferencesState
@@ -402,6 +404,7 @@ fun SettingsScreenContent(
                     logSectionToggle(logger, expandedSection, "debug", SettingsSection.DEBUG)
                     expandedSection = expandedSection.toggle(SettingsSection.DEBUG)
                 },
+                modifier = Modifier.testTag(TestTags.Settings.DEBUG_CARD),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                     Row(
@@ -430,9 +433,11 @@ fun SettingsScreenContent(
                             // The row's title is a SIBLING of this toggle, so it announced as an on/off state
                             // with no subject. The description is the same visible title from the copy table.
                             modifier =
-                                Modifier.semantics {
-                                    contentDescription = strings.settingsDebugEnable
-                                },
+                                Modifier
+                                    .semantics {
+                                        contentDescription = strings.settingsDebugEnable
+                                    }
+                                    .testTag(TestTags.Settings.DEBUG_LOGGING_SWITCH),
                             onCheckedChange = { enabled ->
                                 logger.d("SettingsScreen.debugLoggingToggled", "Debug logging toggled", mapOf("enabled" to enabled))
                                 actions.onDebugLoggingEnabledChanged(enabled)
@@ -478,6 +483,7 @@ fun SettingsScreenContent(
                         logSectionToggle(logger, expandedSection, "data_management", SettingsSection.DATA_MANAGEMENT)
                         expandedSection = expandedSection.toggle(SettingsSection.DATA_MANAGEMENT)
                     },
+                    modifier = Modifier.testTag(TestTags.Settings.DATA_MANAGEMENT_CARD),
                 ) {
                     MinimalDataManagementSection(
                         onChangePassphraseClick = {
@@ -502,6 +508,7 @@ fun SettingsScreenContent(
                         logSectionToggle(logger, expandedSection, "data_management", SettingsSection.DATA_MANAGEMENT)
                         expandedSection = expandedSection.toggle(SettingsSection.DATA_MANAGEMENT)
                     },
+                    modifier = Modifier.testTag(TestTags.Settings.DATA_MANAGEMENT_CARD),
                 ) {
                     DataManagementSettingsSection(
                         uiState = uiState,

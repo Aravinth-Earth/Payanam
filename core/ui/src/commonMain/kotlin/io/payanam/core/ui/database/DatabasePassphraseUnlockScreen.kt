@@ -48,6 +48,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.text.input.KeyboardType
@@ -56,6 +57,7 @@ import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import io.payanam.core.ui.components.PayanamAlertDialog
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.formatArgs
 import io.payanam.core.ui.theme.LifeDimensionColors
@@ -342,7 +344,10 @@ fun DatabasePassphraseUnlockScreen(
                 OutlinedTextField(
                     value = passphrase,
                     onValueChange = { passphrase = it },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier =
+                        Modifier
+                            .fillMaxWidth()
+                            .testTag(TestTags.PassphraseUnlock.PASSPHRASE_FIELD),
                     label = { Text(strings.dbPassphraseInputLabel) },
                     keyboardOptions =
                         KeyboardOptions(
@@ -422,7 +427,10 @@ fun DatabasePassphraseUnlockScreen(
                     },
                 onClick = submitUnlock,
                 enabled = !uiState.isUnlocking && uiState.lockoutSecondsRemaining <= 0 && passphrase.isNotBlank(),
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.PassphraseUnlock.UNLOCK_BUTTON),
             )
             biometricActions?.actions?.invoke(uiState.isUnlocking)
             if (canUseBiometric && !biometricEnabled) {

@@ -39,6 +39,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
@@ -47,6 +48,7 @@ import io.payanam.core.ui.components.DimensionColorHexOptions
 import io.payanam.core.ui.components.DimensionColorPicker
 import io.payanam.core.ui.components.DimensionIconPicker
 import io.payanam.core.ui.components.PayanamAlertDialog
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.components.colorFromHex
 import io.payanam.core.ui.model.DimensionIconCatalog
 import io.payanam.core.ui.text.LocalUiStrings
@@ -222,7 +224,8 @@ fun MandatoryDimensionSetupSection(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(56.dp)
+                    .testTag(TestTags.DatabaseInit.DIMENSION_SETUP_CONTINUE_BUTTON),
             enabled = !isSaving,
             shape = MaterialTheme.shapes.large,
         ) {

@@ -57,10 +57,12 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.TimePickerDialog
 import io.payanam.core.ui.components.TagEditorField
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.components.parseTagsInput
 import io.payanam.core.ui.preferences.LocalAppPreferences
 import io.payanam.core.ui.preferences.visibleDimensionOptions
@@ -228,7 +230,10 @@ fun AddTaskScreen(
                 onValueChange = { title = it },
                 label = { Text(strings.locTaskTitle) },
                 placeholder = { Text(strings.locWhatNeedsToBeDone) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.TaskAdd.TITLE_FIELD),
                 singleLine = true,
             )
             if (LocalFeatureFlags.current.recurringTasksEnabled) {
@@ -254,6 +259,7 @@ fun AddTaskScreen(
                                 }
                             },
                             selected = recurrenceEnabled == option.first,
+                            modifier = Modifier.testTag(taskTypeTag(option.first)),
                         ) {
                             Text(
                                 text = option.second,
@@ -280,7 +286,10 @@ fun AddTaskScreen(
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
-                        TextButton(onClick = { showRecurrenceDialog = true }) {
+                        TextButton(
+                            onClick = { showRecurrenceDialog = true },
+                            modifier = Modifier.testTag(TestTags.TaskAdd.RECURRENCE_CHANGE_BUTTON),
+                        ) {
                             Text(strings.locChange)
                         }
                     }
@@ -347,7 +356,7 @@ fun AddTaskScreen(
                 ) {
                     OutlinedButton(
                         onClick = { showDatePicker = true },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag(TestTags.TaskAdd.DUE_DATE_BUTTON),
                     ) {
                         Icon(
                             imageVector = Icons.Default.CalendarMonth,
@@ -361,7 +370,7 @@ fun AddTaskScreen(
                     }
                     OutlinedButton(
                         onClick = { showTimePicker = true },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag(TestTags.TaskAdd.DUE_TIME_BUTTON),
                         enabled = selectedDate != null,
                     ) {
                         Text(
@@ -385,6 +394,7 @@ fun AddTaskScreen(
                             ),
                             onClick = { notificationMode = option.first },
                             selected = notificationMode == option.first,
+                            modifier = Modifier.testTag(reminderModeTag(option.first)),
                         ) {
                             Text(text = option.second, style = MaterialTheme.typography.labelSmall)
                         }
@@ -399,7 +409,10 @@ fun AddTaskScreen(
                         label = { Text(strings.locCustomLeadMinutes) },
                         placeholder = { Text(strings.loc15) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .testTag(TestTags.TaskAdd.REMINDER_CUSTOM_MINUTES_FIELD),
                         singleLine = true,
                     )
                 }
@@ -608,7 +621,10 @@ fun AddTaskScreen(
                         },
                     )
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.TaskAdd.SAVE_BUTTON),
                 enabled = title.isNotBlank() && selectedDimensionId.isNotBlank(),
             ) {
                 Text(strings.locSaveTask)
@@ -640,6 +656,7 @@ fun AddTaskScreen(
                             }
                             showDatePicker = false
                         },
+                        modifier = Modifier.testTag(TestTags.TaskAdd.DUE_DATE_CONFIRM_BUTTON),
                     ) {
                         Text(strings.locOk)
                     }
@@ -660,6 +677,7 @@ fun AddTaskScreen(
                     selectedTime = LocalTime.of(hour, minute)
                     showTimePicker = false
                 },
+                confirmButtonModifier = Modifier.testTag(TestTags.TaskAdd.DUE_TIME_CONFIRM_BUTTON),
             )
         }
     }
@@ -676,3 +694,16 @@ fun AddTaskScreen(
         )
     }
 }
+
+/** The tag of the segmented control for [mode]; an unrecognised mode keeps its own name rather than a guess. */
+private fun reminderModeTag(mode: String): String =
+    when (mode) {
+        "auto" -> TestTags.TaskAdd.REMINDER_MODE_AUTO
+        "custom" -> TestTags.TaskAdd.REMINDER_MODE_CUSTOM
+        "off" -> TestTags.TaskAdd.REMINDER_MODE_OFF
+        else -> mode
+    }
+
+/** The tag of the task-type control for [recurring]: recurring is what turns the saved task into a habit. */
+private fun taskTypeTag(recurring: Boolean): String =
+    if (recurring) TestTags.TaskAdd.TASK_TYPE_RECURRING else TestTags.TaskAdd.TASK_TYPE_ONE_TIME

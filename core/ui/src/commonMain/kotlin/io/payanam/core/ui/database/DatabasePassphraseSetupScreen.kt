@@ -29,11 +29,13 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.PayanamAlertDialog
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.formatArgs
 import io.payanam.presentation.database.DatabasePassphraseSetupViewModel
@@ -192,7 +194,10 @@ fun DatabasePassphraseSetupScreen(
                 passphrase = it
                 viewModel.clearError()
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.PassphraseSetup.PASSPHRASE_FIELD),
             label = { Text(strings.dbPassphraseInputLabel) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             visualTransformation = if (isPassphraseVisible) VisualTransformation.None else PasswordVisualTransformation(),
@@ -216,7 +221,10 @@ fun DatabasePassphraseSetupScreen(
                 confirmPassphrase = it
                 viewModel.clearError()
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.PassphraseSetup.CONFIRM_FIELD),
             label = { Text(strings.dbPassphraseConfirmLabel) },
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
             visualTransformation =
@@ -284,7 +292,8 @@ fun DatabasePassphraseSetupScreen(
             modifier =
                 Modifier
                     .fillMaxWidth()
-                    .padding(top = SubmitButtonTopPadding),
+                    .padding(top = SubmitButtonTopPadding)
+                    .testTag(TestTags.PassphraseSetup.SUBMIT_BUTTON),
         ) {
             Text(
                 text =

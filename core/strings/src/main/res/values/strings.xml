@@ -354,6 +354,8 @@
     <string name="loc_energy_levels">Energy Levels</string>
     <string name="loc_energy_low_to_high">Energy Low To High</string>
     <string name="loc_energy_required">Energy Required</string>
+    <string name="loc_enter_time_with_dial">Choose the time on the dial</string>
+    <string name="loc_enter_time_with_keyboard">Enter the time with the keyboard</string>
     <string name="loc_estimated_duration">Estimated Duration</string>
     <string name="loc_every">Every</string>
     <string name="loc_every_day">Every Day</string>
@@ -396,6 +398,7 @@
     <string name="loc_hide_completed_today">Hide completed today</string>
     <string name="loc_high">High</string>
     <string name="loc_high_alignment">High Alignment</string>
+    <string name="loc_hour">Hour</string>
     <string name="loc_how_did_it_go">How Did It Go</string>
     <string name="loc_how_long_did_it_take">How long did it take?</string>
     <string name="loc_how_was_it_any_observations">How was it? Any observations?</string>
@@ -520,6 +523,7 @@
     <string name="loc_metric_net_streak">Net streak</string>
     <string name="loc_metric_running_avg">Avg</string>
     <string name="loc_minimal_impact">Minimal Impact</string>
+    <string name="loc_minute">Minute</string>
     <string name="loc_miss">Miss</string>
     <string name="loc_missed">Missed</string>
     <string name="loc_moderate">Moderate</string>

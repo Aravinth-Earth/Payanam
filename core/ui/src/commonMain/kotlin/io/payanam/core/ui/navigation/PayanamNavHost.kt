@@ -24,6 +24,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
@@ -41,6 +42,7 @@ import androidx.navigation.navArgument
 import androidx.savedstate.SavedState
 import androidx.savedstate.read
 import io.payanam.core.ui.components.PayanamAlertDialog
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
@@ -470,9 +472,11 @@ fun PayanamNavHost(
                             val tabLabel = tab.title(strings)
                             NavigationBarItem(
                                 modifier =
-                                    Modifier.semantics {
-                                        contentDescription = tabLabel
-                                    },
+                                    Modifier
+                                        .semantics {
+                                            contentDescription = tabLabel
+                                        }
+                                        .testTag(TestTags.Nav.tab(tab.route)),
                                 icon = {
                                     Icon(
                                         imageVector = if (selected) tab.selectedIcon else tab.unselectedIcon,

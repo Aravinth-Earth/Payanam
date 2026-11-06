@@ -59,7 +59,10 @@ fun PayanamAlertDialog(
         modifier =
             modifier
                 .widthIn(max = PAYANAM_DIALOG_MAX_WIDTH)
-                .fillMaxWidth(PAYANAM_DIALOG_WIDTH_FRACTION),
+                .fillMaxWidth(PAYANAM_DIALOG_WIDTH_FRACTION)
+                // A dialog draws in its own window, so the app root's publication of test tags is not
+                // an ancestor of this subtree and the tags inside a dialog stay invisible without this.
+                .exposeTestTagsAsResourceIds(),
         dismissButton = dismissButton,
         icon = icon,
         title = title,

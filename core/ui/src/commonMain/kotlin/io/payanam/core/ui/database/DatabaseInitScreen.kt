@@ -43,6 +43,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.IMPORT_PICKER_MIME
 import io.payanam.core.ui.components.ImportDatabaseFileButton
 import io.payanam.core.ui.components.PayanamAlertDialog
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.onboarding.OnboardingIntroScreen
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
@@ -398,7 +400,10 @@ fun DatabaseInitScreen(
                             createPassphrase = it
                             createPassphraseError = null
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .testTag(TestTags.DatabaseInit.PASSPHRASE_FIELD),
                         label = { Text(strings.dbPassphraseInputLabel) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         visualTransformation = if (showCreatePassphrase) VisualTransformation.None else PasswordVisualTransformation(),
@@ -420,7 +425,10 @@ fun DatabaseInitScreen(
                             createPassphraseConfirm = it
                             createPassphraseError = null
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .testTag(TestTags.DatabaseInit.PASSPHRASE_CONFIRM_FIELD),
                         label = { Text(strings.dbPassphraseConfirmLabel) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         visualTransformation = if (showCreatePassphraseConfirm) VisualTransformation.None else PasswordVisualTransformation(),
@@ -459,7 +467,8 @@ fun DatabaseInitScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(56.dp)
+                            .testTag(TestTags.DatabaseInit.PASSPHRASE_SUBMIT_BUTTON),
                         enabled = createPassphrase.isNotBlank() && createPassphraseConfirm.isNotBlank() && !uiState.isCreating,
                     ) {
                         if (uiState.isCreating) {
@@ -593,7 +602,8 @@ fun DatabaseInitScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(56.dp)
+                            .testTag(TestTags.DatabaseInit.CREATE_DATABASE_BUTTON),
                         enabled = !uiState.isCreating && !uiState.isImporting,
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
@@ -738,7 +748,8 @@ fun DatabaseInitScreen(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(56.dp),
+                                .height(56.dp)
+                                .testTag(TestTags.DatabaseInit.CREATE_DATABASE_BUTTON),
                             enabled = !uiState.isCreating && !uiState.isImporting,
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null)

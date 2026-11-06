@@ -42,6 +42,7 @@ import dagger.Lazy
 import dagger.hilt.android.AndroidEntryPoint
 import io.payanam.FeatureFlags
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.components.exposeTestTagsAsResourceIds
 import io.payanam.core.ui.flags.LocalFeatureFlags
 import io.payanam.core.ui.navigation.PayanamExternalNavigationCommand
 import io.payanam.core.ui.navigation.PayanamNavHost
@@ -350,7 +351,9 @@ class MainActivity : FragmentActivity() {
                             ),
                     ) {
                         Surface(
-                            modifier = Modifier.fillMaxSize(),
+                            // Publishes every testTag in this tree as a view resource id, which is the
+                            // only form a flow outside Compose can address.
+                            modifier = Modifier.fillMaxSize().exposeTestTagsAsResourceIds(),
                             color = MaterialTheme.colorScheme.background,
                         ) {
                             val externalCommand by pendingExternalCommand.collectAsState()
@@ -466,7 +469,9 @@ class MainActivity : FragmentActivity() {
                             ),
                     ) {
                         Surface(
-                            modifier = Modifier.fillMaxSize(),
+                            // Publishes every testTag in this tree as a view resource id, which is the
+                            // only form a flow outside Compose can address.
+                            modifier = Modifier.fillMaxSize().exposeTestTagsAsResourceIds(),
                             color = MaterialTheme.colorScheme.background,
                         ) {
                             val externalCommand by pendingExternalCommand.collectAsState()

@@ -8,8 +8,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.PayanamAlertDialog
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.shared.logging.AppLogger
 
@@ -88,6 +91,7 @@ fun NotificationPermissionRationaleDialog(
                         permission.openSettings()
                         onDismiss()
                     },
+                    modifier = Modifier.testTag(TestTags.NotificationPermission.SETTINGS_BUTTON),
                 ) {
                     Text(strings.locNotificationPermissionOpenSettings)
                 }
@@ -104,12 +108,16 @@ fun NotificationPermissionRationaleDialog(
                     permission.request()
                     onDismiss()
                 },
+                modifier = Modifier.testTag(TestTags.NotificationPermission.ALLOW_BUTTON),
             ) {
                 Text(strings.locNotificationPermissionAllow)
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag(TestTags.NotificationPermission.DISMISS_BUTTON),
+            ) {
                 Text(strings.locNotificationPermissionNotNow)
             }
         },
