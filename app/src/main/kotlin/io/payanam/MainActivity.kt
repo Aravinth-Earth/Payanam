@@ -59,9 +59,15 @@ import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.port.ProcessRestart
 import io.payanam.domain.port.ProcessRestartOutcome
 import io.payanam.domain.repository.AppSettingsRepository
+import io.payanam.notification.NotificationActionCoordinator
+import io.payanam.notification.NotificationActionOutcome
 import io.payanam.notification.NotificationScheduler
+import io.payanam.notification.PendingNotificationAction
+import io.payanam.notification.PendingNotificationActionStore
 import io.payanam.platform.AndroidStartupRecovery
 import io.payanam.presentation.flags.FeatureFlagsState
+import io.payanam.receiver.NotificationActionReceiver
+import io.payanam.receiver.TaskReminderReceiver
 import io.payanam.scoring.RecurrenceManager
 import io.payanam.service.AutoBackupWorker
 import io.payanam.shared.database.DatabaseArtifacts
@@ -120,6 +126,15 @@ class MainActivity : FragmentActivity() {
 
     @Inject
     lateinit var processRestart: ProcessRestart
+
+    @Inject
+    lateinit var notificationActionCoordinator: Lazy<NotificationActionCoordinator>
+
+    @Inject
+    lateinit var pendingNotificationActions: PendingNotificationActionStore
+
+    /** Applies a tapped reminder action off the main thread; outlives a configuration change. */
+    private val reminderActionScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     private var showDatabaseInit by mutableStateOf(false)
     private var showFocusModeOnboarding by mutableStateOf(false)
@@ -311,6 +326,8 @@ class MainActivity : FragmentActivity() {
                 ),
             )
         }
+        // Dispatched after the startup gates resolve, so the session state the action reads is final.
+        handleReminderActionIntent(intent)
         enableEdgeToEdge()
         logger.i("MainActivity.onCreate", "Composing UI surface")
         setContent {
@@ -666,6 +683,7 @@ class MainActivity : FragmentActivity() {
         super.onNewIntent(intent)
         setIntent(intent)
         handleExternalNavigationIntent(intent)
+        handleReminderActionIntent(intent)
     }
 
     /**
@@ -675,6 +693,7 @@ class MainActivity : FragmentActivity() {
     override fun onResume() {
         super.onResume()
         logger.d("MainActivity.onResume", "Activity resumed")
+        handleReminderActionIntent(intent)
         // Safety-net: if the process stayed alive but the DB session is gone (e.g., SessionManager
         // timer fired and closed the DB without killing the process, which shouldn't happen but is
         // defensive), restart the process for a clean cold-boot auth flow.
@@ -947,6 +966,141 @@ class MainActivity : FragmentActivity() {
         )
     }
 
+    /**
+     * Handles a reminder action tapped on a notification, delivered by its activity-tap intent.
+     *
+     * The extras are removed before dispatch: this activity's intent survives a configuration change
+     * and is re-delivered on a relaunch, so an unread intent would apply the same tap twice.
+     */
+    private fun handleReminderActionIntent(intent: Intent?) {
+        if (intent == null) return
+        val actionType = intent.getStringExtra(TaskReminderReceiver.EXTRA_REMINDER_ACTION_TYPE)
+        val taskId = intent.getStringExtra(TaskReminderReceiver.EXTRA_TASK_ID)
+        if (actionType == null && taskId == null) return
+        val notificationId = intent.getIntExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_ID_INT, -1)
+        consumeReminderActionExtras(intent)
+        if (actionType.isNullOrBlank() || taskId.isNullOrBlank()) {
+            logger.w(
+                LOG_SOURCE,
+                "Missing action type or taskId for reminder action",
+                mapOf(
+                    "actionTypePresent" to !actionType.isNullOrBlank(),
+                    "taskIdPresent" to !taskId.isNullOrBlank(),
+                    "notificationId" to notificationId,
+                ),
+            )
+            return
+        }
+        if (!FeatureFlags.remindersEnabled) {
+            logger.i(
+                LOG_SOURCE,
+                "Ignoring reminder action because reminders are disabled",
+                mapOf("actionType" to actionType, "taskId" to taskId),
+            )
+            return
+        }
+        val action = PendingNotificationAction(
+            actionType = actionType,
+            taskId = taskId,
+            notificationId = notificationId,
+            recordedAtMillis = System.currentTimeMillis(),
+        )
+        val sessionOpen = sessionManager.isDbOpen()
+        logger.i(
+            LOG_SOURCE,
+            "Reminder action received",
+            mapOf(
+                "actionType" to actionType,
+                "taskId" to taskId,
+                "notificationId" to notificationId,
+                "sessionOpen" to sessionOpen,
+            ),
+        )
+        if (sessionOpen) {
+            applyReminderActionNow(action)
+        } else {
+            deferReminderActionUntilUnlock(action)
+        }
+    }
+
+    /** Removes the action extras in place; this activity's intent object is what a relaunch reads back. */
+    private fun consumeReminderActionExtras(intent: Intent) {
+        intent.removeExtra(TaskReminderReceiver.EXTRA_REMINDER_ACTION_TYPE)
+        intent.removeExtra(TaskReminderReceiver.EXTRA_TASK_ID)
+        intent.removeExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_ID_INT)
+        setIntent(intent)
+    }
+
+    /**
+     * Applies the action on the coordinator path, then logs the outcome.
+     *
+     * A pending record left for the same task is cleared on success, so the next unlock cannot
+     * replay it.
+     */
+    @Suppress("TooGenericExceptionCaught") // Intentional: a throw here must not take down the activity
+    private fun applyReminderActionNow(action: PendingNotificationAction) {
+        reminderActionScope.launch {
+            val outcome = try {
+                notificationActionCoordinator.get().execute(action)
+            } catch (e: Exception) {
+                logger.e(
+                    LOG_SOURCE,
+                    "Failed to execute reminder action",
+                    e,
+                    mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+                )
+                NotificationActionOutcome.FAILED
+            }
+            if (outcome == NotificationActionOutcome.APPLIED) {
+                pendingNotificationActions.clear(action.taskId)
+            }
+            logger.i(
+                LOG_SOURCE,
+                "Reminder action handled from activity",
+                mapOf(
+                    "actionType" to action.actionType,
+                    "taskId" to action.taskId,
+                    "notificationId" to action.notificationId,
+                    "sessionOpen" to true,
+                    "outcome" to outcome.name,
+                ),
+            )
+        }
+    }
+
+    /**
+     * Records the action for the next unlock and leaves the unlock gate this activity is showing to
+     * the user.
+     *
+     * The reminder stays on screen: its action has not been applied yet, and a reminder that
+     * reported a change which never happened would be wrong.
+     */
+    @Suppress("TooGenericExceptionCaught") // Intentional: a throw here must not take down the activity
+    private fun deferReminderActionUntilUnlock(action: PendingNotificationAction) {
+        try {
+            val outcome = pendingNotificationActions.record(action)
+            logger.i(
+                LOG_SOURCE,
+                "Deferred reminder action until unlock",
+                mapOf(
+                    "actionType" to action.actionType,
+                    "taskId" to action.taskId,
+                    "notificationId" to action.notificationId,
+                    "sessionOpen" to false,
+                    "recordOutcome" to outcome.name,
+                    "recordedDay" to action.recordedDay().toString(),
+                ),
+            )
+        } catch (e: Exception) {
+            logger.e(
+                LOG_SOURCE,
+                "Failed to defer reminder action",
+                e,
+                mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+            )
+        }
+    }
+
     /** Applies the chosen [appLanguage] / [effectiveLanguageTag] to the base context.
      *  @return true if the locale was actually changed. */
     private fun applyLanguagePreference(
@@ -1058,6 +1212,9 @@ class MainActivity : FragmentActivity() {
         private var startupMaintenanceJob: Job? = null
         private val startupMaintenanceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private const val LOG_SESSION_ROLLOVER_MIN_BACKGROUND_MS = 5_000L
+
+        /** Same source the broadcast entry point logs under, so both paths read alike. */
+        private const val LOG_SOURCE = NotificationActionReceiver.LOG_SOURCE
         const val EXTRA_NAVIGATE_TO = "navigate_to"
         const val EXTRA_OPEN_TIME_QUICK_START = "open_time_quick_start"
         const val EXTRA_OPEN_TIME_STOP_TRACKING = "open_time_stop_tracking"

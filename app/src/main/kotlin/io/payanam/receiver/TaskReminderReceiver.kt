@@ -17,6 +17,7 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.common.util.DateTimeUtil
 import io.payanam.common.util.PersistedDateTime
 import io.payanam.domain.repository.NotificationRepository
+import io.payanam.notification.NotificationActionCoordinator
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -74,7 +75,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
                 showNotification(
                     context = context,
                     notificationIdInt = notificationIdInt,
-                    notificationId = notificationId,
                     taskId = taskId,
                     taskTitle = taskTitle,
                     dueAt = dueAt,
@@ -103,7 +103,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
     private fun showNotification(
         context: Context,
         notificationIdInt: Int,
-        notificationId: String,
         taskId: String,
         taskTitle: String,
         dueAt: LocalDateTime?,
@@ -125,50 +124,56 @@ class TaskReminderReceiver : BroadcastReceiver() {
             openAppIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val actionExtras = Intent().apply {
-            putExtra(EXTRA_NOTIFICATION_ID, notificationId)
-            putExtra(EXTRA_NOTIFICATION_ID_INT, notificationIdInt)
-            putExtra(EXTRA_TASK_ID, taskId)
-            putExtra(EXTRA_TASK_TITLE, taskTitle)
-            putExtra(EXTRA_DUE_AT, dueAt?.toString())
-            putExtra(EXTRA_NOTIFICATION_TYPE, notificationType)
-            putExtra(EXTRA_IS_SNOOZED, isSnoozed)
-        }
-        val completeIntent = Intent(context, NotificationActionReceiver::class.java).apply {
-            action = NotificationActionReceiver.ACTION_COMPLETE_TASK
-            putExtras(actionExtras)
-        }
-        val skipIntent = Intent(context, NotificationActionReceiver::class.java).apply {
-            action = NotificationActionReceiver.ACTION_SKIP_TASK
-            putExtras(actionExtras)
-        }
-        val snoozeIntent = Intent(context, NotificationActionReceiver::class.java).apply {
-            action = NotificationActionReceiver.ACTION_SNOOZE_TASK
-            putExtras(actionExtras)
-        }
-        val missIntent = Intent(context, NotificationActionReceiver::class.java).apply {
-            action = NotificationActionReceiver.ACTION_MISS_TASK
-            putExtras(actionExtras)
-        }
-        val completePendingIntent = PendingIntent.getBroadcast(
+        // Action taps are getActivity, not getBroadcast: a broadcast tap carries no
+        // activity-launch allowance, so the system drops the launch on Android 14+ while the
+        // database is locked. An activity tap reaches MainActivity, which owns the action.
+        val completeIntent = reminderActionIntent(
+            context = context,
+            intentAction = NotificationActionReceiver.ACTION_COMPLETE_TASK,
+            actionType = NotificationActionCoordinator.ACTION_TYPE_COMPLETE,
+            notificationIdInt = notificationIdInt,
+            taskId = taskId,
+        )
+        val skipIntent = reminderActionIntent(
+            context = context,
+            intentAction = NotificationActionReceiver.ACTION_SKIP_TASK,
+            actionType = NotificationActionCoordinator.ACTION_TYPE_SKIP,
+            notificationIdInt = notificationIdInt,
+            taskId = taskId,
+        )
+        val snoozeIntent = reminderActionIntent(
+            context = context,
+            intentAction = NotificationActionReceiver.ACTION_SNOOZE_TASK,
+            actionType = NotificationActionCoordinator.ACTION_TYPE_SNOOZE,
+            notificationIdInt = notificationIdInt,
+            taskId = taskId,
+        )
+        val missIntent = reminderActionIntent(
+            context = context,
+            intentAction = NotificationActionReceiver.ACTION_MISS_TASK,
+            actionType = NotificationActionCoordinator.ACTION_TYPE_MISS,
+            notificationIdInt = notificationIdInt,
+            taskId = taskId,
+        )
+        val completePendingIntent = PendingIntent.getActivity(
             context,
             notificationIdInt + 1,
             completeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val skipPendingIntent = PendingIntent.getBroadcast(
+        val skipPendingIntent = PendingIntent.getActivity(
             context,
             notificationIdInt + 2,
             skipIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val snoozePendingIntent = PendingIntent.getBroadcast(
+        val snoozePendingIntent = PendingIntent.getActivity(
             context,
             notificationIdInt + 3,
             snoozeIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val missPendingIntent = PendingIntent.getBroadcast(
+        val missPendingIntent = PendingIntent.getActivity(
             context,
             notificationIdInt + 4,
             missIntent,
@@ -225,6 +230,27 @@ class TaskReminderReceiver : BroadcastReceiver() {
         notificationManager.notify(notificationIdInt, builder.build())
     }
 
+    /**
+     * Builds one action-tap intent.
+     *
+     * SINGLE_TOP|CLEAR_TOP delivers a second tap on the same reminder through
+     * [MainActivity.onNewIntent] instead of stacking a second activity. Carries ids only: the
+     * activity path needs no task title.
+     */
+    private fun reminderActionIntent(
+        context: Context,
+        intentAction: String,
+        actionType: String,
+        notificationIdInt: Int,
+        taskId: String,
+    ): Intent = Intent(context, MainActivity::class.java).apply {
+        action = intentAction
+        flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+        putExtra(EXTRA_REMINDER_ACTION_TYPE, actionType)
+        putExtra(EXTRA_NOTIFICATION_ID_INT, notificationIdInt)
+        putExtra(EXTRA_TASK_ID, taskId)
+    }
+
     private fun notificationIdToInt(notificationId: String): Int {
         val hash = notificationId.hashCode()
         return when (hash) {
@@ -241,6 +267,10 @@ class TaskReminderReceiver : BroadcastReceiver() {
         const val EXTRA_DUE_AT = "extra_due_at"
         const val EXTRA_NOTIFICATION_TYPE = "extra_notification_type"
         const val EXTRA_IS_SNOOZED = "extra_is_snoozed"
+
+        /** Reminder action carried by an activity-tap intent, one of the coordinator's action types. */
+        const val EXTRA_REMINDER_ACTION_TYPE = "extra_reminder_action_type"
+
         const val TYPE_TASK_REMINDER = "task_reminder"
         const val TYPE_HABIT_TRACKING = "habit_tracking"
         const val TYPE_MISSED_TASK = "missed_task"

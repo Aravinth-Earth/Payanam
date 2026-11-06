@@ -23,7 +23,7 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Handles notification action button clicks.
+ * Handles notification action button clicks delivered as broadcasts.
  *
  * A reminder action tapped while the database session is closed cannot be applied: every repository
  * call fails inside [DatabaseSessionManager]. That case records the action in
@@ -41,7 +41,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
         const val ACTION_MISS_TASK = "io.payanam.action.NOTIFICATION_MISS_TASK"
         const val ACTION_SNOOZE_TASK = "io.payanam.action.NOTIFICATION_SNOOZE_TASK"
 
-        private const val LOG_SOURCE = "NotificationActionReceiver"
+        /** Shared with [MainActivity], so both entry points log a reminder action under one source. */
+        const val LOG_SOURCE = "NotificationActionReceiver"
     }
 
     @Inject
@@ -74,6 +75,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
         when (intent.action) {
             ACTION_STOP_TRACKING -> handleStopTracking(context, pendingResult)
+            // Reminder actions arrive at MainActivity now, from the notification's getActivity tap;
+            // this branch is kept for an intent still routed to the receiver.
             ACTION_COMPLETE_TASK, ACTION_SKIP_TASK, ACTION_MISS_TASK, ACTION_SNOOZE_TASK ->
                 handleReminderAction(context, intent, pendingResult)
             else -> pendingResult.finish()
