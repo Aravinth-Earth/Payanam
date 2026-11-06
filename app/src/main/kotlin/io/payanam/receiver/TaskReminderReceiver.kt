@@ -17,11 +17,19 @@ import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.common.util.DateTimeUtil
 import io.payanam.common.util.PersistedDateTime
+import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.model.Task
 import io.payanam.domain.repository.NotificationRepository
+import io.payanam.domain.repository.TaskRepository
 import io.payanam.notification.ASSUMED_VISIBLE_ACTIONS
 import io.payanam.notification.NotificationActionCoordinator
 import io.payanam.notification.ReminderActionSlot
 import io.payanam.notification.reminderActionSlots
+import io.payanam.shared.platform.NotificationDecision
+import io.payanam.shared.platform.ReminderDecider
+import io.payanam.shared.platform.ReminderFacts
+import io.payanam.shared.platform.ReminderSkipReason
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -31,15 +39,20 @@ import javax.inject.Inject
 import kotlin.math.abs
 
 /**
- * Alarm-fired task reminder: validates extras, posts the notification on the
- * right channel (with the action set the platform renders), and marks it
- * delivered.
+ * Alarm-fired task reminder: validates extras, checks the task is still remindable,
+ * posts the notification on the right channel, and marks it delivered.
  */
 @AndroidEntryPoint
 class TaskReminderReceiver : BroadcastReceiver() {
 
     @Inject
     lateinit var notificationRepository: NotificationRepository
+
+    @Inject
+    lateinit var taskRepository: TaskRepository
+
+    @Inject
+    lateinit var sessionManager: DatabaseSessionManager
 
     private val logger = UnifiedLogger.getInstance()
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -76,6 +89,10 @@ class TaskReminderReceiver : BroadcastReceiver() {
                 }
                 val dueAt = PersistedDateTime.parseOrNull(dueAtRaw)
                 val notificationIdInt = notificationIdToInt(notificationId)
+                if (deliveryGate(taskId, notificationId) == DeliveryGate.DROP) {
+                    notificationRepository.cancelNotification(notificationId)
+                    return@launch
+                }
                 showNotification(
                     context = context,
                     notificationIdInt = notificationIdInt,
@@ -102,6 +119,60 @@ class TaskReminderReceiver : BroadcastReceiver() {
                 pendingResult.finish()
             }
         }
+    }
+
+    /** Delivery gate outcome: show it, drop it, or the gate could not be read. */
+    private enum class DeliveryGate { DELIVER, DROP, NOT_EVALUATED }
+
+    /** Delivery-time verdict from the stored task, whose status may have moved since the alarm was armed. */
+    @Suppress("TooGenericExceptionCaught") // Intentional: a repository read is the one thing that can throw here
+    private suspend fun deliveryGate(taskId: String, notificationId: String): DeliveryGate {
+        if (!sessionManager.isDbOpen()) {
+            logger.w(
+                "TaskReminderReceiver.deliveryGate",
+                "Session closed; gate not evaluated, delivering as armed",
+                mapOf("notificationId" to notificationId, "taskId" to taskId),
+            )
+            return DeliveryGate.NOT_EVALUATED
+        }
+        return try {
+            val task = taskRepository.getTaskById(taskId)
+            if (task != null && isStillRemindable(task)) {
+                DeliveryGate.DELIVER
+            } else {
+                logger.i(
+                    "TaskReminderReceiver.deliveryGate",
+                    "Dropping reminder: task is no longer remindable",
+                    mapOf(
+                        "notificationId" to notificationId,
+                        "taskId" to taskId,
+                        "status" to (task?.status ?: "missing"),
+                    ),
+                )
+                DeliveryGate.DROP
+            }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.w(
+                "TaskReminderReceiver.deliveryGate",
+                "Gate could not read the task; delivering as armed",
+                mapOf(
+                    "notificationId" to notificationId,
+                    "taskId" to taskId,
+                    "error" to (e.message ?: e.javaClass.simpleName),
+                ),
+            )
+            DeliveryGate.NOT_EVALUATED
+        }
+    }
+
+    /** Whether [task] may still be reminded about, asked of [ReminderDecider] so this is the arming rule. */
+    private fun isStillRemindable(task: Task): Boolean {
+        // No due time on purpose: only the status verdict is read here.
+        val facts = ReminderFacts(taskId = task.id, taskTitle = task.title, status = task.status)
+        val decision = ReminderDecider.decide(facts, LocalDateTime.now())
+        return (decision as? NotificationDecision.Skip)?.reason != ReminderSkipReason.STATUS_INELIGIBLE
     }
 
     private fun showNotification(

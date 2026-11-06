@@ -18,6 +18,7 @@ import io.payanam.shared.logging.AppLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -417,20 +419,7 @@ class TaskDetailViewModel(
                         // Reload task to get updated score
                         loadTask(taskId)
                     } else {
-                        try {
-                            notificationScheduler.cancelForTask(taskId)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            logger.e(
-                                "TaskDetailViewModel.completeTask",
-                                "Failed to cancel reminders",
-                                e,
-                                mapOf(
-                                    "taskId" to taskId,
-                                ),
-                            )
-                        }
+                        cancelReminder(taskId, "TaskDetailViewModel.completeTask")
                     }
                 }
 
@@ -445,6 +434,11 @@ class TaskDetailViewModel(
                 )
                 hideStatusDialog()
             } catch (e: CancellationException) {
+                logger.i(
+                    "TaskDetailViewModel.completeTask",
+                    "Completion cancelled before it finished",
+                    mapOf("taskId" to taskId),
+                )
                 throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.completeTask", "Error completing task", e)
@@ -516,20 +510,7 @@ class TaskDetailViewModel(
                         // Reload task to get updated score
                         loadTask(taskId)
                     } else {
-                        try {
-                            notificationScheduler.cancelForTask(taskId)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            logger.e(
-                                "TaskDetailViewModel.skipTask",
-                                "Failed to cancel reminders",
-                                e,
-                                mapOf(
-                                    "taskId" to taskId,
-                                ),
-                            )
-                        }
+                        cancelReminder(taskId, "TaskDetailViewModel.skipTask")
                     }
                 }
 
@@ -544,6 +525,11 @@ class TaskDetailViewModel(
                 )
                 hideStatusDialog()
             } catch (e: CancellationException) {
+                logger.i(
+                    "TaskDetailViewModel.skipTask",
+                    "Skip cancelled before it finished",
+                    mapOf("taskId" to taskId),
+                )
                 throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.skipTask", "Error skipping task", e)
@@ -612,20 +598,7 @@ class TaskDetailViewModel(
                         }
                         loadTask(taskId)
                     } else {
-                        try {
-                            notificationScheduler.cancelForTask(taskId)
-                        } catch (e: CancellationException) {
-                            throw e
-                        } catch (e: Exception) {
-                            logger.e(
-                                "TaskDetailViewModel.missTask",
-                                "Failed to cancel reminders",
-                                e,
-                                mapOf(
-                                    "taskId" to taskId,
-                                ),
-                            )
-                        }
+                        cancelReminder(taskId, "TaskDetailViewModel.missTask")
                     }
                 }
 
@@ -640,6 +613,11 @@ class TaskDetailViewModel(
                 )
                 hideStatusDialog()
             } catch (e: CancellationException) {
+                logger.i(
+                    "TaskDetailViewModel.missTask",
+                    "Miss cancelled before it finished",
+                    mapOf("taskId" to taskId),
+                )
                 throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.missTask", "Error marking task as missed", e)
@@ -698,24 +676,20 @@ class TaskDetailViewModel(
     fun archiveTask() {
         val taskId = currentTaskId ?: return
         scope.launch {
+            // NonCancellable: releasing the screen cancels this scope, and a cancellable tail left the
+            // task archived with its alarm still armed.
             try {
-                taskRepository.archiveTask(taskId)
-                try {
-                    notificationScheduler.cancelForTask(taskId)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.e(
-                        "TaskDetailViewModel.archiveTask",
-                        "Failed to cancel reminders",
-                        e,
-                        mapOf(
-                            "taskId" to taskId,
-                        ),
-                    )
+                withContext(NonCancellable) {
+                    taskRepository.archiveTask(taskId)
+                    cancelReminder(taskId, "TaskDetailViewModel.archiveTask")
                 }
                 logger.i("TaskDetailViewModel.archiveTask", "Task archived", mapOf("taskId" to taskId))
             } catch (e: CancellationException) {
+                logger.i(
+                    "TaskDetailViewModel.archiveTask",
+                    "Archive cancelled before it finished",
+                    mapOf("taskId" to taskId),
+                )
                 throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.archiveTask", "Error archiving task", e)
@@ -815,29 +789,41 @@ class TaskDetailViewModel(
     fun deleteTask() {
         val taskId = currentTaskId ?: return
         scope.launch {
+            // NonCancellable for the same reason as archiveTask: a released screen must not skip the
+            // reminder cancel that goes with the delete.
             try {
-                try {
-                    notificationScheduler.cancelForTask(taskId)
-                } catch (e: CancellationException) {
-                    throw e
-                } catch (e: Exception) {
-                    logger.e(
-                        "TaskDetailViewModel.deleteTask",
-                        "Failed to cancel reminders",
-                        e,
-                        mapOf(
-                            "taskId" to taskId,
-                        ),
-                    )
+                withContext(NonCancellable) {
+                    cancelReminder(taskId, "TaskDetailViewModel.deleteTask")
+                    taskRepository.deleteTask(taskId)
                 }
-                taskRepository.deleteTask(taskId)
                 logger.i("TaskDetailViewModel.deleteTask", "Task deleted", mapOf("taskId" to taskId))
             } catch (e: CancellationException) {
+                logger.i(
+                    "TaskDetailViewModel.deleteTask",
+                    "Delete cancelled before it finished",
+                    mapOf("taskId" to taskId),
+                )
                 throw e
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.deleteTask", "Error deleting task", e)
                 _uiState.update { it.copy(error = e.message) }
             }
+        }
+    }
+
+    /**
+     * Cancels the reminder without a cancellation escape: the screen's scope dies on navigation.
+     */
+    private suspend fun cancelReminder(
+        taskId: String,
+        source: String,
+    ) {
+        try {
+            withContext(NonCancellable) { notificationScheduler.cancelForTask(taskId) }
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.e(source, "Failed to cancel reminders", e, mapOf("taskId" to taskId))
         }
     }
 

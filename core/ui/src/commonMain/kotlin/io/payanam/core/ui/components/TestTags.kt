@@ -98,6 +98,11 @@ object TestTags {
         fun row(taskId: String): String = ROW_PREFIX + taskId
     }
 
+    /** The task detail screen: the Archive action a flow taps to archive the open task. */
+    object TaskDetail {
+        const val ARCHIVE_BUTTON = "task_detail.archive_button"
+    }
+
     /** The status note dialog the task detail screen opens for Complete, Skip, Miss, and the reminder's More action. */
     object StatusNote {
         const val DIALOG = "status_note.dialog"
