@@ -874,6 +874,16 @@ class RecurrenceManagerTest {
             all.removeAll { it.id == id }
         }
 
+        override suspend fun clearActualDurationMinutes(
+            taskId: String,
+            date: LocalDate,
+        ) {
+            val index = all.indexOfFirst { it.taskId == taskId && it.occurrenceDate == date.toString() }
+            if (index >= 0) {
+                all[index] = all[index].copy(actualDurationMinutes = null)
+            }
+        }
+
         override suspend fun recordOccurrence(occurrence: TaskOccurrence) {
             all.add(occurrence)
         }

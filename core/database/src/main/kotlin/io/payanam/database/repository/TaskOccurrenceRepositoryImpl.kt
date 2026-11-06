@@ -475,6 +475,41 @@ class TaskOccurrenceRepositoryImpl
             logger.d("TaskOccurrenceRepositoryImpl.deleteOccurrence", "Deleted occurrence", mapOf("id" to id))
         }
 
+        /**
+         * Clears `actualDurationMinutes` on [taskId]'s occurrence for [date], rewriting the row with its
+         * other fields unchanged. No-ops when no row exists for that (task, day).
+         */
+        override suspend fun clearActualDurationMinutes(
+            taskId: String,
+            date: LocalDate,
+        ) {
+            val dateStr = date.format(dateFormatter)
+            val existing = sessionManager.requireDatabase().taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, dateStr)
+            if (existing == null) {
+                logger.d(
+                    "TaskOccurrenceRepositoryImpl.clearActualDurationMinutes",
+                    "No occurrence to clear duration on",
+                    mapOf("taskId" to taskId, "date" to dateStr),
+                )
+                return
+            }
+            sessionManager.requireDatabase().taskOccurrenceDao().updateOccurrence(
+                id = existing.id,
+                status = existing.status,
+                statusReason = existing.statusReason,
+                note = existing.note,
+                completedAt = existing.completedAt,
+                actualCompletedAt = existing.actualCompletedAt,
+                actualDurationMinutes = null,
+            )
+            markDirtyForDay(date, "habit_occurrence_duration_cleared")
+            logger.i(
+                "TaskOccurrenceRepositoryImpl.clearActualDurationMinutes",
+                "Cleared occurrence actual duration",
+                mapOf("id" to existing.id, "taskId" to taskId, "date" to dateStr),
+            )
+        }
+
         private fun TaskOccurrenceEntity.toDomain() =
             TaskOccurrence(
                 id = id,

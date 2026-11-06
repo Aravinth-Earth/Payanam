@@ -1370,6 +1370,11 @@ class TimeVisualsViewModelTest {
         ): TaskOccurrence = throw UnsupportedOperationException()
 
         override suspend fun deleteOccurrence(id: String) = Unit
+
+        override suspend fun clearActualDurationMinutes(
+            taskId: String,
+            date: LocalDate,
+        ) = Unit
     }
 
     // ────────────────────────────────────────────────────────────────

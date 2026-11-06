@@ -188,9 +188,18 @@ fun TimeScreen(
     }
     LaunchedEffect(uiState.selectedDate, uiState.activeEntry?.id, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            var lastVisualRefreshAt = LocalDateTime.now()
             while (true) {
                 currentTime = LocalDateTime.now()
-                val delayMillis = if (uiState.activeEntry != null) 1_000L else 60_000L
+                val isTracking = uiState.activeEntry != null
+                // A running entry has no endedAt, so the day summary only grows when it is recomputed.
+                if (isTracking && Duration.between(lastVisualRefreshAt, currentTime).toMinutes() >= 1L) {
+                    lastVisualRefreshAt = currentTime
+                    if (!minimalModeEnabled) {
+                        timeVisualsViewModel.loadForDate(uiState.selectedDate)
+                    }
+                }
+                val delayMillis = if (isTracking) 1_000L else 60_000L
                 delay(delayMillis)
             }
         }

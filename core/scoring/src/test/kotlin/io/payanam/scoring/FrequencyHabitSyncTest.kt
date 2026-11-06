@@ -341,6 +341,7 @@ class FrequencyHabitSyncTest {
 
         override suspend fun deleteOccurrence(taskId: String, date: LocalDate): Unit = unused()
         override suspend fun deleteOccurrence(id: String): Unit = unused()
+        override suspend fun clearActualDurationMinutes(taskId: String, date: LocalDate): Unit = unused()
 
         override suspend fun recordOccurrence(occurrence: TaskOccurrence) {
             recorded += occurrence
