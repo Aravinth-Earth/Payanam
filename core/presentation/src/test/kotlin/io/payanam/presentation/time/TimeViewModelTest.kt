@@ -1147,6 +1147,63 @@ class TimeViewModelTest {
         }
 
     /**
+     * A stop that throws leaves the owed mark set, so a later save retries it and clears the mark once it
+     * succeeds: the store already says the entry ended, and the service must not keep counting it.
+     */
+    @Test
+    fun `a failing platform stop is retried by a later save`() =
+        runTest {
+            timeEntryRepository.activeEntry = entry("entry-1", endedAt = null)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            timeTrackingController.failPlatformStop = true
+            viewModel.updateTimeEntry(
+                entryId = "entry-1",
+                dimensionId = "d2",
+                dimensionLabel = "Learn",
+                taskId = null,
+                startDate = TASKS_TEST_DAY,
+                startTime = LocalTime.of(9, 0),
+                endDate = TASKS_TEST_DAY,
+                endTime = LocalTime.of(10, 30),
+                focusRating = null,
+                focusNote = null,
+            )
+            advanceUntilIdle()
+
+            // The edit landed, the stop threw, and the mark is what a later save reads.
+            assertEquals(1, timeEntryRepository.updated.size)
+            assertEquals(0, timeTrackingController.stopCalls)
+            assertTrue(timeTrackingController.events.isEmpty())
+            assertEquals(
+                "true",
+                appSettings.getSetting(AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING),
+            )
+
+            timeTrackingController.failPlatformStop = false
+            viewModel.updateTimeEntry(
+                entryId = "entry-1",
+                dimensionId = "d2",
+                dimensionLabel = "Learn",
+                taskId = null,
+                startDate = TASKS_TEST_DAY,
+                startTime = LocalTime.of(9, 0),
+                endDate = TASKS_TEST_DAY,
+                endTime = LocalTime.of(10, 45),
+                focusRating = null,
+                focusNote = null,
+            )
+            advanceUntilIdle()
+
+            assertEquals(1, timeTrackingController.stopCalls)
+            assertEquals(
+                "false",
+                appSettings.getSetting(AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING),
+            )
+        }
+
+    /**
      * A return to the foreground with no failed stop behind it sends no stop at all: the Android controller
      * starts the service to deliver a stop action, so a spurious one would be visible.
      */
@@ -2532,6 +2589,9 @@ class TimeViewModelTest {
         var holdManualStop = false
         private val manualStopGate = CompletableDeferred<Unit>()
 
+        /** Fails the platform stop itself, which is the call a save's cleanup makes. */
+        var failPlatformStop = false
+
         /** Releases a stop held by [holdManualStop]. */
         fun releaseManualStop() {
             manualStopGate.complete(Unit)
@@ -2548,6 +2608,8 @@ class TimeViewModelTest {
         }
 
         override fun stopTracking() {
+            // Before the recording: a stop that threw did not happen, so neither the order nor the count moves.
+            if (failPlatformStop) throw IllegalStateException("platform stop failed")
             events += "stop"
             stopCalls++
         }

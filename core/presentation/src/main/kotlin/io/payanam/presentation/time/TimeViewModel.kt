@@ -449,14 +449,20 @@ class TimeViewModel(
                         true
                     }
                 timeEntryRepository.updateTimeEntry(entryId, input)
-                // Ending the entry the service is showing owes it a stop. The mark is written BEFORE the
-                // attempt, so a stop that fails survives this save, this ViewModel and a restart.
-                if (input.endedAt != null && wasActiveEntry) {
-                    markServiceStopPending()
+                // Ending the entry the service is showing owes it a stop. The mark is what a LATER retry
+                // reads, so a write that fails is not allowed to gate the stop owed now: the entry has
+                // already ended and no later save can take this branch again.
+                val endedTheActiveEntry = input.endedAt != null && wasActiveEntry
+                if (endedTheActiveEntry && !markServiceStopPending()) {
+                    logger.w(
+                        "TimeViewModel.updateTimeEntry",
+                        "Owed tracking-service stop could not be recorded; this save attempts it and no later save will retry",
+                        mapOf("entryId" to entryId),
+                    )
                 }
-                // Reconciled after EVERY successful write, not only the one that ended an entry: a later save
-                // is what retries a stop an earlier save could not make.
-                reconcileTrackingServiceNow()
+                // Reconciled after EVERY successful write, and forced when this one ended the active entry:
+                // a later save is what retries a stop an earlier save could not make.
+                reconcileTrackingServiceNow(owedNow = endedTheActiveEntry)
                 loadEntriesForDate(_uiState.value.selectedDate)
             } catch (e: CancellationException) {
                 throw e
@@ -490,30 +496,34 @@ class TimeViewModel(
     }
 
     /** [reconcileTrackingService] on the caller's coroutine, for a save that already runs in one. */
-    private suspend fun reconcileTrackingServiceNow() {
-        if (!isServiceStopPending()) return
+    private suspend fun reconcileTrackingServiceNow(owedNow: Boolean = false) {
+        if (!owedNow && !isServiceStopPending()) return
         logger.i(
             "TimeViewModel.reconcileTrackingService",
-            "Retrying the tracking-service stop an earlier save left pending",
+            "Reconciling the tracking service against a stop it is owed",
         )
         stopTrackingIfNoEntryRemains()
     }
 
     /**
-     * Records that the tracking service is still owed a stop.
+     * Records that the tracking service is still owed a stop, and reports whether the mark was stored.
      *
-     * Best-effort: a mark that cannot be written loses the retry, not the save, so it is logged rather than
-     * thrown - the caller's write has already been committed.
+     * Best-effort: the mark is what a LATER retry reads, so a write that fails loses the retry, not the
+     * save, and it is logged rather than thrown - the caller's write has already been committed and the
+     * stop owed by this save is attempted either way.
+     *
+     * @return true when the mark was stored, false when it was not.
      */
-    private suspend fun markServiceStopPending() {
+    private suspend fun markServiceStopPending(): Boolean =
         try {
             appSettings.setSetting(AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING, "true")
+            true
         } catch (e: CancellationException) {
             throw e
         } catch (e: Exception) {
             logger.e("TimeViewModel.markServiceStopPending", "Could not record the owed tracking-service stop", e)
+            false
         }
-    }
 
     /** Clears the owed stop once it has been made, or once no entry is left for it to affect. */
     private suspend fun clearServiceStopPending() {
