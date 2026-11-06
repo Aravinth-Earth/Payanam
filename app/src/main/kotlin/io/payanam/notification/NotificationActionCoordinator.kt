@@ -8,7 +8,6 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.FeatureFlags
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.session.DatabaseSessionManager
-import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.scoring.RecurrenceManager
@@ -17,7 +16,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import java.time.LocalDate
-import java.util.UUID
 import java.util.concurrent.atomic.AtomicBoolean
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -29,6 +27,9 @@ enum class NotificationActionOutcome {
 
     /** Nothing could be applied and a retry cannot change that (task gone, unknown action type). */
     NOT_APPLICABLE,
+
+    /** This action was already applied today; the re-delivered intent wrote nothing. */
+    ALREADY_HANDLED,
 
     /** The attempt threw; the action is kept so the next unlock can retry it. */
     FAILED,
@@ -129,6 +130,14 @@ class NotificationActionCoordinator
                         )
                     }
 
+                    NotificationActionOutcome.ALREADY_HANDLED -> {
+                        logger.i(
+                            LOG_SOURCE,
+                            "Deferred reminder action was already handled; nothing applied",
+                            mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+                        )
+                    }
+
                     NotificationActionOutcome.FAILED -> {
                         logger.w(
                             LOG_SOURCE,
@@ -144,9 +153,15 @@ class NotificationActionCoordinator
          * Applies one action, then dismisses its notification only if it succeeded.
          *
          * A reminder whose action is still pending stays on screen: nothing has changed yet.
+         *
+         * The handled-token check runs before any write: a re-delivered intent reaches this same
+         * path whether the session was open or closed, and must not write a second time.
          */
         @Suppress("TooGenericExceptionCaught") // Background component; an escaping throw is an unhandled crash
         suspend fun execute(action: PendingNotificationAction): NotificationActionOutcome {
+            if (pendingActions.isHandled(action.taskId, action.notificationId)) {
+                return NotificationActionOutcome.ALREADY_HANDLED
+            }
             logger.i(
                 LOG_SOURCE,
                 "Executing reminder action",
@@ -156,28 +171,33 @@ class NotificationActionCoordinator
                     "notificationId" to action.notificationId,
                 ),
             )
-            return try {
-                when (action.actionType) {
-                    ACTION_TYPE_COMPLETE, ACTION_TYPE_SKIP, ACTION_TYPE_MISS -> applyTaskAction(action)
-                    ACTION_TYPE_SNOOZE -> applySnooze(action)
-                    else -> {
-                        logger.w(
-                            LOG_SOURCE,
-                            "Unknown reminder action type",
-                            mapOf("actionType" to action.actionType, "taskId" to action.taskId),
-                        )
-                        NotificationActionOutcome.NOT_APPLICABLE
+            val outcome =
+                try {
+                    when (action.actionType) {
+                        ACTION_TYPE_COMPLETE, ACTION_TYPE_SKIP, ACTION_TYPE_MISS -> applyTaskAction(action)
+                        ACTION_TYPE_SNOOZE -> applySnooze(action)
+                        else -> {
+                            logger.w(
+                                LOG_SOURCE,
+                                "Unknown reminder action type",
+                                mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+                            )
+                            NotificationActionOutcome.NOT_APPLICABLE
+                        }
                     }
+                } catch (e: Exception) {
+                    logger.e(
+                        LOG_SOURCE,
+                        "Failed to apply reminder action",
+                        e,
+                        mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+                    )
+                    NotificationActionOutcome.FAILED
                 }
-            } catch (e: Exception) {
-                logger.e(
-                    LOG_SOURCE,
-                    "Failed to apply reminder action",
-                    e,
-                    mapOf("actionType" to action.actionType, "taskId" to action.taskId),
-                )
-                NotificationActionOutcome.FAILED
+            if (outcome == NotificationActionOutcome.APPLIED) {
+                pendingActions.markHandled(action)
             }
+            return outcome
         }
 
         /** Complete / skip / miss: the task write, the occurrence row, the recurrence advance, then the dismissal. */
@@ -201,22 +221,7 @@ class NotificationActionCoordinator
                 }
             }
             if (task.recurrenceEnabled) {
-                val occurrence =
-                    TaskOccurrence(
-                        id = UUID.randomUUID().toString(),
-                        taskId = taskId,
-                        occurrenceDate = LocalDate.now().toString(),
-                        status = status,
-                        statusNote = null,
-                        statusReason = "notification_action",
-                        completedAt = if (status == ACTION_TYPE_COMPLETE) System.currentTimeMillis().toString() else null,
-                        skippedAt = if (status == ACTION_TYPE_SKIP || status == ACTION_TYPE_MISS) {
-                            System.currentTimeMillis().toString()
-                        } else {
-                            null
-                        },
-                    )
-                taskOccurrenceRepository.recordOccurrence(occurrence)
+                recordOccurrenceForDay(taskId, status)
                 if (FeatureFlags.minimalModeEnabled) {
                     logger.i(
                         LOG_SOURCE,
@@ -254,6 +259,39 @@ class NotificationActionCoordinator
                 mapOf("taskId" to taskId, "actionType" to status),
             )
             return NotificationActionOutcome.APPLIED
+        }
+
+        /**
+         * Sets today's occurrence status for [taskId] on the (task, day) row, never appending a second
+         * row for the same day.
+         *
+         * A day already carrying [status] is left untouched, so re-applying "completed" cannot move
+         * that row's `completedAt`. The row's tracked actual-completion fields and note are carried
+         * over unchanged.
+         */
+        private suspend fun recordOccurrenceForDay(
+            taskId: String,
+            status: String,
+        ) {
+            val today = LocalDate.now()
+            val existing = taskOccurrenceRepository.getOccurrenceForDate(taskId, today)
+            if (existing?.status == status) {
+                logger.i(
+                    LOG_SOURCE,
+                    "Occurrence already has this status; nothing written",
+                    mapOf("taskId" to taskId, "status" to status, "date" to today.toString()),
+                )
+                return
+            }
+            taskOccurrenceRepository.toggleOccurrence(
+                taskId = taskId,
+                date = today,
+                newStatus = status,
+                note = existing?.note,
+                reason = "notification_action",
+                actualCompletedAt = existing?.actualCompletedAt,
+                actualDurationMinutes = existing?.actualDurationMinutes,
+            )
         }
 
         /** Snooze: reschedules through the scheduler, then dismisses the current reminder. */

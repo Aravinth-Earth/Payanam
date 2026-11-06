@@ -178,7 +178,9 @@ class NotificationActionReceiver : BroadcastReceiver() {
             try {
                 when (coordinator.execute(action)) {
                     NotificationActionOutcome.APPLIED -> pendingActions.clear(action.taskId)
-                    NotificationActionOutcome.NOT_APPLICABLE, NotificationActionOutcome.FAILED -> Unit
+                    NotificationActionOutcome.ALREADY_HANDLED,
+                    NotificationActionOutcome.NOT_APPLICABLE,
+                    NotificationActionOutcome.FAILED -> Unit
                 }
             } catch (e: Exception) {
                 logger.e(

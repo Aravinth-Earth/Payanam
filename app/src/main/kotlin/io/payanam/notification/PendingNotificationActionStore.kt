@@ -3,6 +3,7 @@
 package io.payanam.notification
 
 import android.content.Context
+import android.content.SharedPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.common.logging.UnifiedLogger
 import java.time.Instant
@@ -36,6 +37,9 @@ enum class PendingActionRecordOutcome {
     /** An action for the same task is already pending; the earlier one stands and this one is dropped. */
     DUPLICATE,
 
+    /** The action for this task and notification was already applied today; this delivery is ignored. */
+    ALREADY_HANDLED,
+
     /** The write failed; nothing was recorded. */
     FAILED,
 }
@@ -53,12 +57,17 @@ enum class PendingActionRecordOutcome {
  * key rather than a value field, so "first action wins per task" is the storage's own behaviour and
  * a second tap cannot displace the first.
  *
+ * HANDLED TOKENS live in the same file: key `handled:<taskId>:<notificationId>`, value
+ * `<handledAtMillis>`. Written only after an action's writes have succeeded, so an applied action is
+ * recognisable from disk alone — the system server keeps its own copy of a launch intent and this
+ * process cannot clear it.
+ *
  * EVERY WRITE IS `commit()`. `apply()` returns before the bytes reach disk, and the process this
  * record exists to survive is the one the system may kill the instant the receiver returns.
  *
  * EXPIRY. An action is valid only on the day it was recorded: habit occurrences are day-scoped, so a
  * stale "complete" applied the next morning would mark the wrong occurrence. Expired entries are
- * dropped on read and reported, never discarded silently.
+ * dropped on read and reported, never discarded silently. Handled tokens expire on the same rule.
  */
 @Singleton
 class PendingNotificationActionStore
@@ -69,7 +78,8 @@ class PendingNotificationActionStore
         private val logger = UnifiedLogger.getInstance()
 
         /**
-         * Records [action] unless an action for the same task is already pending for today.
+         * Records [action] unless it was already applied today, or an action for the same task is
+         * already pending for today.
          *
          * An entry left over from an earlier day is treated as absent: it can never be applied, so it
          * must not block the tap that is happening now.
@@ -77,6 +87,19 @@ class PendingNotificationActionStore
         @Synchronized
         fun record(action: PendingNotificationAction): PendingActionRecordOutcome {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            pruneHandled(prefs, LocalDate.now())
+            if (handledToken(prefs, action.taskId, action.notificationId) != null) {
+                logger.i(
+                    LOG_SOURCE,
+                    MSG_ALREADY_HANDLED,
+                    mapOf(
+                        "taskId" to action.taskId,
+                        "notificationId" to action.notificationId,
+                        "actionType" to action.actionType,
+                    ),
+                )
+                return PendingActionRecordOutcome.ALREADY_HANDLED
+            }
             val key = KEY_PREFIX + action.taskId
             val existing = parseValue(prefs.getString(key, null), action.taskId)
             if (existing != null && existing.recordedDay() == LocalDate.now()) {
@@ -140,6 +163,7 @@ class PendingNotificationActionStore
         fun readPending(): List<PendingNotificationAction> {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
             val today = LocalDate.now()
+            pruneHandled(prefs, today)
             val live = mutableListOf<PendingNotificationAction>()
             val expired = mutableListOf<PendingNotificationAction>()
             val unreadable = mutableListOf<String>()
@@ -199,6 +223,131 @@ class PendingNotificationActionStore
             }
         }
 
+        /**
+         * Returns true when the action for [taskId] and [notificationId] was already applied today.
+         *
+         * A hit means this delivery is a re-delivery of an action that already ran, so the caller
+         * must return without writing anything. Prunes expired tokens on the way in.
+         */
+        @Synchronized
+        fun isHandled(
+            taskId: String,
+            notificationId: Int,
+        ): Boolean {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            pruneHandled(prefs, LocalDate.now())
+            if (handledToken(prefs, taskId, notificationId) == null) return false
+            logger.i(
+                LOG_SOURCE,
+                MSG_ALREADY_HANDLED,
+                mapOf("taskId" to taskId, "notificationId" to notificationId),
+            )
+            return true
+        }
+
+        /**
+         * Marks [action] as applied today and drops the pending entry for its task in the same commit,
+         * so the two records cannot disagree.
+         *
+         * Write order is load-bearing: the token is recorded only after the action's writes have
+         * succeeded. A token written first would discard the action when that write then failed.
+         */
+        @Synchronized
+        fun markHandled(action: PendingNotificationAction) {
+            val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
+            val key = handledKey(action.taskId, action.notificationId)
+            runCatching {
+                prefs.edit()
+                    .putString(key, System.currentTimeMillis().toString())
+                    .remove(KEY_PREFIX + action.taskId)
+                    .commit()
+            }.fold(
+                onSuccess = { stored ->
+                    if (stored) {
+                        logger.i(
+                            LOG_SOURCE,
+                            "Marked reminder action handled",
+                            mapOf(
+                                "taskId" to action.taskId,
+                                "notificationId" to action.notificationId,
+                                "actionType" to action.actionType,
+                            ),
+                        )
+                    } else {
+                        logger.w(
+                            LOG_SOURCE,
+                            "Handled reminder action token was not written to disk",
+                            mapOf("taskId" to action.taskId, "notificationId" to action.notificationId),
+                        )
+                    }
+                },
+                onFailure = { failure ->
+                    logger.e(
+                        LOG_SOURCE,
+                        "Failed to mark reminder action handled",
+                        failure,
+                        mapOf("taskId" to action.taskId, "notificationId" to action.notificationId),
+                    )
+                },
+            )
+        }
+
+        /**
+         * Removes handled tokens not recorded on [today], plus tokens whose value cannot be read.
+         *
+         * Every read of the file prunes, so an expired token cannot outlive the read that would have
+         * matched it.
+         */
+        private fun pruneHandled(
+            prefs: SharedPreferences,
+            today: LocalDate,
+        ) {
+            val expired = mutableListOf<String>()
+            val unreadable = mutableListOf<String>()
+            prefs.all.entries
+                .filter { it.key.startsWith(HANDLED_KEY_PREFIX) }
+                .forEach { entry ->
+                    val handledAtMillis = (entry.value as? String)?.toLongOrNull()
+                    if (handledAtMillis == null) {
+                        unreadable.add(entry.key)
+                    } else if (!isSameDay(handledAtMillis, today)) {
+                        expired.add(entry.key)
+                    }
+                }
+            if (expired.isEmpty() && unreadable.isEmpty()) return
+            val editor = prefs.edit()
+            expired.forEach { editor.remove(it) }
+            unreadable.forEach { editor.remove(it) }
+            editor.commit()
+            expired.forEach { key ->
+                logger.i(LOG_SOURCE, "Dropped expired handled reminder action", mapOf("key" to key))
+            }
+            unreadable.forEach { key ->
+                logger.w(
+                    LOG_SOURCE,
+                    "Dropped unreadable handled reminder action record",
+                    mapOf("key" to key),
+                )
+            }
+        }
+
+        private fun handledToken(
+            prefs: SharedPreferences,
+            taskId: String,
+            notificationId: Int,
+        ): Long? = prefs.getString(handledKey(taskId, notificationId), null)?.toLongOrNull()
+
+        private fun handledKey(
+            taskId: String,
+            notificationId: Int,
+        ): String = HANDLED_KEY_PREFIX + taskId + HANDLED_KEY_SEPARATOR + notificationId
+
+        private fun isSameDay(
+            handledAtMillis: Long,
+            day: LocalDate,
+        ): Boolean =
+            Instant.ofEpochMilli(handledAtMillis).atZone(ZoneId.systemDefault()).toLocalDate() == day
+
         private fun renderValue(action: PendingNotificationAction): String =
             listOf(action.actionType, action.notificationId.toString(), action.recordedAtMillis.toString())
                 .joinToString(VALUE_SEPARATOR.toString())
@@ -220,6 +369,9 @@ class PendingNotificationActionStore
         private companion object {
             private const val PREFS_NAME = "payanam_pending_notification_actions"
             private const val KEY_PREFIX = "action:"
+            private const val HANDLED_KEY_PREFIX = "handled:"
+            private const val HANDLED_KEY_SEPARATOR = ':'
+            private const val MSG_ALREADY_HANDLED = "Ignoring reminder action; already handled"
             private const val VALUE_SEPARATOR = '|'
             private const val VALUE_FIELD_COUNT = 3
             private const val LOG_SOURCE = "PendingNotificationActionStore"
