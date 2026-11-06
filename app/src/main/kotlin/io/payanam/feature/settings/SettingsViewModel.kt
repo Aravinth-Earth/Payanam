@@ -40,6 +40,8 @@ import io.payanam.shared.settings.BackupInterval
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateOutcome
 import io.payanam.ui.viewmodel.UhabitsImporter
+import kotlinx.coroutines.CancellationException
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -73,6 +75,15 @@ class SettingsViewModel(
     // The repo's TasksViewModel keeps `private val scope` safely only because its own extensions sit in
     // the same file.
     internal val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    /**
+     * Dispatcher the platform biometric prompt is invoked on.
+     *
+     * `BiometricPrompt.authenticate(...)` is main-thread-only and throws
+     * "Must be called from main thread of fragment host" from any other thread. [scope] is a
+     * background pool, so only the prompt moves here; passphrase verification, cipher and Keystore
+     * work stay off the main thread. The same seam the unlock screen's ViewModel takes.
+     */
+    internal val promptDispatcher: CoroutineDispatcher = Dispatchers.Main.immediate,
     /**
      * The shared install gate.
      *
@@ -951,10 +962,18 @@ class SettingsViewModel(
                 "SettingsViewModel.enableBiometricUnlockWithVerification",
                 "Launching biometric prompt for settings enable flow",
             )
-            BiometricPrompt(activity, executor, callback).authenticate(
-                promptInfo,
-                BiometricPrompt.CryptoObject(cipher),
-            )
+            // The prompt launch is main-thread-only; a throw here is a launch failure to report, not a
+            // crash to propagate out of this coroutine into PayanamApp.uncaughtException.
+            val launched =
+                launchBiometricPrompt(promptDispatcher, logger) {
+                    BiometricPrompt(activity, executor, callback).authenticate(
+                        promptInfo,
+                        BiometricPrompt.CryptoObject(cipher),
+                    )
+                }
+            if (!launched) {
+                onComplete(false)
+            }
         }
     }
 
@@ -1229,3 +1248,30 @@ class SettingsViewModel(
         private const val COMPLETED_DOWNLOAD_FRESH_MS = 15 * 60 * 1_000L
     }
 }
+
+/**
+ * Invokes [launch] on [promptDispatcher] and reports a throw as `false`.
+ *
+ * A throw here means the prompt never opened, so the caller reports the failure through its own
+ * outcome instead of letting the exception escape the coroutine as an app crash. A cancellation is
+ * rethrown so structured concurrency still works.
+ */
+@Suppress("TooGenericExceptionCaught") // The prompt's launch throws platform-defined types with no stable contract.
+internal suspend fun launchBiometricPrompt(
+    promptDispatcher: CoroutineDispatcher,
+    logger: UnifiedLogger,
+    launch: () -> Unit,
+): Boolean =
+    try {
+        withContext(promptDispatcher) { launch() }
+        true
+    } catch (cancellation: CancellationException) {
+        throw cancellation
+    } catch (failure: Exception) {
+        logger.e(
+            "SettingsViewModel.enableBiometricUnlockWithVerification",
+            "Biometric prompt threw; reporting failure instead of crashing",
+            failure,
+        )
+        false
+    }
