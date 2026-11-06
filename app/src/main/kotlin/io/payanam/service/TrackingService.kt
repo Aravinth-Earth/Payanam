@@ -193,7 +193,7 @@ class TrackingService : Service() {
      * as its title, so no new string is needed for a state the user sees only for an instant.
      */
     private fun buildStartUpNotification(): Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(R.mipmap.ic_launcher_foreground)
+        .setSmallIcon(R.drawable.ic_notification)
         .setContentTitle(getString(R.string.notification_channel_tracking))
         .setOngoing(true)
         .setOnlyAlertOnce(true)
@@ -326,7 +326,7 @@ class TrackingService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(session.taskTitle)
             .setContentText(
                 getString(

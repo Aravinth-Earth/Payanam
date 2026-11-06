@@ -192,7 +192,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
             else -> context.getString(R.string.task_notification_reminder)
         }
         val builder = NotificationCompat.Builder(context, channelId)
-            .setSmallIcon(R.mipmap.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(taskTitle)
             .setContentText(body)
             .setSubText(context.getString(R.string.task_notification_reminder))
