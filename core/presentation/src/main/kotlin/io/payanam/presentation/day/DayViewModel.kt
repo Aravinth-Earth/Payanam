@@ -29,6 +29,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Day-screen ViewModel: date navigation (never into the future) and the
@@ -40,7 +41,9 @@ class DayViewModel(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val logger = AppLogger.current
-    private val pendingJournalSaves = mutableMapOf<JournalResponseKey, Job>()
+
+    // Mutated from the caller's thread, the debounced save coroutine's finally, and dispose().
+    private val pendingJournalSaves = ConcurrentHashMap<JournalResponseKey, Job>()
 
     private val _uiState = MutableStateFlow(DayUiState())
     val uiState: StateFlow<DayUiState> = _uiState.asStateFlow()

@@ -15,12 +15,14 @@ import io.payanam.shared.logging.AppLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
@@ -83,6 +85,7 @@ class LensHabitScoreViewModel(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val logger = AppLogger.current
+    private var loadJob: Job? = null
 
     private val _uiState = MutableStateFlow(LensHabitScoreUiState())
     val uiState: StateFlow<LensHabitScoreUiState> = _uiState.asStateFlow()
@@ -110,7 +113,8 @@ class LensHabitScoreViewModel(
         metric: ScoreMetricColumn = _uiState.value.selectedMetric,
     ) {
         val t0 = System.currentTimeMillis()
-        scope.launch {
+        loadJob?.cancel()
+        loadJob = scope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
             val end = endDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
             val start = endDate.minusDays((days - 1).toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
@@ -146,6 +150,7 @@ class LensHabitScoreViewModel(
                     ),
                 )
                 val history = buildRankHistory(dimHist, dayHist)
+                if (!isActive) return@launch
                 rankHistory = history
                 val dayRows = days.associateBy { it.dayKey }
                 val rows = buildDimensionRows(dims, dayRows, start, end)
@@ -154,6 +159,7 @@ class LensHabitScoreViewModel(
                 val rankByKey = computeRankMap(history, metric)
                 val tRankEnd = System.currentTimeMillis()
                 val tUpdateStart = System.currentTimeMillis()
+                if (!isActive) return@launch
                 _uiState.update {
                     it.copy(
                         isLoading = false,
