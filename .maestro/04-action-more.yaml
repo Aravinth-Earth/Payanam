@@ -1,8 +1,8 @@
 appId: io.payanam
-name: The More action opens the app at the unlock screen
+name: The More action opens the task status dialog and writes nothing
 ---
-# More tapped on the dead-process reminder opens the app at the unlock screen and
-# lands in the app after unlock, the same destination as the notification body.
+# More tapped on the dead-process reminder opens the app at the unlock screen, then the task
+# detail with the status dialog. Dismissing it must leave today's cell unwritten.
 # The reminder fires 15 min before the due time (the runner sets the due 22 min ahead).
 
 # killApp is `am kill`, which only kills BACKGROUND processes: Home first.
@@ -117,14 +117,33 @@ name: The More action opens the app at the unlock screen
 - hideKeyboard
 - tapOn:
     id: "passphrase_unlock.unlock_button"
-# Decrypt plus the queued action; the list renders after both.
+# Decrypt, then the queued More opens the task detail and its status dialog.
+- extendedWaitUntil:
+    visible:
+      id: "status_note.dialog"
+    timeout: 90000
+- takeScreenshot: 124-more-status-dialog
+
+# Back dismisses the dialog without confirming it, so no status write is issued.
+- pressKey: Back
+- assertNotVisible:
+    id: "status_note.dialog"
+# Back again leaves the detail screen for the tab the deep link opened over.
+- pressKey: Back
 - extendedWaitUntil:
     visible:
       id: "nav.tab.habits"
-    timeout: 90000
+    timeout: 60000
 - tapOn:
     id: "nav.tab.habits"
-- extendedWaitUntil:
-    visible:
-      id: "nav.tab.habits"
-- takeScreenshot: 124-more-landed-in-app
+
+# The row and its today cell must be on screen, or the negative below cannot fail.
+- scrollUntilVisible:
+    element:
+      text: "${HABIT_NAME}, .*"
+    direction: DOWN
+    timeout: 60000
+- assertVisible: "${HABIT_NAME}, ${TODAY}, .*"
+# More only opens the dialog: today's cell must carry no status word at all.
+- assertNotVisible: "${HABIT_NAME}, ${TODAY}, (${STATUS_COMPLETED}|${STATUS_SKIPPED}|${STATUS_MISSED})"
+- takeScreenshot: 125-more-wrote-nothing

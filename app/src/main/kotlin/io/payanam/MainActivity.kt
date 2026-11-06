@@ -142,6 +142,9 @@ class MainActivity : FragmentActivity() {
     private var showExternalDeletionWarning = mutableStateOf(false)
     private var resumeToRouteAfterUnlock by mutableStateOf<String?>(null)
 
+    /** A More tap that arrived while the database was locked; applied once the session is open. */
+    private var pendingTaskStatusDialogTaskId: String? = null
+
     /** Keeps the DB session alive: every user interaction resets the auto-lock idle timer. */
     override fun onUserInteraction() {
         super.onUserInteraction()
@@ -311,6 +314,7 @@ class MainActivity : FragmentActivity() {
         }
         // Dispatched after the startup gates resolve, so the session state the action reads is final.
         handleReminderActionIntent(intent)
+        handleOpenTaskStatusDialogIntent(intent)
         enableEdgeToEdge()
         logger.i("MainActivity.onCreate", "Composing UI surface")
         setContent {
@@ -614,6 +618,8 @@ class MainActivity : FragmentActivity() {
     /** Resolves and applies the post-unlock init/DB state once the database is open. */
     private fun handlePostUnlockInitState() {
         showPassphraseUnlock = false
+        // The More tap deferred while the gate was up opens its dialog now that the session is readable.
+        flushPendingTaskStatusDialog()
         val initCompleted = runBlocking {
             appSettingsRepository.get()
                 .getSetting("database_init_completed")
@@ -639,6 +645,7 @@ class MainActivity : FragmentActivity() {
         setIntent(intent)
         handleExternalNavigationIntent(intent)
         handleReminderActionIntent(intent)
+        handleOpenTaskStatusDialogIntent(intent)
     }
 
     /** Safety-net relock: presents the in-place unlock gate if the session died while backgrounded. */
@@ -646,6 +653,8 @@ class MainActivity : FragmentActivity() {
         super.onResume()
         logger.d("MainActivity.onResume", "Activity resumed")
         handleReminderActionIntent(intent)
+        handleOpenTaskStatusDialogIntent(intent)
+        flushPendingTaskStatusDialog()
         rearmRemindersWhenExactAlarmsBecomeAvailable()
         // Safety-net: if the process stayed alive but the DB session is gone (e.g., SessionManager
         // timer fired and closed the DB without killing the process, which shouldn't happen but is
@@ -1037,6 +1046,56 @@ class MainActivity : FragmentActivity() {
         }
     }
 
+    /** Handles a More tap: opens that task's status dialog once the database is readable. Never writes. */
+    private fun handleOpenTaskStatusDialogIntent(intent: Intent?) {
+        if (intent == null) return
+        val taskId = intent.getStringExtra(TaskReminderReceiver.EXTRA_OPEN_ACTION_TASK_ID)
+        if (taskId.isNullOrBlank()) return
+        consumeOpenTaskStatusDialogExtra(intent)
+        val sessionOpen = sessionManager.isDbOpen()
+        if (sessionOpen) {
+            requestTaskStatusDialog(taskId, sessionOpen)
+        } else {
+            pendingTaskStatusDialogTaskId = taskId
+            logger.i(
+                LOG_SOURCE,
+                "Deferred More tap until unlock",
+                mapOf("taskId" to taskId, "sessionOpen" to false),
+            )
+        }
+    }
+
+    /** Removes the More extra in place; this activity's intent object is what a relaunch reads back. */
+    private fun consumeOpenTaskStatusDialogExtra(intent: Intent) {
+        intent.removeExtra(TaskReminderReceiver.EXTRA_OPEN_ACTION_TASK_ID)
+        setIntent(intent)
+    }
+
+    /** Applies a More tap held back by the unlock gate; a closed session leaves it pending. */
+    private fun flushPendingTaskStatusDialog() {
+        val taskId = pendingTaskStatusDialogTaskId ?: return
+        if (!sessionManager.isDbOpen()) return
+        pendingTaskStatusDialogTaskId = null
+        requestTaskStatusDialog(taskId, true)
+    }
+
+    /** Hands the graph the request; the task-detail screen opens the dialog and clears the request. */
+    private fun requestTaskStatusDialog(
+        taskId: String,
+        sessionOpen: Boolean,
+    ) {
+        pendingExternalCommand.value = PayanamExternalNavigationCommand.OpenTaskStatusDialog(
+            taskId = taskId,
+            source = MORE_SOURCE,
+            requestId = System.currentTimeMillis(),
+        )
+        logger.i(
+            LOG_SOURCE,
+            "Queued task status dialog request from More tap",
+            mapOf("taskId" to taskId, "sessionOpen" to sessionOpen),
+        )
+    }
+
     /** Applies the chosen [appLanguage] / [effectiveLanguageTag] to the base context.
      *  @return true if the locale was actually changed. */
     private fun applyLanguagePreference(
@@ -1153,6 +1212,9 @@ class MainActivity : FragmentActivity() {
         const val EXTRA_NAV_SOURCE = "nav_source"
         const val EXTRA_RETURN_ROUTE_AFTER_UNLOCK = "return_route_after_unlock"
         const val NAV_TARGET_TIME = "time"
+
+        /** Source tag carried by the navigation command a More tap produces. */
+        private const val MORE_SOURCE = "notification_more"
         private const val PREFS_RESTART_MARKER = "payanam_restart_marker"
         private const val KEY_RESTART_MARKER_TS = "marker_ts"
         private const val KEY_RESTART_MARKER_DB = "marker_db_exists"

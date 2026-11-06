@@ -98,6 +98,11 @@ object TestTags {
         fun row(taskId: String): String = ROW_PREFIX + taskId
     }
 
+    /** The status note dialog the task detail screen opens for Complete, Skip, Miss, and the reminder's More action. */
+    object StatusNote {
+        const val DIALOG = "status_note.dialog"
+    }
+
     /** The habits list. */
     object Habits {
         const val ROW_PREFIX = "habits.row."

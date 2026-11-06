@@ -26,15 +26,14 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.shared.logging.AppLogger
 
-/**
- * Status change action type
- */
+/** Status change action type. */
 enum class StatusAction {
     SKIP,
     MISS,
@@ -96,9 +95,7 @@ fun SkipReason.label(strings: UiStrings): String =
         SkipReason.OTHER -> strings.locOtherSpecify
     }
 
-/**
- * Result returned from the statusNoteDialog
- */
+/** Result returned from the statusNoteDialog. */
 data class StatusNoteResult(
     val action: StatusAction,
     val reason: SkipReason?,
@@ -136,6 +133,7 @@ fun StatusNoteDialog(
     var nextDueStrategy by remember { mutableStateOf("planned") } // Default to planned
     PayanamAlertDialog(
         onDismissRequest = onDismiss,
+        modifier = Modifier.testTag(TestTags.StatusNote.DIALOG),
         title = {
             Text(
                 text =

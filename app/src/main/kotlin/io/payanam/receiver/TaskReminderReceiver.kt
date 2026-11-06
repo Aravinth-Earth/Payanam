@@ -157,12 +157,16 @@ class TaskReminderReceiver : BroadcastReceiver() {
             missIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        // More reuses the content intent object, so it opens exactly the destination a body tap
-        // opens. Only the request code differs, which keeps the two PendingIntents distinct.
+        // More carries the task id in its own extra so the activity opens that task's status dialog.
+        // It never carries EXTRA_TASK_ID: that extra marks a reminder action, and an action writes.
+        val moreIntent = Intent(context, MainActivity::class.java).apply {
+            flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            putExtra(EXTRA_OPEN_ACTION_TASK_ID, taskId)
+        }
         val morePendingIntent = PendingIntent.getActivity(
             context,
             notificationIdInt + REQUEST_CODE_MORE_OFFSET,
-            openAppIntent,
+            moreIntent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
         val actionSlots = reminderActionSlots()
@@ -265,6 +269,9 @@ class TaskReminderReceiver : BroadcastReceiver() {
 
         /** Reminder action carried by an activity-tap intent, one of the coordinator's action types. */
         const val EXTRA_REMINDER_ACTION_TYPE = "extra_reminder_action_type"
+
+        /** Carried by a More tap: the task whose status dialog the activity opens. Never an action. */
+        const val EXTRA_OPEN_ACTION_TASK_ID = "extra_open_action_task_id"
 
         const val TYPE_TASK_REMINDER = "task_reminder"
         const val TYPE_HABIT_TRACKING = "habit_tracking"

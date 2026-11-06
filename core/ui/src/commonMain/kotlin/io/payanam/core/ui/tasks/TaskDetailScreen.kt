@@ -33,6 +33,7 @@ import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.components.RescheduleDialog
 import io.payanam.core.ui.components.StatusAction
 import io.payanam.core.ui.components.StatusNoteDialog
+import io.payanam.core.ui.navigation.LocalTaskStatusDialogRequest
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.presentation.tasks.TaskDetailViewModel
 import io.payanam.shared.logging.AppLogger
@@ -44,6 +45,7 @@ fun TaskDetailScreen(
     viewModel: TaskDetailViewModel,
     onNavigateBack: () -> Unit = {},
     onNavigateToEdit: () -> Unit = {},
+    onTaskUnavailable: () -> Unit = {},
 ) {
     val strings = LocalUiStrings.current
     val uiState by viewModel.uiState.collectAsState()
@@ -54,6 +56,35 @@ fun TaskDetailScreen(
     LaunchedEffect(taskId) {
         logger.d("TaskDetailScreen.LaunchedEffect", "Loading task", mapOf("taskId" to taskId))
         viewModel.loadTask(taskId)
+    }
+    // An external request (the reminder's More action): open the status dialog once, then clear the
+    // request before opening it, so neither a recomposition nor a config change can open it again.
+    val statusDialogRequest = LocalTaskStatusDialogRequest.current
+    LaunchedEffect(statusDialogRequest?.requestId, taskId, uiState.isLoading, uiState.task?.id) {
+        val request = statusDialogRequest ?: return@LaunchedEffect
+        if (request.taskId != taskId || uiState.isLoading) return@LaunchedEffect
+        val task = uiState.task
+        request.onHandled(request.requestId)
+        if (task == null) {
+            logger.w(
+                "TaskDetailScreen",
+                "More target task no longer exists",
+                mapOf("taskId" to taskId, "loadError" to (uiState.error ?: "none")),
+            )
+            onTaskUnavailable()
+            return@LaunchedEffect
+        }
+        logger.i(
+            "TaskDetailScreen",
+            "More opened the task status dialog",
+            mapOf(
+                "taskId" to taskId,
+                "dialog" to "StatusNoteDialog",
+                "action" to StatusAction.COMPLETE.name,
+                "isRecurring" to task.recurrenceEnabled,
+            ),
+        )
+        currentStatusAction = StatusAction.COMPLETE
     }
     Scaffold(
         topBar = {

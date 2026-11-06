@@ -101,6 +101,7 @@ fun PayanamNavHost(
     var pendingTimeQuickStartRequestId by remember { mutableStateOf<Long?>(null) }
     var pendingTimeStopTrackingRequestId by remember { mutableStateOf<Long?>(null) }
     var pendingReturnRouteAfterUnlock by remember { mutableStateOf<String?>(resumeToRouteAfterUnlock) }
+    var pendingTaskStatusRequest by remember { mutableStateOf<TaskStatusDialogRequest?>(null) }
 
     // True while the init gate continues a reset, so the first-run tour is not shown again.
     var databaseInitFollowsReset by remember { mutableStateOf(false) }
@@ -292,6 +293,31 @@ fun PayanamNavHost(
 
             null -> {
                 Unit
+            }
+
+            is PayanamExternalNavigationCommand.OpenTaskStatusDialog -> {
+                if (navController.currentBackStackEntry == null) {
+                    // Same readiness rule as the Time command: retry when the graph installs, do not drop.
+                    logger.d(
+                        "PayanamNavHost",
+                        "Task status dialog request deferred until the navigation graph is ready",
+                        mapOf("taskId" to command.taskId, "source" to command.source),
+                    )
+                } else {
+                    navActions.openTaskDetail(command.taskId)
+                    pendingTaskStatusRequest =
+                        TaskStatusDialogRequest(command.taskId, command.requestId) { handledRequestId ->
+                            if (pendingTaskStatusRequest?.requestId == handledRequestId) {
+                                pendingTaskStatusRequest = null
+                            }
+                        }
+                    logger.i(
+                        "PayanamNavHost",
+                        "Opening task status dialog for external request",
+                        mapOf("taskId" to command.taskId, "source" to command.source),
+                    )
+                    onExternalCommandConsumed()
+                }
             }
         }
     }
@@ -738,7 +764,10 @@ fun PayanamNavHost(
                     arguments = listOf(navArgument("taskId") { type = NavType.StringType }),
                 ) { backStackEntry ->
                     val taskId = backStackEntry.arguments?.read { getStringOrNull("taskId") } ?: return@composable
-                    screens.taskDetail(nav = navActions, taskId = taskId)
+                    // Only this destination reads the request: it is the screen that owns the dialog.
+                    CompositionLocalProvider(LocalTaskStatusDialogRequest provides pendingTaskStatusRequest) {
+                        screens.taskDetail(nav = navActions, taskId = taskId)
+                    }
                 }
                 composable(
                     route = PayanamRoutes.SCORE_DETAIL,
