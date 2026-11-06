@@ -168,6 +168,9 @@ fun EditTaskScreen(
                                 customNotificationMinutes = input.customNotificationMinutes,
                                 remindersEnabled = remindersEnabled,
                                 minimalModeEnabled = minimalModeEnabled,
+                                // The store keeps the loaded due date when the form sends none, so that
+                                // stored date - not a default - is the one the scheduler will read.
+                                storedTask = uiState.task,
                             )
                         // The save has been handed over and the reminder re-armed. The offer only reports
                         // that the notification cannot arrive, so the way back is held until the offer

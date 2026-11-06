@@ -2,6 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.core.ui.tasks
 
+import io.payanam.domain.model.Task
 import kotlin.test.Test
 import kotlin.test.assertFalse
 import kotlin.test.assertTrue
@@ -22,6 +23,8 @@ class ReminderArmingTest {
         status: String = "pending",
         remindersEnabled: Boolean = true,
         minimalModeEnabled: Boolean = false,
+        storedTask: Task? = null,
+        now: LocalDateTime = this.now,
     ): Boolean = reminderWillBeArmed(
         taskId = "task-1",
         taskTitle = "Task",
@@ -32,8 +35,19 @@ class ReminderArmingTest {
         customNotificationMinutes = customNotificationMinutes,
         remindersEnabled = remindersEnabled,
         minimalModeEnabled = minimalModeEnabled,
+        storedTask = storedTask,
         now = now,
     )
+
+    /** The task as the store already holds it, which is what an edit is judged against. */
+    private fun storedTask(dueDate: LocalDateTime?): Task =
+        Task(
+            id = "task-1",
+            title = "Task",
+            dueDate = dueDate,
+            createdAt = now,
+            updatedAt = now,
+        )
 
     /** Saving with no reminder time arms nothing, so there is nothing to warn about. */
     @Test
@@ -82,6 +96,35 @@ class ReminderArmingTest {
     @Test
     fun `a recurring task with no date arms its default reminder`() {
         assertTrue(willBeArmed(dueAt = null, recurrenceEnabled = true))
+    }
+
+    /**
+     * An edit sends no due date for a recurring task and the store keeps the date it already holds: that
+     * stored date, not today's default, is what the scheduler reads, so the warning must follow it.
+     */
+    @Test
+    fun `an edit is judged on the stored due date`() {
+        val clock = LocalDateTime.of(2026, 1, 15, 10, 0)
+        assertTrue(
+            willBeArmed(
+                dueAt = null,
+                recurrenceEnabled = true,
+                storedTask = storedTask(dueDate = clock.plusHours(1)),
+                now = clock,
+            ),
+        )
+    }
+
+    /** An edit that resolves to no due date at all arms nothing: the recurring default belongs to creation. */
+    @Test
+    fun `an edit with no stored date arms nothing`() {
+        assertFalse(
+            willBeArmed(
+                dueAt = null,
+                recurrenceEnabled = true,
+                storedTask = storedTask(dueDate = null),
+            ),
+        )
     }
 
     /** A custom advance is the one the scheduler subtracts, so it decides whether the alarm is real. */

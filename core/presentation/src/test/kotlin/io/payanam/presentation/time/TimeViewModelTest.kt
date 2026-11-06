@@ -23,6 +23,7 @@ import io.payanam.presentation.tasks.TASKS_TEST_DAY
 import io.payanam.presentation.tasks.TASKS_TEST_TIME
 import io.payanam.presentation.tasks.task
 import io.payanam.scoring.port.TaskRecurrenceHandler
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -727,6 +728,32 @@ class TimeViewModelTest {
             assertEquals(1, timeTrackingController.stopCalls)
         }
 
+    /**
+     * A manual stop that is still in flight must not end the service of a session started after it: the two
+     * are serialized, so a stop can never leave an active entry with no service behind it.
+     */
+    @Test
+    fun `a start during a manual stop keeps the new session`() =
+        runTest {
+            timeEntryRepository.activeEntry = entry("entry-1", endedAt = null)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            timeTrackingController.holdManualStop = true
+            viewModel.stopTracking(focusRating = 0.5, focusNote = null)
+            advanceUntilIdle()
+
+            viewModel.startTracking(dimensionId = "d1", dimensionLabel = "Build")
+            advanceUntilIdle()
+
+            timeTrackingController.releaseManualStop()
+            advanceUntilIdle()
+
+            // The stop ran first and the start ran after it, so the new session owns the service.
+            assertEquals(listOf("stop", "start"), timeTrackingController.events)
+            assertEquals("start-1", timeEntryRepository.activeEntry?.id)
+        }
+
     /** [carried] `stopTracking_refreshesTheWidget`. */
     @Test
     fun `stopping tracking refreshes the widget exactly once`() =
@@ -938,6 +965,102 @@ class TimeViewModelTest {
             assertEquals(0, timeTrackingController.stopCalls)
             // Nothing stopped, so there is nothing for the widget to re-render.
             assertEquals(0, widgetRefresher.refreshes)
+        }
+
+    /**
+     * A start that lands while the end-of-entry reconciliation sits between its active-entry read and its
+     * stop must survive: the two are serialized, so the stop cannot end the session the start just began.
+     */
+    @Test
+    fun `a start during the end-of-entry stop keeps the new session`() =
+        runTest {
+            timeEntryRepository.activeEntry = entry("entry-1", endedAt = null)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            // The reconciliation's own read is the one held here, with its "nothing active" answer already taken.
+            timeEntryRepository.holdReconciliationRead = true
+            viewModel.updateTimeEntry(
+                entryId = "entry-1",
+                dimensionId = "d2",
+                dimensionLabel = "Learn",
+                taskId = null,
+                startDate = TASKS_TEST_DAY,
+                startTime = LocalTime.of(9, 0),
+                endDate = TASKS_TEST_DAY,
+                endTime = LocalTime.of(10, 30),
+                focusRating = null,
+                focusNote = null,
+            )
+            advanceUntilIdle()
+
+            viewModel.startTracking(dimensionId = "d1", dimensionLabel = "Build")
+            advanceUntilIdle()
+
+            timeEntryRepository.releaseReconciliationRead()
+            advanceUntilIdle()
+
+            // The ended entry's stop ran first and the start ran after it, so the new session owns the service.
+            assertEquals(listOf("stop", "start"), timeTrackingController.events)
+            assertEquals("start-1", timeEntryRepository.activeEntry?.id)
+        }
+
+    /**
+     * A store that cannot answer which entry is active must not fail the edit: the write is committed, and
+     * the service stop is retried the next time the screen comes back to the foreground.
+     */
+    @Test
+    fun `an unreadable active entry leaves the stop pending for the next resume`() =
+        runTest {
+            timeEntryRepository.activeEntry = entry("entry-1", endedAt = null)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            timeEntryRepository.failActiveLookup = true
+            viewModel.updateTimeEntry(
+                entryId = "entry-1",
+                dimensionId = "d2",
+                dimensionLabel = "Learn",
+                taskId = null,
+                startDate = TASKS_TEST_DAY,
+                startTime = LocalTime.of(9, 0),
+                endDate = TASKS_TEST_DAY,
+                endTime = LocalTime.of(10, 30),
+                focusRating = null,
+                focusNote = null,
+            )
+            advanceUntilIdle()
+
+            // The edit landed and nothing was reported: the service stop is not part of what the save promised.
+            assertEquals(1, timeEntryRepository.updated.size)
+            assertNull(viewModel.uiState.value.error)
+            assertEquals(0, timeTrackingController.stopCalls)
+
+            // The store answers again and the screen returns: the stop the save could not make happens now.
+            timeEntryRepository.failActiveLookup = false
+            viewModel.reconcileTrackingService()
+            advanceUntilIdle()
+
+            assertEquals(1, timeTrackingController.stopCalls)
+            assertEquals(1, widgetRefresher.refreshes)
+        }
+
+    /**
+     * A return to the foreground with no failed stop behind it sends no stop at all: the Android controller
+     * starts the service to deliver a stop action, so a spurious one would be visible.
+     */
+    @Test
+    fun `a resume with no pending stop leaves the service alone`() =
+        runTest {
+            timeEntryRepository.activeEntry = entry("entry-1", endedAt = null)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.reconcileTrackingService()
+            advanceUntilIdle()
+
+            assertEquals(0, timeTrackingController.stopCalls)
+            assertTrue(timeTrackingController.events.isEmpty())
         }
 
     /** An edit that does not end the entry never touches the service. */
@@ -2152,6 +2275,18 @@ class TimeViewModelTest {
         var failUpdate = false
         var failDelete = false
 
+        /** Fails the active-entry read, which is the read the pre-write check and the reconciliation use. */
+        var failActiveLookup = false
+
+        /**
+         * Holds the active-entry read that follows an ending write - the reconciliation's own read - so a
+         * test can land a start in that window. The snapshot is taken before the hold, which is what makes
+         * the window the one under test rather than a re-read that sees the newer state.
+         */
+        var holdReconciliationRead = false
+        private val reconciliationGate = CompletableDeferred<Unit>()
+        private var reconciliationReadPending = false
+
         override fun getTimeEntriesForDate(date: LocalDate): Flow<List<TimeEntry>> =
             if (failEntries) {
                 flow { throw IllegalStateException("entries unavailable") }
@@ -2214,6 +2349,8 @@ class TimeViewModelTest {
             if (input.endedAt != null && activeEntry?.id == id) {
                 activeEntry = activeEntryAfterEnding
             }
+            // The next active-entry read is the reconciliation's, which is the read a test may hold.
+            reconciliationReadPending = input.endedAt != null
             return TimeEntry(
                 id = id,
                 lifeIntentionCategory = input.lifeIntentionCategory,
@@ -2236,9 +2373,22 @@ class TimeViewModelTest {
             activeEntry = null
         }
 
-        // --- Members the Time screen never calls ---
+        override suspend fun getActiveTimeEntry(): TimeEntry? {
+            if (failActiveLookup) throw IllegalStateException("active entry unavailable")
+            val snapshot = activeEntry
+            if (reconciliationReadPending && holdReconciliationRead) {
+                reconciliationReadPending = false
+                reconciliationGate.await()
+            }
+            return snapshot
+        }
 
-        override suspend fun getActiveTimeEntry(): TimeEntry? = activeEntry
+        /** Releases a read held by [holdReconciliationRead]. */
+        fun releaseReconciliationRead() {
+            reconciliationGate.complete(Unit)
+        }
+
+        // --- Members the Time screen never calls ---
 
         override suspend fun stopActiveTimeEntryWithFocus(
             focusRating: Double,
@@ -2273,16 +2423,30 @@ class TimeViewModelTest {
         var lastFocusNote: String? = null
         var failStop = false
 
+        /** Every platform session command in the order it was issued. */
+        val events = mutableListOf<String>()
+
+        /** Holds [stopTrackingAndCompleteTask] so a test can land a start while a manual stop is in flight. */
+        var holdManualStop = false
+        private val manualStopGate = CompletableDeferred<Unit>()
+
+        /** Releases a stop held by [holdManualStop]. */
+        fun releaseManualStop() {
+            manualStopGate.complete(Unit)
+        }
+
         override suspend fun startTracking(
             taskId: String?,
             taskTitle: String?,
             dimension: String,
             startTime: LocalDateTime,
         ) {
+            events += "start"
             started += Start(taskId, taskTitle, dimension, startTime)
         }
 
         override fun stopTracking() {
+            events += "stop"
             stopCalls++
         }
 
@@ -2291,6 +2455,10 @@ class TimeViewModelTest {
             focusNote: String?,
         ): TimeEntry? {
             if (failStop) throw IllegalStateException("stop failed")
+            if (holdManualStop) {
+                holdManualStop = false
+                manualStopGate.await()
+            }
             lastFocusRating = focusRating
             lastFocusNote = focusNote
             return null

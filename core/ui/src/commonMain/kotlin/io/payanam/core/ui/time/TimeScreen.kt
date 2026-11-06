@@ -195,6 +195,13 @@ fun TimeScreen(
             }
         }
     }
+    // A tracking-service stop that an edit could not complete is retried on every return to the foreground:
+    // the entry is already ended in the store, so no later save would ever revisit it.
+    LaunchedEffect(lifecycleOwner, viewModel) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.reconcileTrackingService()
+        }
+    }
     LaunchedEffect(uiState.error) {
         val error = uiState.error ?: return@LaunchedEffect
         val message = actionFailedMessageTemplate.replace(actionFailedReasonPlaceholder, error)
@@ -230,6 +237,14 @@ fun TimeScreen(
             mapOf("entryId" to activeEntryId),
         )
         showNotificationRationale = true
+    }
+    // The offer is withdrawn once the state stops being DECLINES: notifications can be switched on outside
+    // this app - in the system settings screen or the shade - while the offer is up, and a dialog asking for
+    // something already granted must not stay on screen.
+    LaunchedEffect(notificationPermission.state) {
+        if (notificationPermission.state != SupportState.DECLINES) {
+            showNotificationRationale = false
+        }
     }
     val dateFormatter = remember {
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
