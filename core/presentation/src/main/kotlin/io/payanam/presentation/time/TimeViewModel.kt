@@ -262,15 +262,9 @@ class TimeViewModel(
         scope.launch {
             try {
                 sessionMutex.withLock {
-                    // Closing any previous entry is DB bookkeeping only - do NOT also stop the
-                    // tracking service here. timeTrackingController.stopTracking() reaches
-                    // TrackingService, which calls stopSelf(); that teardown races the
-                    // startTracking(...) below and can land while the replacement foreground start
-                    // is still pending, killing the process with
-                    // ForegroundServiceDidNotStartInTimeException. The start below re-enters the very
-                    // same service instance and calls startForeground with the same NOTIFICATION_ID,
-                    // so the session is replaced in place; no stop is needed because the session is
-                    // replaced, not ended.
+                    // Do NOT stop the tracking service before this start: stopTracking() reaches
+                    // TrackingService.stopSelf(), whose teardown races the start below and can kill the process
+                    // with ForegroundServiceDidNotStartInTimeException. The start replaces the session in place.
                     timeEntryRepository.stopActiveTimeEntry()
                     val input =
                         TimeEntryInput(
@@ -429,10 +423,9 @@ class TimeViewModel(
                         focusNote = normalizedFocusNote,
                         focusRatedAt = resolvedFocusRatedAt,
                     )
-                // Read BEFORE the write: the entry stops being the active one the moment it is updated
-                // with an end time, so afterwards there is no way to tell whether the tracking service
-                // was showing it. An unreadable store counts as "may have been active", which sends the
-                // reconciliation below to re-read rather than letting the edit fail over a service stop.
+                // Read BEFORE the write: the entry stops being active once it has an end time, so afterwards
+                // there is no way to tell whether the service was showing it. An unreadable store counts as
+                // "may have been active", so the reconciliation below re-reads instead of failing the edit.
                 val wasActiveEntry =
                     try {
                         timeEntryRepository.getActiveTimeEntry()?.id == entryId
@@ -512,13 +505,7 @@ class TimeViewModel(
     }
 
     /**
-     * Records that the tracking service is still owed a stop, and reports whether the mark was stored.
-     *
-     * Best-effort: the mark is what a LATER retry reads, so a write that fails loses the retry, not the
-     * save, and it is logged rather than thrown - the caller's write has already been committed and the
-     * stop owed by this save is attempted either way.
-     *
-     * @return true when the mark was stored, false when it was not.
+     * Records that a stop is still owed and returns whether the mark was stored; a failed write is logged, not thrown.
      */
     private suspend fun markServiceStopPending(): Boolean =
         try {
@@ -543,10 +530,7 @@ class TimeViewModel(
     }
 
     /**
-     * Whether a stop is still owed, read back with [String.toBoolean] the way the other pending marks are.
-     *
-     * An unreadable store answers "no" and leaves the mark in place, so the stop is retried by a later read
-     * rather than reported as a failure of whatever asked.
+     * Whether a stop is still owed; an unreadable store answers "no" and leaves the mark in place for a later retry.
      */
     private suspend fun isServiceStopPending(): Boolean =
         try {
@@ -561,16 +545,7 @@ class TimeViewModel(
         }
 
     /**
-     * Ends the foreground tracking session when nothing is running any more.
-     *
-     * The answer comes from the store, not from the save that ended an entry: that is what makes a stop that
-     * failed retryable, and what keeps a stop from running at all while another entry is still live. A failing
-     * read or stop is logged and leaves the owed-stop mark in place, so a later save or a resume retries it;
-     * neither is thrown, because the caller's write has already been committed.
-     *
-     * The service holds ONE session and one notification, so it is stopped only when no other entry is
-     * still active: a second, overlapping entry keeps the service - and its notification - alive, because
-     * it is that entry the notification is now counting.
+     * Ends the foreground session only when no entry is still active; the answer comes from the store, not the save.
      */
     private suspend fun stopTrackingIfNoEntryRemainsLocked() {
         val stillActive =
@@ -586,6 +561,7 @@ class TimeViewModel(
                 )
                 return
             }
+        // One session, one notification: a second live entry keeps the service, because it owns that notification.
         if (stillActive != null) {
             clearServiceStopPending()
             logger.i(
@@ -595,6 +571,7 @@ class TimeViewModel(
             )
             return
         }
+        // A failing stop is logged and leaves the owed-stop mark in place, so a later save or resume retries it.
         try {
             timeTrackingController.stopTracking()
             widgetRefresher.refreshWidget()
@@ -862,10 +839,9 @@ class TimeViewModel(
         scope.launch {
             try {
                 sessionMutex.withLock {
-                    // Resolve the entry to continue BEFORE mutating anything. The lookup is a pure
-                    // in-memory read of _uiState with no side effects, so it runs first; that way the
-                    // unknown-id path below changes nothing at all, instead of stopping the active DB
-                    // entry and leaving the tracking service running a session the DB no longer knows.
+                    // Resolve the entry BEFORE mutating anything: the lookup is a side-effect-free read of
+                    // _uiState, so an unknown id changes nothing instead of stopping the active DB entry and
+                    // leaving the service running a session the DB no longer knows.
                     val entry =
                         _uiState.value.timeEntries.find { it.id == entryId }
                             ?: _uiState.value.lastEntry?.takeIf { it.id == entryId }
@@ -874,10 +850,8 @@ class TimeViewModel(
                         return@withLock
                     }
                     // DB bookkeeping only: do NOT stop the tracking service before restarting it.
-                    // See startTracking() above - stopTracking() leads to TrackingService.stopSelf()
-                    // and that teardown races this method's foreground start, so the process can be
-                    // killed for a missing startForeground(). startTracking(...) below replaces the
-                    // session in place on the same service instance and notification id.
+                    // See startTracking() above - stopTracking() leads to stopSelf(), which races this
+                    // foreground start; startTracking() below replaces the session in place.
                     timeEntryRepository.stopActiveTimeEntry()
                     val input =
                         TimeEntryInput(

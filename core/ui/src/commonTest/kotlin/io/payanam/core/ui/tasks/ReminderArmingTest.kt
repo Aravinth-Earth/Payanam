@@ -99,8 +99,7 @@ class ReminderArmingTest {
     }
 
     /**
-     * An edit sends no due date for a recurring task and the store keeps the date it already holds: that
-     * stored date, not today's default, is what the scheduler reads, so the warning must follow it.
+     * An edit keeps the stored date for a recurring task, and that date is what the scheduler reads.
      */
     @Test
     fun `an edit is judged on the stored due date`() {

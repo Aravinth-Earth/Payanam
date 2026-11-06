@@ -14,26 +14,9 @@ import java.time.LocalTime
 private const val RECURRING_DEFAULT_DUE_HOUR = 9
 private const val RECURRING_DEFAULT_DUE_MINUTE = 0
 
-/**
- * Whether saving these form values actually leaves a reminder armed.
- *
- * WHY THIS IS NOT A LOCAL `mode != off && dueDate != null` CHECK:
- *
- * The warning it gates - "the reminder will not arrive" - is only true when a reminder exists at all.
- * Arming is [ReminderDecider]'s decision, and that decision also refuses a status that cannot be
- * reminded about, a task with no due time, and a fire time that is not in the future; a screen deriving
- * the answer from two fields warned about reminders the scheduler never armed. Asking the scheduler's own
- * decision function is what keeps the warning and the alarm from disagreeing.
- *
- * WHY THE DUE DATE IS RESOLVED FROM THE STORED TASK:
- *
- * An edit that sends no due date keeps the date the store already holds - the repository substitutes it,
- * and the scheduler reads that stored date - so the recurring default below must not stand in for it: a
- * stored future date whose fire time is still ahead arms a reminder the default would have called past.
- * The default belongs to creation only, which is the save that has no stored date to keep.
- *
- * @param storedTask the task this save edits, or null when the save creates one.
- */
+/** Whether saving these form values actually leaves a reminder armed: [ReminderDecider]'s decision, not a
+ * local field check, so the warning and the alarm cannot disagree. The due date resolves from [storedTask]
+ * first, because an edit that sends none keeps the stored one. */
 fun reminderWillBeArmed(
     taskId: String,
     taskTitle: String,

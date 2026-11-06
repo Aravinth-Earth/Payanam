@@ -53,40 +53,9 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 
-/**
- * The application's navigation graph, rendered identically by every platform.
- *
- * MOVED FROM `:app` - this is the keystone of the shared UI. Sharing screens without the graph hands the
- * desktop a set of screens it cannot reach, and leaves every later screen needing a per-platform call
- * site; the graph is what makes "the same app on every platform" structurally true rather than a claim
- * about individual screens.
- *
- * What changed in the move, and why:
- *
- *  - **Navigation is Compose Multiplatform navigation** (`org.jetbrains.androidx.navigation`) rather than
- *    the Android artifact, so `NavHost`/`composable`/`navArgument` exist on the desktop too. The routes,
- *    the arguments and the back-stack behaviour are the ones Android already had.
- *  - **The destination bodies arrive through [PayanamNavHostScreens].** Their wiring is a Hilt ViewModel on
- *    Android and the desktop's stores on the desktop, and Hilt does not exist off-Android, so the bodies
- *    cannot live here. This object is not a per-screen wrapper: it is one implementation per platform.
- *  - **The Android-only inputs are parameters.** The previous version read the app's
- *    `AppPreferencesViewModel` for tab visibility, the landing route and the backup-failure banner; it
- *    reached `MainActivity` through `navController.context` to request a silent unlock; and it read
- *    `FeatureFlags`/`UnifiedLogger` through Android singletons. All of it arrives as arguments now, which
- *    is also what makes the graph testable without an Activity.
- *  - **Logging goes through [AppLogger]**, the process-wide holder every platform installs its real logger
- *    into. The event names and payloads are unchanged, so an existing log grep still works.
- *
- * @param screens the destination bodies for the platform currently running.
- * @param language the language [LocalUiStrings] is installed with; supplied by the caller so this
- *   composable can label the bottom bar and can provide the table for everything below it.
- * @param minimalModeEnabled whether minimal mode is on (an Android build flag; a parameter so the desktop
- *   resolves it the same way).
- * @param tabVisibility per-tab visibility the user chose in Settings.
- * @param landingRoute the route to open on when the app is ready.
- * @param isLandingReady false while preferences are still loading - the host shows a spinner instead of
- *   guessing a start destination.
- */
+/** The application's navigation graph, rendered identically by every platform; destination bodies arrive
+ * through [PayanamNavHostScreens]. [landingRoute] is where the app opens once [isLandingReady] is true, and
+ * while it is false the host shows a spinner rather than guessing a start destination. */
 @Composable
 fun PayanamNavHost(
     screens: PayanamNavHostScreens,
@@ -113,35 +82,10 @@ fun PayanamNavHost(
     onSecurityResetRequested: () -> Unit = {},
     onQuitRequested: () -> Unit = {},
     onRestartAfterDelete: () -> Unit = {},
-    /**
-     * The restart duty after a successful passphrase change: the platform's own exit path.
-     *
-     * WHY IT IS A PARAMETER RATHER THAN MORE HOST LOGIC. The host decided the whole outcome on its own -
-     * it logged the success and popped back - and that was every platform got. A platform that has to end
-     * its own process on success therefore could not act at all, and the desktop is exactly that platform:
-     * its restart port STARTS a replacement process and RETURNS, so the process that asked for the
-     * restart still holds the single-instance lease the replacement needs to take. [ProcessRestart]'s
-     * contract puts ending that process on whoever asked for the restart; with no seam here the desktop's
-     * success ended in a pop and the replacement instance lost the lease race.
-     *
-     * WHAT IT DOES NOT CHANGE. The host still pops the back stack, and still pops BEFORE calling this, so
-     * a platform that supplies nothing behaves exactly as it did. That is the Android case and it is not
-     * an oversight: there the change has already ended the process by the time success is reported, so
-     * there is nothing left for the platform to do.
-     */
+    /** The platform's own exit path, called after the change has popped the back stack. */
     onRestartAfterPassphraseChange: () -> Unit = {},
     onExternalCommandConsumed: () -> Unit = {},
-    /**
-     * A top-level (tab) navigation requested from outside the graph - the desktop's navigation rail.
-     *
-     * Deliberately narrower than [externalCommand]: a rail tap names one of the top-level routes and nothing
-     * else, so there is no payload slot here. A command that must carry one (`OpenTimeScreen` carries a
-     * quick-start flag and a request id) keeps using that shape; this is not a generalisation of it.
-     *
-     * The caller STORES this value and never invokes anything from composition. The host navigates when it
-     * can: while a startup gate is showing the request waits, and a request the route policy refuses is
-     * dropped and consumed rather than left pending, so it cannot fire later when the policy changes.
-     */
+    /** A top-level (tab) route requested from outside the graph; consumed once honoured or refused. */
     topLevelNavigationRequest: String? = null,
     /** Called once the request has been honoured or refused; the caller clears its stored value. */
     onTopLevelNavigationRequestConsumed: () -> Unit = {},
@@ -158,24 +102,10 @@ fun PayanamNavHost(
     var pendingTimeStopTrackingRequestId by remember { mutableStateOf<Long?>(null) }
     var pendingReturnRouteAfterUnlock by remember { mutableStateOf<String?>(resumeToRouteAfterUnlock) }
 
-    /**
-     * True while the database-init gate showing is the NEXT STEP OF A RESET rather than a first run.
-     *
-     * The owner's ruling (2026-10-14): *"When a user is using a reset option which means user already know
-     * how an app works only then they will be using the reset option. So in that case we don't need to show
-     * them the onboarding flow once more."* A reset deletes the database and the credential, so the facts
-     * it leaves behind are indistinguishable from a first install - which is why the reset used to be sent
-     * to the passphrase-setup gate and then into the first-run flow: the tour, then the create/import
-     * chooser, over a database the user had just asked to be replaced.
-     *
-     * The gate for "no database" on BOTH platforms is this init gate, so the reset continues HERE, and the
-     * flag is what the destination is told. It is cleared when the gate reports ready, so a later first run
-     * on the same process is not mistaken for the reset's continuation.
-     */
+    // True while the init gate continues a reset, so the first-run tour is not shown again.
     var databaseInitFollowsReset by remember { mutableStateOf(false) }
 
-    // Check if a route is allowed given current feature flags and preferences.
-    // Delegates to PayanamNavRoutePolicy for testable logic; logs outcomes for observability.
+    // Route policy check; delegates to PayanamNavRoutePolicy and logs the outcome.
     fun isRouteAllowed(route: String): Boolean {
         val allowed = PayanamNavRoutePolicy.isAllowed(route, minimalModeEnabled)
         if (!allowed) {
@@ -202,21 +132,11 @@ fun PayanamNavHost(
     val navigateToTopLevel: (String) -> Boolean =
         remember(navController) {
             { route ->
-                // The bottom bar can be composed a frame before NavHost installs its graph, and
-                // navController.graph throws inside that window - a real crash on a very early tap.
-                // currentBackStackEntry does not touch the graph, so it is a safe readiness probe.
-                // Returns false while the graph is not ready: callers that must not lose the
-                // request (external commands) retry instead of dropping the navigation.
+                // A tap can land before NavHost installs its graph, where `navController.graph` throws;
+                // `currentBackStackEntry` is the safe probe, and false means "retry, do not drop".
                 if (navController.currentBackStackEntry != null) {
-                    // The navigation call itself goes on `Dispatchers.Main.immediate`, which is the
-                    // framework main thread on Android and the Swing EDT on the desktop. Navigation
-                    // mutates the back stack and the lifecycle state of every entry in it, so it has
-                    // to land on the same thread that owns the composition - the same reason Android's
-                    // own navigation callbacks always run on the main looper. The probe above stays on
-                    // the calling thread so its synchronous Boolean answer still means "the graph
-                    // accepted this"; only the mutation is handed over. `immediate` keeps this a
-                    // straight-line call whenever the caller is already there, and the hop is skipped
-                    // entirely rather than deferred when it is not.
+                    // The mutation must run on `Dispatchers.Main.immediate` - the thread that owns the
+                    // composition - because navigation mutates back-stack and lifecycle state.
                     CoroutineScope(Dispatchers.Main.immediate).launch {
                         navController.navigate(route) {
                             popUpTo(navController.graph.findStartDestination().id) {
@@ -255,10 +175,7 @@ fun PayanamNavHost(
                 onRestartAfterDataDelete = onRestartAfterDelete,
             )
         }
-    // A top-level navigation requested from outside the graph (the desktop rail). Same guards as the
-    // external-command effect below, and for the same reasons: a request must not navigate over a startup
-    // gate, and it must answer to the SAME route policy the bottom bar answers to, or one intent would have
-    // two outcomes in one file.
+    // A request must not navigate over a startup gate, and answers to the same route policy as the bar.
     LaunchedEffect(
         topLevelNavigationRequest,
         currentRoute,
@@ -385,17 +302,8 @@ fun PayanamNavHost(
         if (resumeToRouteAfterUnlock != null && pendingReturnRouteAfterUnlock != resumeToRouteAfterUnlock) {
             pendingReturnRouteAfterUnlock = resumeToRouteAfterUnlock
         }
-        // The unlock gate must not yank a startup gate the user is standing on. The passphrase-change
-        // screen was the first case: the change closes the session itself (the rekey needs the file
-        // alone), the desktop's gate follows the session LIVE, and navigating away mid-submit cancels
-        // the change and rolls the backup back over a rekey that had already succeeded. The
-        // forgot-passphrase reset is the second: it deletes the database and navigates to the setup
-        // screen, and this effect sent the user back to an unlock screen for a database that no longer
-        // exists, so the button looked dead on Android and desktop both.
-        //
-        // Guarding only PASSPHRASE_CHANGE (and PASSPHRASE_UNLOCK) left the other gates exposed to the
-        // same override, so the condition is the whole gate set now - the same set the helper below
-        // already treats as "not somewhere the user was".
+        // Never yank a startup gate the user is standing on: the passphrase change and the
+        // forgot-passphrase reset each drive their own navigation, and overriding it cancels or strands them.
         if (isStartupGateRoute(currentResolvedRoute)) {
             return@LaunchedEffect
         }
@@ -411,10 +319,8 @@ fun PayanamNavHost(
                 "returnRoute" to (pendingReturnRouteAfterUnlock ?: "none"),
             ),
         )
-        // Same main-dispatcher rule as `navigateToRoute`: a `LaunchedEffect` body runs on the
-        // context its recomposer supplies, which is the main dispatcher under a normal Android
-        // activity but is whatever the desktop's or a test's recomposer hands over, so the graph
-        // cannot take that thread for granted when it mutates the back stack.
+        // A `LaunchedEffect` body runs on whatever dispatcher the recomposer supplies, so the back-stack
+        // mutation is handed to the main dispatcher rather than assumed to be there.
         CoroutineScope(Dispatchers.Main.immediate).launch {
             navController.navigate(PayanamRoutes.PASSPHRASE_UNLOCK) {
                 launchSingleTop = true
@@ -483,10 +389,7 @@ fun PayanamNavHost(
                                         contentDescription = null,
                                     )
                                 },
-                                // ONE line, ellipsised. The bar has a fixed height, so a label that wraps -
-                                // which a long Tamil word or a large OS text-size setting makes it do - draws
-                                // a second line the bar clips mid-word ("Journ"/"al"). `maxLines = 1` keeps
-                                // the label inside the bar on every language and text scale.
+                                // `maxLines = 1`: the bar's fixed height clips a wrapped label mid-word.
                                 label = { Text(tabLabel, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                                 alwaysShowLabel = true,
                                 selected = selected,
@@ -540,30 +443,14 @@ fun PayanamNavHost(
                     !shouldShowDatabaseInit && !shouldShowFocusModeOnboarding &&
                     !shouldShowSecurityStateUnavailable &&
                     !shouldShowOnboardingIntro
-            // The startup gates are STATE, and the graph has to follow them. `startDestination` is read when
-            // the graph is CREATED and never again - measured, not assumed: on the Linux desktop the
-            // database-init gate's import completed, the platform's startup mode advanced past that gate, and
-            // NOTHING navigated, so the screen stayed on `database_init`. The user saw the import button again
-            // over a database that had just imported. Android dismisses the same gate the same way it raises
-            // it - by clearing the flag in its own `onDatabaseReady` (`showDatabaseInit = false`) - and its
-            // composition is state-driven; this effect is the graph's half of that rule.
-            //
-            // PASSPHRASE_UNLOCK is deliberately NOT its business: the unlock gate above owns its own effect,
-            // because it carries a return route, and two navigations out of one flag change is how a screen
-            // ends up flickering between two gates.
-            // The refusal outranks every other gate: when the passphrase store cannot be read, the app
-            // must not fall through to a first-run tour or an unlock screen it cannot honour. This effect
-            // navigates to the refusal destination and leaves it there - nothing pops it, because nothing
-            // behind it is usable.
+            // The startup gates are STATE: `startDestination` is read once at graph creation, so a gate
+            // that advances without this effect leaves the user on the old screen. PASSPHRASE_UNLOCK is
+            // excluded - it owns its own effect because it carries a return route.
             LaunchedEffect(shouldShowOnboardingIntro, currentResolvedRoute) {
                 if (!shouldShowOnboardingIntro) return@LaunchedEffect
                 if (currentResolvedRoute == PayanamRoutes.ONBOARDING_INTRO) return@LaunchedEffect
-                // A gate effect that runs on the FIRST composition runs before the NavHost below has
-                // set its graph, and navigate() on a graph-less controller throws - measured on the
-                // Linux desktop's first run, where this effect crashed the app before the tour ever
-                // drew. The back stack exists exactly when the graph does, so an empty back stack
-                // means "not yet": the NavHost's own initial composition then lands on the gate's
-                // start destination anyway, and this effect re-runs on the next state change.
+                // A first-composition effect runs before NavHost sets its graph, and navigating then
+                // throws; an empty back stack means "not yet".
                 if (navController.currentBackStackEntry == null) return@LaunchedEffect
                 navController.navigate(PayanamRoutes.ONBOARDING_INTRO) {
                     popUpTo(0) { inclusive = true }
@@ -709,17 +596,12 @@ fun PayanamNavHost(
                                 }
                             pendingReturnRouteAfterUnlock = null
                             onUnlockReturnRouteConsumed()
-                            // The unlock callback is answered from the database work that finished it, which
-                            // is not the composition's thread: navigating from there moved a back-stack
-                            // entry's state off the thread that owns it and the graph threw
-                            // `Method setCurrentState must be called on the main thread`.
+                            // Answered from the database work, not the composition: navigating off the main
+                            // thread throws `Method setCurrentState must be called on the main thread`.
                             CoroutineScope(Dispatchers.Main.immediate).launch {
-                                // Guard against the transition being performed twice. Clearing the unlock
-                                // gate changes `startDestination`, so the NavHost rebuilds the graph and
-                                // lands on `nextRoute` by itself. Navigating as well pops that freshly built
-                                // entry before it reaches CREATED, which the lifecycle registry rejects with
-                                // "State must be at least 'CREATED' to be moved to 'DESTROYED'" on the
-                                // `lenses` route (measured, build 2054). Whoever got there first wins.
+                                // Do not navigate when the gate already moved the graph: clearing the flag
+                                // changes `startDestination`, so a second push pops an entry before it
+                                // reaches CREATED, which the lifecycle registry rejects.
                                 if (navController.currentBackStackEntry?.resolveConcreteRoute() != nextRoute) {
                                     navController.navigate(nextRoute) {
                                         popUpTo(PayanamRoutes.PASSPHRASE_UNLOCK) { inclusive = true }
@@ -729,20 +611,9 @@ fun PayanamNavHost(
                         },
                         onForgotPassphraseReset = {
                             logger.w("PayanamNavHost", "Forgot-passphrase reset completed; continuing into the database-init gate")
-                            // Same rule as the unlock callback above, and for the same reason: this arrives
-                            // from the reset work, not from the composition.
-                            //
-                            // WHY THE INIT GATE AND NOT THE PASSPHRASE-SETUP GATE. The reset deleted the
-                            // database AND the credential, and both platforms' own startup decisions answer
-                            // "no database artifacts" with the init gate (Android:
-                            // `resolveShouldShowDatabaseInit` -> true; desktop: the scaffold branch ->
-                            // `InitializeDatabase`). Sending the user to the setup gate instead put the graph
-                            // on a screen both platforms' facts said was not the gate - so the graph's own
-                            // gate effect moved it on, and the setup screen was left behind with its
-                            // passphrase unconfigured. The init gate is where the passphrase is collected
-                            // for a database that does not exist yet (its own create form), and it is where
-                            // the mandatory life dimensions are confirmed - the one step a REPLACED database
-                            // genuinely needs again. See `DatabaseInitScreen.beginAtDatabaseCreation`.
+                            // The reset deleted the database and the credential, and both platforms answer
+                            // that with the init gate, so continue there - it collects the passphrase and
+                            // confirms the mandatory dimensions a replaced database needs again.
                             databaseInitFollowsReset = true
                             CoroutineScope(Dispatchers.Main.immediate).launch {
                                 navController.navigate(PayanamRoutes.DATABASE_INIT) {
@@ -757,16 +628,12 @@ fun PayanamNavHost(
                         nav = navActions,
                         onPassphraseChanged = {
                             logger.i("PayanamNavHost", "Passphrase changed successfully")
-                            // On the main dispatcher for the same reason `navigateToRoute` is: popping
-                            // moves a back-stack entry through its lifecycle states, and on the desktop
-                            // this callback arrives on the test's interaction thread while `Dispatchers.Main`
-                            // is the Swing EDT, so popping here would move an entry's state off the thread
-                            // that owns it. `immediate` makes it a plain call when the caller is already there.
+                            // Popping moves back-stack lifecycle state, so it belongs on the main
+                            // dispatcher; on desktop this callback arrives on the interaction thread.
                             CoroutineScope(Dispatchers.Main.immediate).launch {
                                 navController.popBackStack()
                             }
-                            // The host's own outcome is unchanged and happens first; the platform's
-                            // restart duty runs after it, so a desktop that must end this process gets to.
+                            // The host's own outcome runs first, so a platform that must end this process can.
                             onRestartAfterPassphraseChange()
                         },
                     )
@@ -776,10 +643,7 @@ fun PayanamNavHost(
                 composable(PayanamRoutes.DATABASE_INIT) {
                     screens.databaseInit(
                         nav = navActions,
-                        // The reset's own continuation: the destination opens at its create form rather
-                        // than offering the first-run tour and the create/import chooser. Cleared below, in
-                        // the same breath as the ready report, so the flag cannot outlive the gate it
-                        // describes.
+                        // The reset's continuation: open at the create form, not the tour or the chooser.
                         resumesAfterReset = databaseInitFollowsReset,
                         onDatabaseReady = {
                             logger.i(

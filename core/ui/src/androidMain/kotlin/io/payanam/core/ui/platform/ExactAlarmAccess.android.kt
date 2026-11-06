@@ -19,21 +19,17 @@ import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import io.payanam.shared.logging.AppLogger
 
-/** The log source for this seam, so its lines are attributable in a session log. */
 private const val SOURCE = "ExactAlarmAccess"
 
 /**
- * Android's side of the seam: the `SCHEDULE_EXACT_ALARM` special access, which a fresh install does not
- * hold and which the user grants on a system screen.
- *
- * The state is a snapshot-backed value so a caller reading it inside composition recomposes when it
- * changes, and it is re-read on every resume because the system screen reports nothing back.
+ * Android's side of the seam: `SCHEDULE_EXACT_ALARM` special access, which a fresh install lacks and the
+ * user grants on a system screen. State is snapshot-backed and re-read on every resume, because that
+ * screen reports nothing back.
  */
 @Composable
 actual fun rememberExactAlarmAccess(): ExactAlarmAccess {
     val context = LocalContext.current
-    // Keyed on the context so a new Activity re-reads the platform instead of inheriting the previous
-    // answer.
+    // Keyed on the context so a new Activity re-reads the platform instead of inheriting the previous answer.
     val stateHolder = remember(context) { mutableStateOf(canScheduleExactAlarms(context)) }
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner, context, stateHolder) {
@@ -70,10 +66,7 @@ private class AndroidExactAlarmAccess(
     }
 }
 
-/**
- * The platform's answer. Below Android 12 the permission does not exist and exact alarms are always
- * allowed, so the row is never offered there.
- */
+/** The platform's answer: below Android 12 the permission does not exist, so exact alarms are always allowed. */
 private fun canScheduleExactAlarms(context: Context): Boolean {
     if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return true
     val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as? AlarmManager ?: return false
@@ -81,11 +74,8 @@ private fun canScheduleExactAlarms(context: Context): Boolean {
 }
 
 /**
- * Opens the system screen where exact alarms are allowed for this app.
- *
- * `ACTION_REQUEST_SCHEDULE_EXACT_ALARM` requires the app's package URI, and the NEW_TASK flag covers a
- * non-Activity context such as a preview host. An OEM build without the screen answers the intent with
- * nothing, so the launch is guarded.
+ * Opens the system screen where exact alarms are allowed. The action needs the app's package URI and NEW_TASK
+ * covers a non-Activity context; the launch is guarded because an OEM build without the screen answers nothing.
  */
 private fun openExactAlarmSettings(context: Context) {
     // The action and the permission both arrive in Android 12, so below it there is no screen to open.

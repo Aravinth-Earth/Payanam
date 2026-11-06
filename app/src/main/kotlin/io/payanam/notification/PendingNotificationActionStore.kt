@@ -12,13 +12,7 @@ import java.time.ZoneId
 import javax.inject.Inject
 import javax.inject.Singleton
 
-/**
- * One reminder action tapped while the encrypted database session was closed.
- *
- * Carries only the four facts needed to replay it: action type, task id, notification id and the
- * moment it was tapped. No task title and no user text, because this record is written to plain
- * `SharedPreferences` while the database is locked and must be readable without the passphrase.
- */
+/** One reminder action tapped while the DB session was closed: type, task id, notification id, tap time. */
 data class PendingNotificationAction(
     val actionType: String,
     val taskId: String,
@@ -45,29 +39,17 @@ enum class PendingActionRecordOutcome {
 }
 
 /**
- * Durable side-store for reminder actions tapped while the database is locked.
+ * Durable side-store for reminder actions tapped while the database is locked. Device-level and
+ * plaintext on purpose: `app_settings` lives inside the encrypted database, which is unavailable here.
  *
- * DEVICE-LEVEL, and deliberately not a database row: `app_settings` lives inside the encrypted
- * database, which is exactly what is unavailable at the moment this record is written. The same
- * precedent as the desktop's `DesktopSecurityStore` / `DesktopOnboardingStore` — plaintext, owned by
- * the installation rather than by the user's data, and holding nothing that needs the passphrase.
+ * FORMAT: key `action:<taskId>` so the first action per task wins, value
+ * `<actionType>|<notificationId>|<recordedAtMillis>`; handled tokens are
+ * `handled:<taskId>:<notificationId>` in the same file, written only after the action's writes succeed.
  *
- * FORMAT. Preference file `payanam_pending_notification_actions`, one entry per pending action:
- * key `action:<taskId>`, value `<actionType>|<notificationId>|<recordedAtMillis>`. The task id is the
- * key rather than a value field, so "first action wins per task" is the storage's own behaviour and
- * a second tap cannot displace the first.
+ * EVERY WRITE IS `commit()`: `apply()` returns before the bytes reach disk.
  *
- * HANDLED TOKENS live in the same file: key `handled:<taskId>:<notificationId>`, value
- * `<handledAtMillis>`. Written only after an action's writes have succeeded, so an applied action is
- * recognisable from disk alone — the system server keeps its own copy of a launch intent and this
- * process cannot clear it.
- *
- * EVERY WRITE IS `commit()`. `apply()` returns before the bytes reach disk, and the process this
- * record exists to survive is the one the system may kill the instant the receiver returns.
- *
- * EXPIRY. An action is valid only on the day it was recorded: habit occurrences are day-scoped, so a
- * stale "complete" applied the next morning would mark the wrong occurrence. Expired entries are
- * dropped on read and reported, never discarded silently. Handled tokens expire on the same rule.
+ * EXPIRY: an action is valid only on the day it was recorded, because habit occurrences are day-scoped.
+ * Expired entries are dropped on read and reported, never discarded silently.
  */
 @Singleton
 class PendingNotificationActionStore
@@ -77,13 +59,7 @@ class PendingNotificationActionStore
     ) {
         private val logger = UnifiedLogger.getInstance()
 
-        /**
-         * Records [action] unless it was already applied today, or an action for the same task is
-         * already pending for today.
-         *
-         * An entry left over from an earlier day is treated as absent: it can never be applied, so it
-         * must not block the tap that is happening now.
-         */
+        /** Records [action] unless already applied today or already pending today; stale entries count as absent. */
         @Synchronized
         fun record(action: PendingNotificationAction): PendingActionRecordOutcome {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -152,13 +128,7 @@ class PendingNotificationActionStore
             )
         }
 
-        /**
-         * Returns every pending action that is still valid today, oldest first, and removes the ones
-         * that are not.
-         *
-         * Expired and unreadable entries are removed here rather than by a separate sweep, so a read
-         * is the single place a stale record can survive past.
-         */
+        /** Returns every action still valid today, oldest first, removing expired and unreadable entries. */
         @Synchronized
         fun readPending(): List<PendingNotificationAction> {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -223,12 +193,7 @@ class PendingNotificationActionStore
             }
         }
 
-        /**
-         * Returns true when the action for [taskId] and [notificationId] was already applied today.
-         *
-         * A hit means this delivery is a re-delivery of an action that already ran, so the caller
-         * must return without writing anything. Prunes expired tokens on the way in.
-         */
+        /** True when [taskId]/[notificationId] was already applied today; a hit means a re-delivery. */
         @Synchronized
         fun isHandled(
             taskId: String,
@@ -245,13 +210,7 @@ class PendingNotificationActionStore
             return true
         }
 
-        /**
-         * Marks [action] as applied today and drops the pending entry for its task in the same commit,
-         * so the two records cannot disagree.
-         *
-         * Write order is load-bearing: the token is recorded only after the action's writes have
-         * succeeded. A token written first would discard the action when that write then failed.
-         */
+        /** Marks [action] applied and drops its pending entry in one commit; token last, or a failure loses it. */
         @Synchronized
         fun markHandled(action: PendingNotificationAction) {
             val prefs = context.getSharedPreferences(PREFS_NAME, Context.MODE_PRIVATE)
@@ -292,12 +251,7 @@ class PendingNotificationActionStore
             )
         }
 
-        /**
-         * Removes handled tokens not recorded on [today], plus tokens whose value cannot be read.
-         *
-         * Every read of the file prunes, so an expired token cannot outlive the read that would have
-         * matched it.
-         */
+        /** Removes handled tokens not recorded on [today], plus unreadable ones; every read of the file prunes. */
         private fun pruneHandled(
             prefs: SharedPreferences,
             today: LocalDate,

@@ -607,10 +607,9 @@ fun AddTaskScreen(
                         tags = parseTagsInput(tagsInput),
                         onResult = { result ->
                             result.onSuccess {
-                                // The save has COMMITTED: the task exists and its reminder is armed.
-                                // The offer only reports that the notification that would have told
-                                // the user about it cannot arrive, so the way back is held until the
-                                // offer has been seen - the task itself is already saved either way.
+                                // The save has COMMITTED: the task exists and its reminder is armed. The offer only
+                                // reports that the notification that would have told the user cannot arrive, so the
+                                // way back is held until it has been seen - the task is already saved either way.
                                 if (reminderArmed && notificationPermission.state == SupportState.DECLINES) {
                                     showNotificationRationale = true
                                 } else {

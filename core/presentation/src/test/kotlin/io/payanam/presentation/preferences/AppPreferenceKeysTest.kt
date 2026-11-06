@@ -7,15 +7,8 @@ import io.payanam.domain.repository.AppSettingsRepository
 import org.junit.Test
 
 /**
- * Every `app_settings` key is listed here, and that list is the point.
- *
- * A stored key is a value on a user's device: renaming one is a data migration, not a refactor, because the
- * old key stays on disk and the new one reads as absent - the setting silently reverts to its default on the
- * next launch, with nothing in the log to say why. Pinning the literals here makes such a rename fail the
- * build instead.
- *
- * The same list catches the other silent failure: two constants resolving to ONE value, which makes two
- * settings share a row so writing either overwrites the other.
+ * Pins every `app_settings` key, so a rename fails the build instead of silently reverting a setting. The same
+ * list catches two constants resolving to one value, which would make two settings share a row.
  */
 class AppPreferenceKeysTest {
     private val stored: Map<String, String> =
@@ -75,23 +68,8 @@ class AppPreferenceKeysTest {
         )
 
     /**
-     * The maps above are hand-written, and this is the only assertion that catches a constant being ADDED to
-     * [AppPreferenceKeys] without a matching entry: a key no test lists is a stored key nothing pins, so the
-     * next rename of it silently reverts a user's setting to its default with nothing in the log — the failure
-     * this class exists for. Deleting a listed constant is not this test's job; that is a compile error.
-     *
-     * Reading the constants off the object rather than trusting the lists is what makes the check independent
-     * of whoever edited them last. [stored] covers the stored keys and [prefixes] the two composed shapes, and
-     * the pair is asserted together, so a third constant has to be classified into one of them deliberately.
-     *
-     * WHAT THIS DOES NOT PIN: the literal a constant resolves to. A renamed VALUE is caught only for the
-     * fourteen constants whose literal is asserted somewhere in this file; the rest are unpinned — stated
-     * here rather than implied covered.
-     *
-     * The oracle is exact only while the constants stay on this object. One moved to a top-level `const val`
-     * or a companion would leave `declaredFields` and make this fail loudly (a smaller count against the
-     * lists) rather than silently — except for a PARTIALLY relocated constant, which would be quietly
-     * unpinned.
+     * Fails when a constant is added to [AppPreferenceKeys] without a matching list entry, and pins literals
+     * only where asserted verbatim below. Reading the constants off the object keeps it independent of the lists.
      */
     @Test
     fun `the inventories together cover every key the object declares`() {
@@ -101,9 +79,7 @@ class AppPreferenceKeysTest {
                 .onEach { it.isAccessible = true }
                 .associate { it.name to it.get(null) as String }
 
-        // Names AND values together. A key-set comparison alone passes a wrong mapping, where an entry points
-        // at another constant's value: the key set is unchanged and every value stays distinct, so neither
-        // `every stored key is unique` nor a name-only check can see it.
+        // Names AND values together: a name-only check passes an entry pointing at another constant's value.
         assertThat(stored + prefixes).isEqualTo(declared)
         assertThat(declared.values).doesNotContain("")
     }
@@ -131,14 +107,8 @@ class AppPreferenceKeysTest {
     }
 
     /**
-     * The init-completed flag is declared in TWO files, and this is the assertion that keeps them one string.
-     *
-     * Both declarations are deliberate: [AppSettingsRepository] lives in `:core:domain`, which may not import
-     * this file because this module already depends on it, so it cannot reuse the constant above; and the
-     * shared contract should not assume a preference table at all. So the pair is held together from here,
-     * because the failure mode is exactly the one this file exists for and it is silent: rename one side and
-     * the writer fills a row the reader never looks at, so an initialised database reads as fresh on every
-     * launch - the user is offered setup again over data that is sitting on disk.
+     * The init-completed flag is declared in two files; this keeps them one string. [AppSettingsRepository] may
+     * not import this module, so the pair is held together here.
      */
     @Test
     fun `the shared contract's init-completed key and value are the ones this module writes`() {
@@ -147,13 +117,7 @@ class AppPreferenceKeysTest {
         assertThat(AppSettingsRepository.INIT_COMPLETED_VALUE).isEqualTo("true")
     }
 
-    /**
-     * The two composed keys, listed separately from [stored] because they are not keys.
-     *
-     * The first version of this test listed them WITH the stored keys, and its own membership assertion then
-     * failed - which is the right failure: a prefix is a shape of key, not a key, and an inventory that mixes
-     * the two cannot assert either property.
-     */
+    /** Composed keys, kept out of [stored] because a prefix is a shape of key, not a key. */
     private val prefixes: Map<String, String> =
         mapOf(
             "KEY_TAB_VISIBLE_PREFIX" to AppPreferenceKeys.KEY_TAB_VISIBLE_PREFIX,

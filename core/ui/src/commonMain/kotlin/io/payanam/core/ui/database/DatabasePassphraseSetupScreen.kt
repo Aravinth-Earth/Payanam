@@ -59,56 +59,15 @@ private const val LAST_UPDATED_PATTERN = "MMM dd, yyyy HH:mm"
 /** What the summary shows when the database reports no modification time at all. */
 private const val NO_LAST_UPDATED = "-"
 
-/**
- * The database passphrase setup gate, rendered identically by every platform.
- *
- * Moved here from `:app` with its layout, field order, copy and conditions unchanged, so the Android app
- * and the desktop cannot drift into two different setup forms. It is the screen a brand-new install sees
- * before it has any database at all, which makes it the first of the three DB gates both platforms must
- * share rather than one platform owning.
- *
- * WHAT CAME OUT, and why each piece is a slot rather than a rewrite:
- *
- *  - **The log-export buttons and the reported path** ([debugLogExport]) follow the identical
- *    [DatabaseInitScreen] and [DatabasePassphraseUnlockScreen] precedent: `exportLatestLog()` and
- *    `exportAllLogs()` return an Android `java.io.File` written to Android's own storage, so the exporter
- *    and the path it prints stay in `:app`. The desktop passes nothing, and this screen renders its
- *    diagnostics headings without them rather than claiming an exporter it does not have.
- *  - **Copy** comes from [LocalUiStrings], the ambient table the navigation graph installs, rather than
- *    `stringResource`. All 44 keys this screen read already ship in `:core:strings` with EN+TA parity, so
- *    nothing was added to the string tables.
- *  - **Logging** goes through [AppLogger], the shared contract each platform installs. `UnifiedLogger` is
- *    an Android type, and this module has no platform logger.
- *
- * The ViewModel is unchanged: the shared [DatabasePassphraseSetupViewModel] is still supplied by the
- * caller, so the platform owns building and retaining it and the shared screen owns none of that wiring.
- *
- * The two fields, their visibility toggles and the reset dialog stay INSIDE this composable: they are pure
- * UI state with no platform meaning, and [rememberSaveable] preserves them across Android configuration
- * changes exactly as it did before the move.
- */
+/** The database passphrase setup gate, rendered identically by every platform: the screen a brand-new
+ * install sees before it has any database. [debugLogExport] is the platform's exporter, copy comes from
+ * [LocalUiStrings], and the shared ViewModel is supplied by the caller. */
 @Composable
 fun DatabasePassphraseSetupScreen(
     onPassphraseConfigured: () -> Unit,
-    /**
-     * The setup ViewModel, supplied by the caller rather than fetched here.
-     *
-     * It used to default to `hiltViewModel()`: it is a plain class in `:core:presentation` now, and
-     * `hiltViewModel<T>()` resolves through a factory that only knows `@HiltViewModel` classes - a shared
-     * module cannot carry that annotation, because the desktop has no Hilt at all. The platform builds it
-     * from the collaborators it binds and retains it, so the wiring is visible at the call site.
-     */
+    /** The setup ViewModel, supplied by the caller: it is a plain class, so Hilt cannot build it. */
     viewModel: DatabasePassphraseSetupViewModel,
-    /**
-     * Android's log-export buttons AND the path they report. See [DatabaseInitScreen]'s parameter of the
-     * same name; the reported path is Android's own file, so it renders inside the slot rather than here.
-     *
-     * [isSaving] is passed in for the reason [BiometricUnlockScreenActions.actions] gives: a platform
-     * cannot read the shared ViewModel's state, and this screen's export buttons have always been
-     * disabled while a configuration is in flight. A bare `() -> Unit` could not carry that, and
-     * dropping it would change what Android renders. The desktop passes nothing and renders no buttons,
-     * so the argument has no second shape to satisfy.
-     */
+    /** Android's log-export buttons and the path they report, given [isSaving] so they disable in flight. */
     debugLogExport: (@Composable (isSaving: Boolean) -> Unit)? = null,
 ) {
     val logger = AppLogger.current
@@ -248,10 +207,8 @@ fun DatabasePassphraseSetupScreen(
             },
         )
 
-        // The error line, its reset affordance, the two fields and the submit button all key off the SAME
-        // state as the file this screen came from. The setup-specific codes are resolved through
-        // passphraseSetupErrorMessage rather than the bare shared map, because this screen has always shown
-        // the generic sentence for a code it does not recognise instead of rendering nothing.
+        // The setup-specific codes resolve through passphraseSetupErrorMessage, so an unrecognised code
+        // shows the generic sentence rather than nothing.
         val errorText = strings.passphraseSetupErrorMessage(uiState.errorReasonCode)
         if (errorText != null) {
             Text(
@@ -333,12 +290,8 @@ fun DatabasePassphraseSetupScreen(
     }
 }
 
-/**
- * The existing database is sealed with a different key, so retrying cannot help and only a reset can.
- *
- * Named because the reset affordance below compares against these two codes, and a bare string literal in
- * a layout condition is a place a typo would silently disable the only recovery a user has.
- */
+/** The existing database is sealed with a different key: retrying cannot help, only a reset can. Named so a
+ * typo cannot silently disable the only recovery a user has. */
 private const val MIGRATION_INCOMPATIBLE_CODE = "migration_incompatible"
 
 /** The re-encryption itself failed, leaving the data unchanged. Offers the same reset as above. */

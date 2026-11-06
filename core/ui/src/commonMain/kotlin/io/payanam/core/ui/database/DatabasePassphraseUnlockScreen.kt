@@ -69,116 +69,32 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * The biometric affordances this screen renders, supplied by the platform rather than built here.
- *
- * WHAT THIS IS: the decision (aligned divergence #1) that biometrics are an Android-only capability, and
- * that a platform without a sensor must not be handed a fake one. The screen below is shared, so the two
- * questions "does this device have a usable sensor" and "how does a user enroll one" are the platform's
- * to answer. They are asked through this interface instead of an `android.*` type, so the same screen
- * compiles for the JVM desktop and renders the honest passphrase path there.
- *
- * A PLATFORM WITH NO BIOMETRICS OMITS THE WHOLE SLOT and therefore reports a `null`
- * [canAuthenticate]. That is deliberately indistinguishable from "Android, sensor present, nothing
- * enrolled": both render the enrollment affordance and neither renders an unlock button, so the typed
- * passphrase remains the only way in. No stub claims a capability the platform does not have.
- *
- * WHAT IS AND IS NOT IN HERE. Only the two genuinely Android operations are: asking
- * `BiometricManager` what the sensor can do, and launching the enrollment screen. Both buttons draw
- * themselves, because they are the platform's own Material buttons and re-expressing them as data (a
- * title plus an onClick) would put a second, drifting copy of that styling into this file. Everything
- * else stayed in the shared screen: the auto-prompt, the enable hint and the lock on "only prompt once"
- * are all logic over state the SHARED ViewModel already holds, so moving them out would have hidden
- * behaviour the desktop also has to obey.
- */
+/** The biometric affordances this screen renders, supplied by the platform rather than built here:
+ * biometrics are Android-only, and a platform without a sensor must not be handed a fake one. Such a
+ * platform omits the slot and reports a null [canAuthenticate], which renders the honest passphrase path. */
 interface BiometricUnlockScreenActions {
-    /**
-     * The sensor's OWN verdict, kept separate from the ViewModel's [BiometricAvailability] on purpose:
-     * the latter folds the sensor's verdict together with the user's own preference into one answer, but
-     * the enrollment affordance has to ask about the hardware specifically.
-     *
-     * A property rather than a constructor argument, so the sensor is re-checked on every recomposition
-     * exactly as the screen's old `biometricCanAuthenticate(context)` call was.
-     */
+    /** The sensor's OWN verdict, not the ViewModel's folded answer: enrollment asks about hardware. */
     val canAuthenticate: BiometricAvailability
 
-    /**
-     * The unlock and enrollment buttons, rendered between the primary unlock button and the
-     * "forgot passphrase" link. [isUnlocking] is passed in because a platform cannot read the shared
-     * ViewModel's state, and both buttons disable themselves while an unlock is in flight.
-     */
+    /** The unlock and enrollment buttons, drawn between the primary button and "forgot passphrase". */
     val actions: @Composable (isUnlocking: Boolean) -> Unit
 }
 
-/**
- * The DB-locked gate, rendered identically by every platform.
- *
- * Moved here from `:app` with its layout, order, colours and copy unchanged, so Android and the desktop
- * cannot drift into two different unlock screens. The desktop follows
- * Android's EXACT first-run flow - create-db, import-db and onboarding all identical, in the same shared
- * screens - and this gate is one of the screens both platforms must therefore share.
- *
- * WHAT CAME OUT, and why each piece is a slot rather than a rewrite:
- *
- *  - **Biometrics** ([biometricActions]) are aligned divergence #1: a decided, permanent platform
- *    difference, not a gap to close. `BiometricManager`, the enrollment `Intent` chain and
- *    `Settings.ACTION_*` are all Android types, and `:app` keeps the exact current behaviour behind the
- *    slot - the same `BiometricManager` checks, the same `BiometricPrompt`, the same fall-back to
- *    `Settings.ACTION_SETTINGS` when the enrollment intent fails, and the same auto-prompt. A platform with
- *    no biometrics passes nothing at all and the passphrase path renders exactly as it does on Android
- *    when biometrics are unavailable. There is deliberately no desktop no-op pretending to be biometrics.
- *    The one thing this shared file still owns is the ENABLE HINT, because it is a sentence rather than
- *    a capability, and it is copy - so it comes from [LocalUiStrings] like every other label.
- *  - **The pre-unlock update hatch** ([preUnlockUpdate]) is a `@Composable () -> Unit` slot, following
- *    [DatabaseInitScreen]'s `debugLogExport` precedent. It is an Android APK download-and-install flow
- *    (`Intent` + `FileProvider` + `PackageInstaller`, behind a `@HiltViewModel` that lives in `:app`), and
- *    this screen renders on the DB-LOCKED path, so a shared screen that called it directly would be
- *    unbuildable on the desktop for no user-visible reason. `:app` passes the existing section unchanged.
- *  - **The log-export buttons** ([debugLogExport]) take the same shape as `debugLogExport` on
- *    [DatabaseInitScreen]: `exportLatestLog()`/`exportAllLogs()` return an Android `java.io.File` written
- *    to Android's own storage, so the exporter and the path it prints stay in `:app`.
- *  - **Copy** comes from [LocalUiStrings] rather than `stringResource`. All 37 keys this screen read
- *    already ship in `:core:strings` with EN+TA parity, so nothing was added to the string tables.
- *
- * The ViewModel is unchanged: the shared
- * [io.payanam.presentation.database.DatabasePassphraseUnlockViewModel] is still supplied by the caller,
- * and the [LocalUiStrings] it already holds are the same table the screen reads, so the two can never
- * disagree about the user's language.
- *
- * The plain-passphrase path - the field, the visibility toggle, the lockout countdown, the error copy,
- * the forgot-passphrase reset dialog, the database summary card - is Android's behaviour unchanged,
- * because it is the part every platform shares.
- */
+/** The DB-locked gate, rendered identically by every platform. Android's layout, order, colours and copy,
+ * with each platform-specific piece as a slot: biometrics, the pre-unlock update hatch and the log-export
+ * buttons. Copy comes from [LocalUiStrings], and the shared ViewModel is supplied by the caller. */
 @Composable
 fun DatabasePassphraseUnlockScreen(
     onPassphraseUnlocked: () -> Unit,
     onForgotPassphraseReset: () -> Unit,
     isImportMode: Boolean = false,
-    /**
-     * The SHARED unlock ViewModel, supplied by the caller rather than fetched here.
-     *
-     * It used to default to `hiltViewModel()`: it is a plain class in `:core:presentation` now, and
-     * `hiltViewModel<T>()` resolves through a factory that only knows `@HiltViewModel` classes - a
-     * shared module cannot carry that annotation, because the desktop has no Hilt at all. The platform
-     * builds it from the collaborators it binds and retains it (Android through
-     * `retainSharedViewModel(key, onRelease = { it.dispose() })`, the desktop through its own holder),
-     * so the wiring is visible at the call site and both platforms build the same object graph.
-     */
+    /** The SHARED unlock ViewModel, supplied by the caller: it is a plain class, so Hilt cannot build it. */
     viewModel: DatabasePassphraseUnlockViewModel,
-    /**
-     * Android's biometric block. Omitted on a platform with no biometrics; see
-     * [BiometricUnlockScreenActions] for what that means for the passphrase path.
-     */
+    /** Android's biometric block; omitted on a platform with no biometrics. */
     biometricActions: BiometricUnlockScreenActions? = null,
-    /**
-     * Android's pre-unlock update hatch. A no-op slot here, not a missing feature: the flow it wraps is
-     * Android's own APK install, and the desktop has no honest equivalent to offer yet.
-     */
+    /** Android's pre-unlock update hatch; a no-op slot here, not a missing feature. */
     preUnlockUpdate: (@Composable () -> Unit)? = null,
-    /**
-     * Android's log-export buttons AND the path they report. See [DatabaseInitScreen]'s parameter of the
-     * same name; the reported path is Android's own file, so it renders inside the slot rather than here.
-     */
+    /** Android's log-export buttons; the reported path is Android's own file, so it renders in the slot. */
     debugLogExport: (@Composable () -> Unit)? = null,
 ) {
     val strings = LocalUiStrings.current
@@ -495,10 +411,8 @@ fun DatabasePassphraseUnlockScreen(
         }
     }
 
-    // Biometric Auto-Trigger. Stays here, in the shared screen, because it is logic over the SHARED
-    // ViewModel's own state and a lock against prompting twice: both platforms have to obey it, and the
-    // platform slot has no access to `uiState` beyond the one `isUnlocking` flag it is handed. The prompt
-    // it triggers is the platform's, reached through the ViewModel's existing `startBiometricUnlock`.
+    // The auto-prompt stays here because it is logic over the SHARED ViewModel's state plus a
+    // prompt-once lock; the platform slot only receives `isUnlocking`.
     if (canUseBiometric && biometricEnabled && biometricPromptAvailable) {
         LaunchedEffect(canUseBiometric, biometricEnabled, uiState.isUnlocking, biometricPromptLaunched) {
             if (!uiState.isUnlocking && !biometricPromptLaunched) {
@@ -563,16 +477,9 @@ private fun SummaryRow(
     }
 }
 
-/**
- * One outlined diagnostic action, the visual language of this screen's diagnostics zone.
- *
- * Public rather than private because the log-export buttons behind the [debugLogExport] slot have to
- * LOOK like they belong to this screen while the exporter that backs them stays in `:app` (it returns an
- * Android `File` written to Android's own storage). Exposing the button - rather than letting each
- * platform draw its own - is what keeps ONE copy of that visual instead of a second that drifts.
- *
- * @param text the label; copy, so it comes from [LocalUiStrings] at the call site.
- */
+/** One outlined diagnostic action, the visual language of this screen's diagnostics zone. Public so the
+ * log-export buttons behind the [debugLogExport] slot look like they belong here while the exporter
+ * stays in `:app`. */
 @Composable
 fun DatabasePassphraseUnlockDiagnosticButton(
     text: String,

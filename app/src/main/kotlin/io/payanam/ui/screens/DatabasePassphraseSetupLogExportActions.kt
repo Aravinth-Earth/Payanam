@@ -26,19 +26,7 @@ import kotlinx.coroutines.launch
 /** The horizontal gap between the two export buttons, as dp. */
 private val ExportButtonSpacing = 12.dp
 
-/**
- * Android's debug-log exporter for the shared setup screen.
- *
- * The two buttons, the report line and the reported path stayed in `:app` because `exportLatestLog()` /
- * `exportAllLogs()` return an Android `java.io.File` written to Android's own storage - the same reason
- * [DatabaseInitLogExportActions] and [DatabasePassphraseUnlockLogExportActions] stay here. What leaves
- * `:core:ui` is only the SLOT, exactly as on those two screens.
- *
- * The buttons, the spacing, the disabled-while-saving behaviour and the reported copy are the setup
- * screen's own existing block, preserved verbatim: it is this screen's Material `OutlinedButton` row and
- * the localized snackbar copy it always showed, not the unlock screen's custom diagnostic button and not
- * the init screen's hint. What changed is the WHERE - the block lived inside the screen and is now here.
- */
+/** Debug-log exporter for the shared setup screen; stays in `:app` because the export returns an Android `File`. */
 @Composable
 internal fun DatabasePassphraseSetupLogExportActions(isSaving: Boolean) {
     val logger = UnifiedLogger.getInstance()

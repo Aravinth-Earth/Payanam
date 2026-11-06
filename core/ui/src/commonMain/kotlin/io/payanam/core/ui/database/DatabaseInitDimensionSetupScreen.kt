@@ -117,10 +117,9 @@ fun MandatoryDimensionSetupSection(
             textAlign = TextAlign.Center,
             modifier = Modifier.padding(horizontal = 8.dp),
         )
-        // Two stacked rows on purpose: the description owns its full-width row and the button
-        // owns its own row below it. In one shared band (the previous Box) long translations or
-        // large font scales let the wrapping description run into the button, and even when the
-        // glyphs happened to stay apart the button read as part of the description sentence.
+        // Two stacked rows on purpose: the description owns its full-width row and the button its own row
+        // below. In one shared band, long translations or large font scales ran the description into the
+        // button, and even when the glyphs stayed apart the button read as part of the description sentence.
         Column(
             modifier = Modifier.fillMaxWidth(),
             verticalArrangement = Arrangement.spacedBy(4.dp),
