@@ -354,7 +354,6 @@ fun HabitCard(
                         },
                         onLongClick = { }, // Could add multi-select later
                     )
-                    .testTag(TestTags.Habits.row(task.id))
                     .padding(horizontal = 3.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -379,14 +378,23 @@ fun HabitCard(
             )
 
             // Title (takes remaining space after checkmarks)
-            Text(
-                text = task.title,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Normal,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            // The row's click also spans the checkmark panel, so the row tag sits on a node covering only
+            // the title area: its centre always reaches the row's click instead of a checkmark cell.
+            Box(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .testTag(TestTags.Habits.row(task.id)),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Text(
+                    text = task.title,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
 
             // Checkmark Panel (Canvas-based)
             CheckmarkPanelCanvas(

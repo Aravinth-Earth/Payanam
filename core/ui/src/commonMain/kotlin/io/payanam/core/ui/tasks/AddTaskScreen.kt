@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.TimePickerDialog
 import io.payanam.core.ui.components.TagEditorField
 import io.payanam.core.ui.components.TestTags
+import io.payanam.core.ui.components.exposeTestTagsAsResourceIds
 import io.payanam.core.ui.components.parseTagsInput
 import io.payanam.core.ui.preferences.LocalAppPreferences
 import io.payanam.core.ui.preferences.visibleDimensionOptions
@@ -651,6 +652,9 @@ fun AddTaskScreen(
             )
             DatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
+                // The dialog draws in its own window, so the app root's test-tag publication is not an
+                // ancestor of the confirm button and the tag below it stays invisible without this.
+                modifier = Modifier.exposeTestTagsAsResourceIds(),
                 confirmButton = {
                     TextButton(
                         onClick = {

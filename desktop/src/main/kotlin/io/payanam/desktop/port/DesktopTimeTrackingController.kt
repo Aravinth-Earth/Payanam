@@ -22,7 +22,7 @@ import java.util.UUID
  * answers, and only the first two are platform work. On Android [startTracking] and [stopTracking] drive
  * `TrackingService`, a foreground service, and the home-screen widget; Linux has neither an ongoing-session
  * notification nor a launcher widget host, and this module has no tray icon to stand in for them. Those two
- * methods therefore refuse, and refuse out loud.
+ * methods therefore refuse, and say so in the log.
  *
  * [stopTrackingAndCompleteTask] is the opposite case, and answering it with a refusal would be the exact
  * defect this project removed: it is not platform work. It stops the SHARED store's active entry and
@@ -83,9 +83,14 @@ internal class DesktopTimeTrackingController(
         )
     }
 
-    /** Refusal: there was no platform session to stop, and none was ever started here. */
+    /**
+     * Refusal: there was no platform session to stop, and none was ever started here.
+     *
+     * Logged at `debug`: every edit or delete that ends the active entry reaches this call, so a warning here
+     * reports routine behaviour as a fault.
+     */
     override fun stopTracking() {
-        logger.w(
+        logger.d(
             "DesktopTimeTrackingController.stopTracking",
             "No platform tracking session to stop: none was ever started on this platform",
         )

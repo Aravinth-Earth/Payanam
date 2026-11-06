@@ -299,8 +299,8 @@ private fun EditTaskContent(
     val dateFormatter = DateTimeFormatter.ofPattern("EEE, MMM d")
     val timePattern = if (prefs.timeFormat.use24Hour) "HH:mm" else "h:mm a"
     val timeFormatter = DateTimeFormatter.ofPattern(timePattern)
-    // The recurring first occurrence feeds both the preview and the saved due date; it is computed once
-    // here so the two can never disagree.
+    // The recurring first occurrence feeds the preview, and the saved due date only when the task has no
+    // stored date to keep.
     val recurringFirstOccurrence =
         if (recurrenceEnabled) {
             selectedTime?.let { time ->
@@ -609,7 +609,13 @@ private fun EditTaskContent(
                 val dueDateTime = if (selectedDate != null) {
                     LocalDateTime.of(selectedDate, selectedTime ?: LocalTime.MIDNIGHT)
                 } else if (recurrenceEnabled) {
-                    recurringFirstOccurrence
+                    // An edit keeps the stored date and takes only the time of day: the rule's next matching
+                    // day is not the date the store already holds.
+                    resolveRecurringEditDueDateTime(
+                        storedDueDate = task.dueDate,
+                        selectedTime = selectedTime,
+                        firstOccurrence = recurringFirstOccurrence,
+                    )
                 } else {
                     null
                 }

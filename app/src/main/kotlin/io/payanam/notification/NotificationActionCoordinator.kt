@@ -1,0 +1,303 @@
+//  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+//  SPDX-License-Identifier: AGPL-3.0-or-later
+package io.payanam.notification
+
+import android.app.NotificationManager
+import android.content.Context
+import dagger.hilt.android.qualifiers.ApplicationContext
+import io.payanam.FeatureFlags
+import io.payanam.common.logging.UnifiedLogger
+import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.domain.model.TaskOccurrence
+import io.payanam.domain.repository.TaskOccurrenceRepository
+import io.payanam.domain.repository.TaskRepository
+import io.payanam.scoring.RecurrenceManager
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import java.time.LocalDate
+import java.util.UUID
+import java.util.concurrent.atomic.AtomicBoolean
+import javax.inject.Inject
+import javax.inject.Singleton
+
+/** The terminal result of applying one reminder action. */
+enum class NotificationActionOutcome {
+    /** The database write, the recurrence advance and the notification dismissal all ran. */
+    APPLIED,
+
+    /** Nothing could be applied and a retry cannot change that (task gone, unknown action type). */
+    NOT_APPLICABLE,
+
+    /** The attempt threw; the action is kept so the next unlock can retry it. */
+    FAILED,
+}
+
+/**
+ * Applies reminder actions: the ones tapped with the database open, and the ones recorded while it
+ * was locked.
+ *
+ * [execute] is the single code path for both callers, so a deferred action cannot diverge from a
+ * live one. [startObservingUnlocks] listens to the session's own open state rather than to the
+ * unlock screens, which covers every way into an open database (typed passphrase, biometric,
+ * first-run init, inactivity re-unlock).
+ */
+@Singleton
+class NotificationActionCoordinator
+    @Inject
+    constructor(
+        @ApplicationContext private val context: Context,
+        private val taskRepository: TaskRepository,
+        private val taskOccurrenceRepository: TaskOccurrenceRepository,
+        private val notificationScheduler: NotificationScheduler,
+        private val recurrenceManager: RecurrenceManager,
+        private val sessionManager: DatabaseSessionManager,
+        private val pendingActions: PendingNotificationActionStore,
+    ) {
+        private val logger = UnifiedLogger.getInstance()
+        private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+        private val observing = AtomicBoolean(false)
+
+        /**
+         * Starts the unlock listener once per process; later calls return immediately.
+         *
+         * The session flow emits its current value on subscription, so a session that is already
+         * open drains on the same path as one opened later.
+         */
+        fun startObservingUnlocks() {
+            if (!observing.compareAndSet(false, true)) return
+            logger.i(LOG_SOURCE, "Observing database unlocks for deferred reminder actions")
+            scope.launch {
+                sessionManager.isOpen.collect { open ->
+                    if (!open) return@collect
+                    logger.i(
+                        LOG_SOURCE,
+                        "Database session opened; applying deferred reminder actions",
+                        mapOf("sessionOpen" to true),
+                    )
+                    applyPendingActions()
+                }
+            }
+        }
+
+        /**
+         * Applies every pending action still valid today, oldest first.
+         *
+         * Ordering is by recorded timestamp; the store answers it already sorted.
+         */
+        suspend fun applyPendingActions() {
+            val pending = pendingActions.readPending()
+            if (pending.isEmpty()) {
+                logger.i(LOG_SOURCE, "No deferred reminder actions to apply")
+                return
+            }
+            logger.i(
+                LOG_SOURCE,
+                "Applying deferred reminder actions",
+                mapOf("count" to pending.size),
+            )
+            for (action in pending) {
+                if (!sessionManager.isDbOpen()) {
+                    logger.w(
+                        LOG_SOURCE,
+                        "Stopped applying deferred reminder actions; session closed again",
+                        mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+                    )
+                    return
+                }
+                when (execute(action)) {
+                    NotificationActionOutcome.APPLIED -> {
+                        pendingActions.clear(action.taskId)
+                        logger.i(
+                            LOG_SOURCE,
+                            "Applied deferred reminder action",
+                            mapOf(
+                                "actionType" to action.actionType,
+                                "taskId" to action.taskId,
+                                "recordedDay" to action.recordedDay().toString(),
+                            ),
+                        )
+                    }
+
+                    NotificationActionOutcome.NOT_APPLICABLE -> {
+                        pendingActions.clear(action.taskId)
+                        logger.w(
+                            LOG_SOURCE,
+                            "Deferred reminder action cannot be applied; dropped",
+                            mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+                        )
+                    }
+
+                    NotificationActionOutcome.FAILED -> {
+                        logger.w(
+                            LOG_SOURCE,
+                            "Deferred reminder action kept for the next unlock",
+                            mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+                        )
+                    }
+                }
+            }
+        }
+
+        /**
+         * Applies one action, then dismisses its notification only if it succeeded.
+         *
+         * A reminder whose action is still pending stays on screen: nothing has changed yet.
+         */
+        @Suppress("TooGenericExceptionCaught") // Background component; an escaping throw is an unhandled crash
+        suspend fun execute(action: PendingNotificationAction): NotificationActionOutcome {
+            logger.i(
+                LOG_SOURCE,
+                "Executing reminder action",
+                mapOf(
+                    "actionType" to action.actionType,
+                    "taskId" to action.taskId,
+                    "notificationId" to action.notificationId,
+                ),
+            )
+            return try {
+                when (action.actionType) {
+                    ACTION_TYPE_COMPLETE, ACTION_TYPE_SKIP, ACTION_TYPE_MISS -> applyTaskAction(action)
+                    ACTION_TYPE_SNOOZE -> applySnooze(action)
+                    else -> {
+                        logger.w(
+                            LOG_SOURCE,
+                            "Unknown reminder action type",
+                            mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+                        )
+                        NotificationActionOutcome.NOT_APPLICABLE
+                    }
+                }
+            } catch (e: Exception) {
+                logger.e(
+                    LOG_SOURCE,
+                    "Failed to apply reminder action",
+                    e,
+                    mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+                )
+                NotificationActionOutcome.FAILED
+            }
+        }
+
+        /** Complete / skip / miss: the task write, the occurrence row, the recurrence advance, then the dismissal. */
+        private suspend fun applyTaskAction(action: PendingNotificationAction): NotificationActionOutcome {
+            val taskId = action.taskId
+            val status = action.actionType
+            val task =
+                taskRepository.getTaskById(taskId)
+                    ?: run {
+                        logger.w(LOG_SOURCE, "Task not found", mapOf("taskId" to taskId, "actionType" to status))
+                        return NotificationActionOutcome.NOT_APPLICABLE
+                    }
+            val isFrequencyHabit = task.recurrenceEnabled && recurrenceManager.isFrequencyHabit(task)
+            if (!isFrequencyHabit) {
+                when (status) {
+                    ACTION_TYPE_COMPLETE -> taskRepository.completeTask(taskId)
+
+                    ACTION_TYPE_SKIP -> taskRepository.skipTask(taskId)
+
+                    ACTION_TYPE_MISS -> taskRepository.missTask(taskId)
+                }
+            }
+            if (task.recurrenceEnabled) {
+                val occurrence =
+                    TaskOccurrence(
+                        id = UUID.randomUUID().toString(),
+                        taskId = taskId,
+                        occurrenceDate = LocalDate.now().toString(),
+                        status = status,
+                        statusNote = null,
+                        statusReason = "notification_action",
+                        completedAt = if (status == ACTION_TYPE_COMPLETE) System.currentTimeMillis().toString() else null,
+                        skippedAt = if (status == ACTION_TYPE_SKIP || status == ACTION_TYPE_MISS) {
+                            System.currentTimeMillis().toString()
+                        } else {
+                            null
+                        },
+                    )
+                taskOccurrenceRepository.recordOccurrence(occurrence)
+                if (FeatureFlags.minimalModeEnabled) {
+                    logger.i(
+                        LOG_SOURCE,
+                        "Minimal mode: skipping recurrence advancement for recurring task",
+                        mapOf("taskId" to taskId, "actionType" to status),
+                    )
+                } else {
+                    when (status) {
+                        ACTION_TYPE_COMPLETE ->
+                            recurrenceManager.onTaskCompleted(task, note = null, reason = "notification_action", nextDueStrategy = null)
+
+                        ACTION_TYPE_SKIP ->
+                            recurrenceManager.onTaskSkipped(task, note = null, reason = "notification_action", nextDueStrategy = null)
+
+                        ACTION_TYPE_MISS ->
+                            recurrenceManager.onTaskMissed(task, note = null, reason = "notification_action", nextDueStrategy = null)
+                    }
+                    val updatedTask = taskRepository.getTaskById(taskId)
+                    if (updatedTask != null && updatedTask.recurrenceEnabled) {
+                        notificationScheduler.scheduleForTask(
+                            task = updatedTask,
+                            overrideScheduledAt = null,
+                            overrideDueAt = null,
+                            isSnoozed = false,
+                        )
+                    }
+                }
+            } else {
+                notificationScheduler.cancelForTask(taskId)
+            }
+            cancelDisplayedNotification(action.notificationId)
+            logger.i(
+                LOG_SOURCE,
+                "Task action handled",
+                mapOf("taskId" to taskId, "actionType" to status),
+            )
+            return NotificationActionOutcome.APPLIED
+        }
+
+        /** Snooze: reschedules through the scheduler, then dismisses the current reminder. */
+        private suspend fun applySnooze(action: PendingNotificationAction): NotificationActionOutcome {
+            val task =
+                taskRepository.getTaskById(action.taskId)
+                    ?: run {
+                        logger.w(
+                            LOG_SOURCE,
+                            "Task not found",
+                            mapOf("taskId" to action.taskId, "actionType" to ACTION_TYPE_SNOOZE),
+                        )
+                        return NotificationActionOutcome.NOT_APPLICABLE
+                    }
+            // A recorded action carries no due time, so the scheduler's own default window applies.
+            notificationScheduler.scheduleSnooze(task, dueAt = null)
+            cancelDisplayedNotification(action.notificationId)
+            logger.i(
+                LOG_SOURCE,
+                "Snoozed task reminder",
+                mapOf("taskId" to action.taskId),
+            )
+            return NotificationActionOutcome.APPLIED
+        }
+
+        private fun cancelDisplayedNotification(notificationIdInt: Int) {
+            if (notificationIdInt <= 0) return
+            val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
+            notificationManager.cancel(notificationIdInt)
+        }
+
+        companion object {
+            /** Completion status; also the occurrence status recorded for it. */
+            const val ACTION_TYPE_COMPLETE = "completed"
+
+            /** Skip status; also the occurrence status recorded for it. */
+            const val ACTION_TYPE_SKIP = "skipped"
+
+            /** Miss status; also the occurrence status recorded for it. */
+            const val ACTION_TYPE_MISS = "missed"
+
+            /** Snooze reschedules the reminder and records no occurrence status. */
+            const val ACTION_TYPE_SNOOZE = "snooze"
+
+            private const val LOG_SOURCE = "NotificationActionCoordinator"
+        }
+    }

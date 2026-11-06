@@ -1408,6 +1408,42 @@ class TimeViewModelTest {
         }
 
     /**
+     * Deleting the entry the tracking service is showing ends that service too: the same ending an edit
+     * that closes the entry produces, reached from the delete button.
+     */
+    @Test
+    fun `deleting the running entry stops the tracking service`() =
+        runTest {
+            timeEntryRepository.entriesByDate[TASKS_TEST_DAY] = listOf(entry("entry-1", endedAt = null))
+            timeEntryRepository.activeEntry = entry("entry-1", endedAt = null)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.deleteTimeEntry("entry-1")
+            advanceUntilIdle()
+
+            assertEquals(listOf("entry-1"), timeEntryRepository.deleted)
+            assertEquals(1, timeTrackingController.stopCalls)
+            // The widget renders its own chronometer, so it keeps counting until something refreshes it.
+            assertEquals(1, widgetRefresher.refreshes)
+        }
+
+    /** Deleting an entry that was not the running one leaves the tracking service alone. */
+    @Test
+    fun `deleting a finished entry leaves the tracking service alone`() =
+        runTest {
+            timeEntryRepository.entriesByDate[TASKS_TEST_DAY] = listOf(entry("entry-1"))
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.deleteTimeEntry("entry-1")
+            advanceUntilIdle()
+
+            assertEquals(0, timeTrackingController.stopCalls)
+            assertEquals(0, widgetRefresher.refreshes)
+        }
+
+    /**
      * Deleting an entry that completed a task puts the task back to pending: the work was not done, so
      * neither was the task, and leaving it "completed" would hide it from every list.
      */

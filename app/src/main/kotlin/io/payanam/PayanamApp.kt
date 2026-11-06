@@ -43,6 +43,7 @@ import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TaskRescheduleRepository
 import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.feature.settings.AppStartUpdateChecker
+import io.payanam.notification.NotificationActionCoordinator
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.flags.FeatureFlagsState
 import io.payanam.presentation.flags.PlatformFeatureFlags
@@ -202,6 +203,17 @@ class PayanamApp : Application() {
         } catch (e: Exception) {
             logger.e("PayanamApp.onCreate", "Shared data layer not installed", e)
         }
+        // The deferred reminder-action drain has to exist before any unlock can happen, and a receiver
+        // tap can cold-start this process, so it is started here rather than from an Activity.
+        try {
+            val notificationActionCoordinator =
+                EntryPointAccessors
+                    .fromApplication(this, NotificationActionEntryPoint::class.java)
+                    .notificationActionCoordinator()
+            notificationActionCoordinator.startObservingUnlocks()
+        } catch (e: Exception) {
+            logger.e("PayanamApp.onCreate", "Deferred reminder actions not started", e)
+        }
         logger.i("PayanamApp.onCreate", "Application initialized successfully")
 
         // App-start update check — resolved LAZILY via EntryPoint so nothing
@@ -230,6 +242,17 @@ class PayanamApp : Application() {
          * Resolves the update checker lazily (kept out of super.onCreate()).
          */
         fun appStartUpdateChecker(): AppStartUpdateChecker
+    }
+
+    /**
+     * Hilt entry point for the deferred reminder-action drain, resolved lazily so
+     * nothing extra is built during super.onCreate().
+     */
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface NotificationActionEntryPoint {
+        /** The coordinator that applies reminder actions recorded while the DB was locked. */
+        fun notificationActionCoordinator(): NotificationActionCoordinator
     }
 
     /**

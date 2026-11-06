@@ -56,8 +56,9 @@ class TimeViewModel(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val logger = AppLogger.current
-    // One lock over every session transition: a start and the end-of-entry reconciliation read and write
-    // the same active entry, so an unsynchronized pair lets the stop end a session that has just begun.
+    // Serialises the transitions that read or write the active entry while driving the tracking service: a
+    // start and an end-of-entry reconciliation racing lets the stop end a session that has just begun. A
+    // plain row edit or delete holds no lock of its own; only its reconciliation does.
     private val sessionMutex = Mutex()
     private val _uiState = MutableStateFlow(TimeScreenUiState())
     val uiState: StateFlow<TimeScreenUiState> = _uiState.asStateFlow()
@@ -497,12 +498,17 @@ class TimeViewModel(
 
     /** [reconcileTrackingService] on the caller's coroutine, for a save that already runs in one. */
     private suspend fun reconcileTrackingServiceNow(owedNow: Boolean = false) {
+        sessionMutex.withLock { reconcileTrackingServiceNowLocked(owedNow) }
+    }
+
+    /** [reconcileTrackingServiceNow] with [sessionMutex] already held by the caller. */
+    private suspend fun reconcileTrackingServiceNowLocked(owedNow: Boolean = false) {
         if (!owedNow && !isServiceStopPending()) return
         logger.i(
             "TimeViewModel.reconcileTrackingService",
             "Reconciling the tracking service against a stop it is owed",
         )
-        stopTrackingIfNoEntryRemains()
+        stopTrackingIfNoEntryRemainsLocked()
     }
 
     /**
@@ -566,11 +572,6 @@ class TimeViewModel(
      * still active: a second, overlapping entry keeps the service - and its notification - alive, because
      * it is that entry the notification is now counting.
      */
-    private suspend fun stopTrackingIfNoEntryRemains() {
-        sessionMutex.withLock { stopTrackingIfNoEntryRemainsLocked() }
-    }
-
-    /** [stopTrackingIfNoEntryRemains] with [sessionMutex] already held by the caller. */
     private suspend fun stopTrackingIfNoEntryRemainsLocked() {
         val stillActive =
             try {
@@ -614,10 +615,39 @@ class TimeViewModel(
         scope.launch {
             try {
                 val entryToDelete = _uiState.value.timeEntries.find { it.id == entryId }
+                // Read BEFORE the delete, for the reason the edit path reads it before its write: once the row
+                // is gone there is no way to tell whether the tracking service was showing it. An unreadable
+                // store counts as "may have been active", which reconciles rather than skipping the stop.
+                val wasActiveEntry =
+                    try {
+                        timeEntryRepository.getActiveTimeEntry()?.id == entryId
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.e(
+                            "TimeViewModel.deleteTimeEntry",
+                            "Could not read the active entry before the delete; reconciling the service afterwards",
+                            e,
+                            mapOf(
+                                "entryId" to entryId,
+                            ),
+                        )
+                        true
+                    }
                 timeEntryRepository.deleteTimeEntry(entryId)
                 entryToDelete?.taskId?.let { taskId ->
                     revertTaskCompletionFromTimeTracking(taskId, entryToDelete)
                 }
+                // Deleting the entry the service is showing owes it the same stop an edit that ended it does,
+                // and the mark is what a later save or resume retries.
+                if (wasActiveEntry && !markServiceStopPending()) {
+                    logger.w(
+                        "TimeViewModel.deleteTimeEntry",
+                        "Owed tracking-service stop could not be recorded; this delete attempts it and no later save will retry",
+                        mapOf("entryId" to entryId),
+                    )
+                }
+                sessionMutex.withLock { reconcileTrackingServiceNowLocked(owedNow = wasActiveEntry) }
                 logger.i(
                     "TimeViewModel.deleteTimeEntry",
                     "Time entry deleted",
