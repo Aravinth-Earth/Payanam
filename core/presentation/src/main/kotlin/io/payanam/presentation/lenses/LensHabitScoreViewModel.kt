@@ -142,7 +142,7 @@ class LensHabitScoreViewModel(
     fun loadWindow(
         endDate: LocalDate = LocalDate.now(),
         days: Int = 14,
-        metric: ScoreMetricColumn = _uiState.value.selectedMetric,
+        metric: ScoreMetricColumn? = null,
     ) {
         val t0 = System.currentTimeMillis()
         // The ticket is taken on the caller's thread, before the load is dispatched: the dispatcher may run two
@@ -150,7 +150,7 @@ class LensHabitScoreViewModel(
         val ticket = loadRequests.incrementAndGet()
         scope.launch {
             val self = coroutineContext.job
-            val generation =
+            val registration =
                 loadMutex.withLock {
                     // Registration is one guarded step: become the registered load, supersede (and cancel) the
                     // previous one, and raise the spinner. A request that reached the lock after a newer one
@@ -164,15 +164,20 @@ class LensHabitScoreViewModel(
                         loadJob?.cancel()
                         loadJob = self
                         _uiState.update { it.copy(isLoading = true, error = null) }
-                        ticket
+                        // The metric is read here, under the same lock. Taking it as a default argument
+                        // read the selection before the ticket was drawn, so a selection made in between
+                        // could be overwritten by the metric an older load had already captured.
+                        ticket to (metric ?: _uiState.value.selectedMetric)
                     }
                 } ?: return@launch
+            val generation = registration.first
+            val activeMetric = registration.second
             val end = endDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
             val start = endDate.minusDays((days - 1).toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
             logger.d(
                 "LensHabitScoreViewModel.loadWindow",
                 "Score matrix load started",
-                mapOf("start" to start, "end" to end, "days" to days, "metric" to metric.key),
+                mapOf("start" to start, "end" to end, "days" to days, "metric" to activeMetric.key),
             )
             try {
                 // 14-day window for display
@@ -217,7 +222,7 @@ class LensHabitScoreViewModel(
                 val rows = buildDimensionRows(dims, dayRows, start, end)
                 val dayRow = buildDayRow(days, start, end)
                 val tRankStart = System.currentTimeMillis()
-                val rankByKey = computeRankMap(history, metric)
+                val rankByKey = computeRankMap(history, activeMetric)
                 val tRankEnd = System.currentTimeMillis()
                 val tUpdateStart = System.currentTimeMillis()
                 // Same guarded window for the state write: only the registered generation may publish, and
@@ -247,7 +252,7 @@ class LensHabitScoreViewModel(
                     "LensHabitScoreViewModel.loadWindow",
                     "Rank recomputed for window",
                     mapOf(
-                        "metric" to metric.key,
+                        "metric" to activeMetric.key,
                         "rankKeys" to rankByKey.size,
                         "sampleDay" to (rankByKey["DAY"] ?: "none"),
                     ),

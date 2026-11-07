@@ -90,11 +90,22 @@ internal class FrequencyHabitSync(
                 ?: LocalDateTime.now()
         // Inc 4b: decay derived score removed — score roll-up (L1) owns scoring now.
 
-        taskRepository.updateRecurrenceState(
-            taskId = task.id,
-            newDueDate = newDueDate,
-            lastOccurrenceDate = latestOccurrenceDate,
-        )
+        val changed =
+            taskRepository.updateRecurrenceState(
+                taskId = task.id,
+                newDueDate = newDueDate,
+                lastOccurrenceDate = latestOccurrenceDate,
+            )
+        if (changed == 0) {
+            // The task was archived between the read above and this write: nothing was moved, so the
+            // success line would report a reminder that is not armed.
+            logger.w(
+                "FrequencyHabitSync.sync",
+                "No row updated; the task is no longer writable",
+                mapOf("taskId" to task.id),
+            )
+            return
+        }
 
         logger.i(
             "FrequencyHabitSync.sync",
