@@ -104,24 +104,23 @@ class DefaultApkChecksumVerifier @Inject constructor() : ApkChecksumVerifier {
     override suspend fun verify(
         apkFile: File,
         sha256Url: String?,
-    ): ChecksumVerdict =
-        report(
-            if (sha256Url.isNullOrBlank()) ChecksumVerdict.Skipped(NO_ASSET) else compare(sha256Url, apkFile),
-        )
+    ): ChecksumVerdict = report(
+        if (sha256Url.isNullOrBlank()) ChecksumVerdict.Skipped(NO_ASSET) else compare(sha256Url, apkFile),
+    )
 
     /** Fetch the published digest, then hash the file; the first step that yields nothing decides the verdict. */
     private suspend fun compare(
         sha256Url: String,
         apkFile: File,
-    ): ChecksumVerdict =
-        when (val expected = expectedDigest(sha256Url)) {
-            null -> ChecksumVerdict.Unavailable(SIDECAR_UNAVAILABLE)
-            else ->
-                when (val actual = digestOf(apkFile)) {
-                    null -> ChecksumVerdict.Unavailable(APK_UNREADABLE)
-                    else -> if (sha256Matches(expected, actual)) ChecksumVerdict.Verified else ChecksumVerdict.Mismatch
-                }
-        }
+    ): ChecksumVerdict = when (val expected = expectedDigest(sha256Url)) {
+        null -> ChecksumVerdict.Unavailable(SIDECAR_UNAVAILABLE)
+
+        else ->
+            when (val actual = digestOf(apkFile)) {
+                null -> ChecksumVerdict.Unavailable(APK_UNREADABLE)
+                else -> if (sha256Matches(expected, actual)) ChecksumVerdict.Verified else ChecksumVerdict.Mismatch
+            }
+    }
 
     /** The sidecar's digest; null when it cannot be fetched, or when it carries no parseable digest. */
     private suspend fun expectedDigest(sha256Url: String): String? {
@@ -244,10 +243,9 @@ internal fun ChecksumVerdict.installBlockKey(): String? = when (this) {
 }
 
 /** The log-safe description of a verdict: its name, plus the reason code when it is not decisive. */
-private fun ChecksumVerdict.logData(): Map<String, Any?> =
-    when (this) {
-        ChecksumVerdict.Verified -> mapOf("verdict" to "verified")
-        ChecksumVerdict.Mismatch -> mapOf("verdict" to "mismatch")
-        is ChecksumVerdict.Skipped -> mapOf("verdict" to "skipped", "reason" to reason)
-        is ChecksumVerdict.Unavailable -> mapOf("verdict" to "unavailable", "reason" to reason)
-    }
+private fun ChecksumVerdict.logData(): Map<String, Any?> = when (this) {
+    ChecksumVerdict.Verified -> mapOf("verdict" to "verified")
+    ChecksumVerdict.Mismatch -> mapOf("verdict" to "mismatch")
+    is ChecksumVerdict.Skipped -> mapOf("verdict" to "skipped", "reason" to reason)
+    is ChecksumVerdict.Unavailable -> mapOf("verdict" to "unavailable", "reason" to reason)
+}

@@ -18,8 +18,7 @@ enum class ReminderActionSlot {
 }
 
 /** Actions to add to a reminder notification; the rendered count is unqueryable, see [ASSUMED_VISIBLE_ACTIONS]. */
-fun reminderActionSlots(sdkInt: Int = Build.VERSION.SDK_INT): List<ReminderActionSlot> =
-    reminderActionSlotsForCount(assumedVisibleActionCount(sdkInt))
+fun reminderActionSlots(sdkInt: Int = Build.VERSION.SDK_INT): List<ReminderActionSlot> = reminderActionSlotsForCount(assumedVisibleActionCount(sdkInt))
 
 /** Slots for [visibleCount] rendered actions; three is the ceiling, a fourth is never rendered. */
 @VisibleForTesting
@@ -31,6 +30,7 @@ internal fun reminderActionSlotsForCount(visibleCount: Int): List<ReminderAction
     )
 
     visibleCount == 2 -> listOf(ReminderActionSlot.COMPLETE, ReminderActionSlot.MORE)
+
     else -> listOf(ReminderActionSlot.COMPLETE)
 }
 
@@ -38,5 +38,4 @@ internal fun reminderActionSlotsForCount(visibleCount: Int): List<ReminderAction
 internal const val ASSUMED_VISIBLE_ACTIONS = 3
 
 /** Rendered action count assumed for [sdkInt]; one action is the floor below the three-action API level. */
-private fun assumedVisibleActionCount(sdkInt: Int): Int =
-    if (sdkInt >= Build.VERSION_CODES.P) ASSUMED_VISIBLE_ACTIONS else 1
+private fun assumedVisibleActionCount(sdkInt: Int): Int = if (sdkInt >= Build.VERSION_CODES.P) ASSUMED_VISIBLE_ACTIONS else 1

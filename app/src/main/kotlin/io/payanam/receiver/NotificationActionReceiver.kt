@@ -75,10 +75,12 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
         when (intent.action) {
             ACTION_STOP_TRACKING -> handleStopTracking(context, pendingResult)
+
             // Reminder actions arrive at MainActivity now, from the notification's getActivity tap;
             // this branch is kept for an intent still routed to the receiver.
             ACTION_COMPLETE_TASK, ACTION_SKIP_TASK, ACTION_MISS_TASK, ACTION_SNOOZE_TASK ->
                 handleReminderAction(context, intent, pendingResult)
+
             else -> pendingResult.finish()
         }
     }
@@ -178,9 +180,11 @@ class NotificationActionReceiver : BroadcastReceiver() {
             try {
                 when (coordinator.execute(action)) {
                     NotificationActionOutcome.APPLIED -> pendingActions.clear(action.taskId)
+
                     NotificationActionOutcome.ALREADY_HANDLED,
                     NotificationActionOutcome.NOT_APPLICABLE,
-                    NotificationActionOutcome.FAILED -> Unit
+                    NotificationActionOutcome.FAILED,
+                    -> Unit
                 }
             } catch (e: Exception) {
                 logger.e(

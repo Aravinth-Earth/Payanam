@@ -1,13 +1,20 @@
 appId: io.payanam
 name: Fresh setup, unlock, enable debug logging
 ---
+# clearState is `pm clear` on the installed app, so this flow destroys the real database.
+# The runner runs it only with RESET_APP=1; never point it at an install you care about.
 - launchApp:
     clearState: true
     permissions:
       notifications: allow
 - takeScreenshot: 01-launch
 
-# Onboarding tour: one primary button advances each slide.
+# Onboarding tour: one primary button advances each slide. Optional taps poll from the
+# last successful interaction, so wait for the button first or the tour stays on page 1.
+- extendedWaitUntil:
+    visible:
+      id: "onboarding.primary_button"
+    timeout: 30000
 - repeat:
     times: 4
     commands:

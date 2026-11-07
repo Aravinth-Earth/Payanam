@@ -927,7 +927,8 @@ class MainActivity : FragmentActivity() {
         )
     }
 
-    /** Handles a reminder action tapped on a notification; extras are removed so a relaunch cannot replay it. */
+    // Handles a reminder action tapped on a notification. Extras are removed so a relaunch cannot
+    // replay it; only an intent carrying one of our own notification action strings is applied.
     private fun handleReminderActionIntent(intent: Intent?) {
         if (intent == null) return
         val actionType = intent.getStringExtra(TaskReminderReceiver.EXTRA_REMINDER_ACTION_TYPE)
@@ -943,6 +944,18 @@ class MainActivity : FragmentActivity() {
                     "actionTypePresent" to !actionType.isNullOrBlank(),
                     "taskIdPresent" to !taskId.isNullOrBlank(),
                     "notificationId" to notificationId,
+                ),
+            )
+            return
+        }
+        if (expectedActionTypeFor(intent.action) != actionType) {
+            logger.w(
+                LOG_SOURCE,
+                "Ignoring reminder action intent that did not come from our notification",
+                mapOf(
+                    "action" to (intent.action ?: "none"),
+                    "actionType" to actionType,
+                    "callingPackage" to (callingPackage ?: "none"),
                 ),
             )
             return
@@ -977,6 +990,15 @@ class MainActivity : FragmentActivity() {
         } else {
             deferReminderActionUntilUnlock(action)
         }
+    }
+
+    /** Action type our own notification PendingIntent pairs with [intentAction], or null for anything else. */
+    private fun expectedActionTypeFor(intentAction: String?): String? = when (intentAction) {
+        NotificationActionReceiver.ACTION_COMPLETE_TASK -> NotificationActionCoordinator.ACTION_TYPE_COMPLETE
+        NotificationActionReceiver.ACTION_SKIP_TASK -> NotificationActionCoordinator.ACTION_TYPE_SKIP
+        NotificationActionReceiver.ACTION_MISS_TASK -> NotificationActionCoordinator.ACTION_TYPE_MISS
+        NotificationActionReceiver.ACTION_SNOOZE_TASK -> NotificationActionCoordinator.ACTION_TYPE_SNOOZE
+        else -> null
     }
 
     /** Removes the action extras in place; this activity's intent object is what a relaunch reads back. */

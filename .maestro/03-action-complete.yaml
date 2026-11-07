@@ -78,9 +78,12 @@ name: Reminder Complete reaches the DB after the passphrase unlock
     timeout: 30000
 - tapOn:
     id: "task_add.save_button"
+# The save is async and the bottom bar is visible on the add form too, so wait for the
+# list's own add action before Home + killApp can interrupt the write and the arming.
 - extendedWaitUntil:
     visible:
-      id: "nav.tab.habits"
+      id: "tasks.add_button"
+    timeout: 60000
 - takeScreenshot: 110-habit-created
 
 - pressKey: Home

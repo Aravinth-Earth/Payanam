@@ -2,14 +2,18 @@ appId: io.payanam
 name: Arm a reminder on a new recurring habit from whatever state the app is in
 ---
 # Run with the app in front; both the unlocked and the unlock-screen states are covered.
-- tapOn:
-    id: "passphrase_unlock.passphrase_field"
-    optional: true
-- inputText: "${PASS}"
-- hideKeyboard
-- tapOn:
-    id: "passphrase_unlock.unlock_button"
-    optional: true
+# Guarded: an already-unlocked app would turn the bare hideKeyboard into a Back press.
+- runFlow:
+    when:
+      visible:
+        id: "passphrase_unlock.passphrase_field"
+    commands:
+      - tapOn:
+          id: "passphrase_unlock.passphrase_field"
+      - inputText: "${PASS}"
+      - hideKeyboard
+      - tapOn:
+          id: "passphrase_unlock.unlock_button"
 - extendedWaitUntil:
     visible:
       id: "nav.tab.habits"

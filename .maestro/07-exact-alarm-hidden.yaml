@@ -15,14 +15,18 @@ name: The affordance is gone once the permission is granted
       id: "passphrase_unlock.passphrase_field"
     timeout: 30000
     optional: true
-- tapOn:
-    id: "passphrase_unlock.passphrase_field"
-    optional: true
-- inputText: "${PASS}"
-- hideKeyboard
-- tapOn:
-    id: "passphrase_unlock.unlock_button"
-    optional: true
+# Guarded: an already-unlocked app would turn the bare hideKeyboard into a Back press.
+- runFlow:
+    when:
+      visible:
+        id: "passphrase_unlock.passphrase_field"
+    commands:
+      - tapOn:
+          id: "passphrase_unlock.passphrase_field"
+      - inputText: "${PASS}"
+      - hideKeyboard
+      - tapOn:
+          id: "passphrase_unlock.unlock_button"
 # The unlock decrypts the database; nothing renders until it finishes.
 - extendedWaitUntil:
     visible:

@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs the reminder-action Maestro flows against a real device: PASS=... DEVICE=<serial> [flow ...].
-# Labels come from the locale's resources. SUITE=exact-alarm runs 06/07; SUITE=archive runs 08/09.
+# Labels follow the app's language; setup (`pm clear`) needs RESET_APP=1; SUITE=exact-alarm|archive.
 set -uo pipefail
 
 DEVICE="${DEVICE:?set DEVICE to the adb serial}"
@@ -12,6 +12,18 @@ APP_ID="${APP_ID:-io.payanam}"
 PASS="${PASS:?set PASS to the database passphrase}"
 
 mkdir -p "$OUT_DIR"
+
+# Maestro drives the appId each flow declares, so a mismatch would inspect one package
+# while the flows drive another: abort rather than report on the wrong app.
+for flow_file in "$FLOWS_DIR"/*.yaml; do
+  [ -f "$flow_file" ] || continue
+  flow_app_id=$(sed -n 's/^appId:[[:space:]]*\([^[:space:]#]*\).*/\1/p' "$flow_file" | head -1)
+  if [ "$flow_app_id" != "$APP_ID" ]; then
+    echo "APP_ID=$APP_ID but ${flow_file##*/} declares appId=${flow_app_id:-<none>}"
+    echo "Maestro drives that file's appId, not APP_ID; set APP_ID=${flow_app_id:-<appId>} and re-run"
+    exit 20
+  fi
+done
 
 say() { printf '\n=== %s ===\n' "$*"; }
 
@@ -28,10 +40,19 @@ if ! adb -s "$DEVICE" shell pm list packages 2>/dev/null | grep -qx "package:$AP
 fi
 
 # ---- locale-derived labels ---------------------------------------------------
-locale=$(adb -s "$DEVICE" shell getprop persist.sys.locale 2>/dev/null | tr -d '\r')
-case "$locale" in
-  ta*) RES_DIR=values-ta; EXPAND_LABEL="விரிவாக்கும்" ;;
-  *)   RES_DIR=values;    EXPAND_LABEL="Expand" ;;
+# The app renders from its per-app locale (LocaleManager) when one is set, so the device
+# locale alone can name the wrong resource folder.
+app_locale=$(adb -s "$DEVICE" shell cmd locale get-app-locales "$APP_ID" 2>/dev/null \
+  | tr -d '\r' | sed -n 's/.*\[\([^]]*\)\].*/\1/p' | head -1 | cut -d, -f1)
+if ! [[ "$app_locale" =~ ^[A-Za-z]{2,3}([-_][A-Za-z0-9]{2,8})*$ ]]; then
+  app_locale=""
+fi
+system_locale=$(adb -s "$DEVICE" shell getprop persist.sys.locale 2>/dev/null | tr -d '\r')
+locale=${app_locale:-$system_locale}
+language=${locale%%[-_]*}
+case "$language" in
+  ta) RES_DIR=values-ta; EXPAND_LABEL="விரிவாக்கும்" ;;
+  *)  RES_DIR=values;    EXPAND_LABEL="Expand" ;;
 esac
 strings_xml="$REPO/core/strings/src/main/res/$RES_DIR/strings.xml"
 [ -f "$strings_xml" ] || { echo "missing $strings_xml"; exit 6; }
@@ -52,7 +73,35 @@ for v in STATUS_COMPLETED STATUS_SKIPPED STATUS_MISSED ACTION_COMPLETE ACTION_MI
   [ -n "${!v}" ] || { echo "could not resolve $v from $strings_xml"; exit 7; }
 done
 
-say "locale=$locale labels from $RES_DIR"
+say "app locale=${app_locale:-<none>} system locale=$system_locale labels from $RES_DIR"
+
+# ---- device-clock due time ---------------------------------------------------
+# The due time comes from the device's clock and timezone: a host/device offset can place
+# it in the past, where ReminderDecider arms nothing.
+device_due() {
+  local minutes=$1 epoch offset sign off_h off_m offset_s local_now due
+  epoch=$(adb -s "$DEVICE" shell date +%s 2>/dev/null | tr -d '\r')
+  offset=$(adb -s "$DEVICE" shell date +%z 2>/dev/null | tr -d '\r')
+  case "$epoch" in ''|*[!0-9]*) echo "could not read the device clock"; return 1 ;; esac
+  case "$offset" in
+    [+-][0-9][0-9][0-9][0-9]) ;;
+    *) echo "could not read the device UTC offset (got '$offset')"; return 1 ;;
+  esac
+  sign=${offset:0:1}
+  off_h=${offset:1:2}
+  off_m=${offset:3:2}
+  offset_s=$(( 10#$off_h * 3600 + 10#$off_m * 60 ))
+  [ "$sign" = "-" ] && offset_s=$(( -offset_s ))
+  local_now=$(( epoch + offset_s ))
+  due=$(( local_now + minutes * 60 ))
+  # A due time past the device's midnight is not "later today", so the run is refused.
+  if [ "$(date -u -d "@$local_now" '+%F')" != "$(date -u -d "@$due" '+%F')" ]; then
+    echo "now+${minutes}min crosses the device's midnight"
+    return 1
+  fi
+  printf '%s %s %s\n' \
+    "$(date -u -d "@$due" '+%H')" "$(date -u -d "@$due" '+%M')" "$(date -u -d "@$local_now" '+%F')"
+}
 
 # ---- flow list ---------------------------------------------------------------
 if [ "$#" -gt 0 ]; then
@@ -83,14 +132,22 @@ normalise_ui_state() {
   return 1
 }
 
-# Reset to a fresh database so the habits list never accumulates across runs.
-if [ "${SKIP_SETUP:-0}" != "1" ]; then
-  say "setup (fresh database)"
+# 01-fresh-setup.yaml runs `pm clear` on the installed package, which destroys the real
+# database, so setup happens only when the caller opts in with RESET_APP=1.
+if [ "${RESET_APP:-0}" = "1" ] && [ "${SKIP_SETUP:-0}" != "1" ]; then
+  say "setup (fresh database, RESET_APP=1)"
   if ! normalise_ui_state; then
     echo "setup not started; bring $APP_ID to the front and re-run"; exit 14
   fi
   if ! maestro --device "$DEVICE" test "$FLOWS_DIR/01-fresh-setup.yaml" -e PASS="$PASS" --test-output-dir "$OUT_DIR"; then
     echo "setup failed; not running the action flows"; exit 8
+  fi
+else
+  if [ "${SKIP_SETUP:-0}" = "1" ]; then
+    echo "setup skipped (SKIP_SETUP=1); the flows run against the existing $APP_ID database."
+  else
+    echo "setup skipped: it would run 'pm clear $APP_ID' and wipe its data; set RESET_APP=1 to allow that."
+    echo "the flows then run against the existing $APP_ID database, which must have been created with PASS."
   fi
 fi
 
@@ -172,15 +229,31 @@ if [ "${SUITE:-}" = "archive" ]; then
 
   # Read-only: counts the pending RTC_WAKEUP alarms this package still owns.
   app_id_re="${APP_ID//./\\.}"
+  alarm_count_file="$OUT_DIR/.pending-alarms"
+  # A failed read must not read as zero alarms: grep -c also exits 1 on no match, so the
+  # adb status comes from PIPESTATUS[0] and the count from what grep wrote.
   pending_alarms() {
     adb -s "$DEVICE" shell dumpsys alarm 2>/dev/null \
-      | grep -cE "RTC_WAKEUP #[0-9]+: Alarm\{.*${app_id_re}\}" || true
+      | grep -cE "RTC_WAKEUP #[0-9]+: Alarm\{.*${app_id_re}\}" >"$alarm_count_file"
+    local adb_status=${PIPESTATUS[0]} grep_status=${PIPESTATUS[1]}
+    if [ "$adb_status" -ne 0 ]; then
+      echo "adb dumpsys alarm failed (exit $adb_status); the pending-alarm count is unknown, not zero"
+      return 1
+    fi
+    if [ "$grep_status" -gt 1 ]; then
+      echo "grep failed (exit $grep_status); the pending-alarm count is unknown, not zero"
+      return 1
+    fi
+    alarm_count=$(<"$alarm_count_file")
   }
 
   habit="archive-$(date +%H%M%S)"
   # +25 puts the fire time ~10 min past the save, so the alarm is armed at save time.
-  due_hour=$(date -d '+25 minutes' '+%H')
-  due_minute=$(date -d '+25 minutes' '+%M')
+  if ! due=$(device_due 25); then
+    echo "08/09 not started: the device clock cannot place the due time inside today"
+    exit 23
+  fi
+  read -r due_hour due_minute _ <<<"$due"
 
   if ! normalise_ui_state; then
     echo "08 not started; bring $APP_ID to the front and re-run"; exit 15
@@ -194,7 +267,8 @@ if [ "${SUITE:-}" = "archive" ]; then
     echo "FAIL 08-reminder-armed.yaml"; exit 16
   fi
 
-  armed=$(pending_alarms)
+  pending_alarms || { echo "ABORT: could not read the pending alarms after 08"; exit 21; }
+  armed=$alarm_count
   echo "pending alarms after 08: $armed"
   # An unarmed reminder makes 09 pass without cancelling anything, which proves nothing.
   if [ "$armed" != "1" ]; then
@@ -210,7 +284,18 @@ if [ "${SUITE:-}" = "archive" ]; then
     echo "FAIL 09-archive-cancels-reminder.yaml (pending alarms before archive: $armed)"; exit 18
   fi
 
-  cancelled=$(pending_alarms)
+  # The archive cancels asynchronously, so the count is polled to a bounded deadline: a
+  # reminder that is genuinely never cancelled still reads non-zero at the deadline.
+  cancel_wait_s="${CANCEL_WAIT_S:-60}"
+  case "$cancel_wait_s" in ''|*[!0-9]*) echo "CANCEL_WAIT_S must be whole seconds"; exit 24 ;; esac
+  cancel_deadline=$(( $(date +%s) + cancel_wait_s ))
+  while :; do
+    pending_alarms || { echo "ABORT: could not read the pending alarms after 09"; exit 22; }
+    cancelled=$alarm_count
+    [ "$cancelled" = "0" ] && break
+    [ "$(date +%s)" -lt "$cancel_deadline" ] || break
+    sleep 2
+  done
   echo "pending alarms after 09: $cancelled (before archive: $armed)"
   if [ "$cancelled" != "0" ]; then
     echo "FAIL archiving did not cancel the reminder: pending alarms $armed -> $cancelled"
@@ -239,9 +324,13 @@ for flow in "${FLOWS[@]}"; do
   # +22, not +17: creation takes ~2 min and the reminder fires 15 min before the due
   # time, so a +17 due leaves 2 min of slack and the save can land after the fire
   # time, when ReminderDecider correctly skips and arms no alarm.
-  due_hour=$(date -d '+22 minutes' '+%H')
-  due_minute=$(date -d '+22 minutes' '+%M')
-  today=$(adb -s "$DEVICE" shell date '+%F' 2>/dev/null | tr -d '\r')
+  if ! due=$(device_due 22); then
+    fail_count=$((fail_count + 1))
+    failed_names+=("$flow")
+    echo "FAIL $flow (not run: the device clock cannot place the due time inside today)"
+    continue
+  fi
+  read -r due_hour due_minute today <<<"$due"
 
   if maestro --device "$DEVICE" test "$FLOWS_DIR/$flow" \
       -e PASS="$PASS" \

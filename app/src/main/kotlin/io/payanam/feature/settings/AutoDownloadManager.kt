@@ -221,15 +221,13 @@ object AutoDownloadManager {
 }
 
 /** Version extraction (pure, unit-testable on plain JVM): the third `_`-separated artifact field. */
-internal fun versionFromFileName(fileName: String): String =
-    Regex("""^Payanam_[^_]+_(\d+\.\d+\.\d+)_""").find(fileName)?.groupValues?.get(1).orEmpty()
+internal fun versionFromFileName(fileName: String): String = Regex("""^Payanam_[^_]+_(\d+\.\d+\.\d+)_""").find(fileName)?.groupValues?.get(1).orEmpty()
 
 /**
  * Pure matcher for the completed-download marker: true when [fileName] declares [version].
  * A legacy name carries no version field, so a marker from the old build-number scheme never matches.
  */
-internal fun isApkOfVersion(fileName: String, version: String): Boolean =
-    version.isNotEmpty() && versionFromFileName(fileName) == version
+internal fun isApkOfVersion(fileName: String, version: String): Boolean = version.isNotEmpty() && versionFromFileName(fileName) == version
 
 /**
  * Resolve the absolute path of a previously downloaded APK inside the
@@ -247,11 +245,10 @@ internal fun AutoDownloadManager.findDownloadedApk(context: Context, fileName: S
  * artifact name, plus the `.apk` suffix. An absent version never matches (no
  * fallback), and the matching `.sha256` sibling is excluded by the suffix guard.
  */
-internal fun isApkForBuild(fileName: String, versionName: String, buildType: String): Boolean =
-    versionName.isNotEmpty() &&
-        fileName.endsWith(".apk") &&
-        fileName.contains("_${versionName}_") &&
-        fileName.contains("_${buildType}_")
+internal fun isApkForBuild(fileName: String, versionName: String, buildType: String): Boolean = versionName.isNotEmpty() &&
+    fileName.endsWith(".apk") &&
+    fileName.contains("_${versionName}_") &&
+    fileName.contains("_${buildType}_")
 
 /**
  * Scan the app-private downloads dir for an already-downloaded APK of the
