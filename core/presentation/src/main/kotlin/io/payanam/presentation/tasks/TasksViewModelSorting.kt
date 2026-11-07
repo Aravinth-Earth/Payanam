@@ -64,8 +64,9 @@ internal fun filterAndSortTasks(
     tasks: List<Task>,
     filter: TaskFilter,
     sort: TaskSortOption,
+    today: LocalDate = LocalDate.now(),
 ): List<Task> {
-    val filtered = filterTasks(tasks, filter)
+    val filtered = filterTasks(tasks, filter, today)
     return sortTasks(filtered, sort)
 }
 
@@ -154,8 +155,8 @@ internal fun buildTaskFilterCounts(
 private fun filterTasks(
     tasks: List<Task>,
     filter: TaskFilter,
+    today: LocalDate = LocalDate.now(),
 ): List<Task> {
-    val today = LocalDate.now()
     return when (filter) {
         TaskFilter.ALL -> {
             tasks

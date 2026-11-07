@@ -537,13 +537,15 @@ class TasksViewModelLoadPipelineTest {
     /** OVERDUE is day-based, so a task due earlier today is still a TODAY task. */
     @Test
     fun `overdue filter excludes tasks due earlier today`() {
-        val now = LocalDateTime.now()
+        // A fixed day: with LocalDate.now() this assertion turns into a failure at local midnight, when
+        // "earlier today" becomes "yesterday" before the filter runs.
+        val today = LocalDate.of(2026, 11, 7)
         val tasks =
             listOf(
-                task(id = "earlier-today", dueDate = now.toLocalDate().atStartOfDay()),
-                task(id = "yesterday", dueDate = now.minusDays(1)),
+                task(id = "earlier-today", dueDate = today.atStartOfDay()),
+                task(id = "yesterday", dueDate = today.minusDays(1).atStartOfDay()),
             )
-        val result = filterAndSortTasks(tasks, TaskFilter.OVERDUE, TaskSortOption.CREATED_ASC)
+        val result = filterAndSortTasks(tasks, TaskFilter.OVERDUE, TaskSortOption.CREATED_ASC, today)
         assertThat(result.map { it.id }).containsExactly("yesterday")
     }
 

@@ -419,13 +419,24 @@ class TaskRepositoryImpl
             lastOccurrenceDate: LocalDateTime,
         ) {
             val now = LocalDateTime.now()
-            sessionManager.requireDatabase().taskDao().updateRecurrenceState(
-                id = taskId,
-                newDueDate = PersistedDateTime.format(newDueDate),
-                dayKey = newDueDate.toLocalDate().format(dateFormatter),
-                lastOccurrenceDate = PersistedDateTime.format(lastOccurrenceDate),
-                updatedAt = PersistedDateTime.format(now),
-            )
+            val changed =
+                sessionManager.requireDatabase().taskDao().updateRecurrenceState(
+                    id = taskId,
+                    newDueDate = PersistedDateTime.format(newDueDate),
+                    dayKey = newDueDate.toLocalDate().format(dateFormatter),
+                    lastOccurrenceDate = PersistedDateTime.format(lastOccurrenceDate),
+                    updatedAt = PersistedDateTime.format(now),
+                )
+            if (changed == 0) {
+                // The task was archived between the read and this write: nothing advanced, so the day is not
+                // dirty and this is not an advancement.
+                logger.w(
+                    "TaskRepositoryImpl.updateRecurrenceState",
+                    "Recurrence update matched no row; task archived",
+                    mapOf("taskId" to taskId),
+                )
+                return
+            }
             markDirtyForTaskDay(newDueDate.toLocalDate(), "task_recurrence_updated")
             logger.i(
                 "TaskRepositoryImpl.updateRecurrenceState",

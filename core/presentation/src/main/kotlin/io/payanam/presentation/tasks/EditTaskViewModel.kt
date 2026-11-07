@@ -149,6 +149,14 @@ class EditTaskViewModel(
             _uiState.update { it.copy(isSaving = true) }
             try {
                 val taskInput = buildTaskInput(input)
+                // The configuration is read BEFORE the write: reading it afterwards meant a failed read left the
+                // edit persisted with a stale score and no rescheduled reminder, while the screen reported failure.
+                val scoringConfig =
+                    if (!input.recurrenceEnabled && PlatformFeatureFlags.current.scoringEnabled) {
+                        scoringConfigRepository.getConfig()
+                    } else {
+                        null
+                    }
                 val updatedTask = taskRepository.updateTask(taskId, taskInput)
                 tagRepository.replaceTaskTags(taskId, input.tags)
                 logger.i(
@@ -166,8 +174,8 @@ class EditTaskViewModel(
                         "Score roll-up rebuilt after task update",
                         mapOf("taskId" to taskId),
                     )
-                } else if (PlatformFeatureFlags.current.scoringEnabled) {
-                    val score = scoreCalculator.calculateScore(updatedTask, scoringConfigRepository.getConfig())
+                } else if (scoringConfig != null) {
+                    val score = scoreCalculator.calculateScore(updatedTask, scoringConfig)
                     taskRepository.updateTaskScore(taskId, score)
                     logger.d(
                         "EditTaskViewModel.updateTask",

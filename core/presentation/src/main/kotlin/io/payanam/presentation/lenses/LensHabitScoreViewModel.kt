@@ -87,6 +87,12 @@ class LensHabitScoreViewModel(
     private val logger = AppLogger.current
     private var loadJob: Job? = null
 
+    /**
+     * Bumped per load. Cancelling the previous job is cooperative — a load already past its last suspension
+     * can still reach the publish — so every publish also checks that it is still the newest request.
+     */
+    private var loadGeneration = 0
+
     private val _uiState = MutableStateFlow(LensHabitScoreUiState())
     val uiState: StateFlow<LensHabitScoreUiState> = _uiState.asStateFlow()
 
@@ -113,6 +119,7 @@ class LensHabitScoreViewModel(
         metric: ScoreMetricColumn = _uiState.value.selectedMetric,
     ) {
         val t0 = System.currentTimeMillis()
+        val generation = ++loadGeneration
         loadJob?.cancel()
         loadJob = scope.launch {
             _uiState.update { it.copy(isLoading = true, error = null) }
@@ -150,7 +157,7 @@ class LensHabitScoreViewModel(
                     ),
                 )
                 val history = buildRankHistory(dimHist, dayHist)
-                if (!isActive) return@launch
+                if (!isActive || generation != loadGeneration) return@launch
                 rankHistory = history
                 val dayRows = days.associateBy { it.dayKey }
                 val rows = buildDimensionRows(dims, dayRows, start, end)
@@ -159,7 +166,7 @@ class LensHabitScoreViewModel(
                 val rankByKey = computeRankMap(history, metric)
                 val tRankEnd = System.currentTimeMillis()
                 val tUpdateStart = System.currentTimeMillis()
-                if (!isActive) return@launch
+                if (!isActive || generation != loadGeneration) return@launch
                 _uiState.update {
                     it.copy(
                         isLoading = false,
@@ -195,7 +202,10 @@ class LensHabitScoreViewModel(
                 throw e
             } catch (e: Exception) {
                 logger.e("LensHabitScoreViewModel.loadWindow", "Failed to load score matrix", e)
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                // A superseded load must not replace the newest request's state with its own failure.
+                if (generation == loadGeneration) {
+                    _uiState.update { it.copy(isLoading = false, error = e.message) }
+                }
             }
         }
     }

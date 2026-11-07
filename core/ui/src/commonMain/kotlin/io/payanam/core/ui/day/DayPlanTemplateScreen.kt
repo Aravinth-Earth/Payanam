@@ -39,6 +39,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -76,7 +77,7 @@ fun DayPlanTemplateScreen(
     val strings = LocalUiStrings.current
     val appPrefs = LocalAppPreferences.current
     val dimensionOptions = appPrefs.visibleDimensions()
-    var templatePendingDelete by remember { mutableStateOf<String?>(null) }
+    var templatePendingDelete by rememberSaveable { mutableStateOf<String?>(null) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -128,13 +129,26 @@ fun DayPlanTemplateScreen(
                 )
             } else {
                 // Template list
+                // The failure stays until it is dismissed, so a cancelled retry cannot leave a stale error
+                // above a list that is now fine.
                 if (uiState.errorMessage != null) {
-                    Text(
-                        text = uiState.errorMessage ?: "",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.error,
-                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
-                    )
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = uiState.errorMessage ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = { viewModel.clearError() }) {
+                            Text(strings.locDismiss)
+                        }
+                    }
                 }
                 if (uiState.templates.isEmpty()) {
                     Box(

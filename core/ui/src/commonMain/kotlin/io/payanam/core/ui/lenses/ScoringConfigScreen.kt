@@ -30,6 +30,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -211,6 +212,24 @@ fun ScoringConfigScreen(
                 }
                 Spacer(modifier = Modifier.height(8.dp))
 
+                // A failed read leaves defaults on screen; saving those would replace the stored weights.
+                if (uiState.loadFailed) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = strings.locUnknownErrorOccurred,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = { viewModel.reloadConfig() }) {
+                            Text(strings.settingsUpdateRetryButton)
+                        }
+                    }
+                }
+
                 // Action Buttons
                 Row(
                     modifier = Modifier.fillMaxWidth(),
@@ -228,11 +247,13 @@ fun ScoringConfigScreen(
                     }
                     Button(
                         onClick = {
-                            viewModel.saveConfig()
-                            onNavigateBack()
+                            if (!uiState.loadFailed) {
+                                viewModel.saveConfig()
+                                onNavigateBack()
+                            }
                         },
                         modifier = Modifier.weight(1f),
-                        enabled = uiState.hasChanges && !uiState.isSaving,
+                        enabled = uiState.hasChanges && !uiState.isSaving && !uiState.loadFailed,
                     ) {
                         if (uiState.isSaving) {
                             CircularProgressIndicator(

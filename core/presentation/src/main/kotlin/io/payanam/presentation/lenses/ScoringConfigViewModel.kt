@@ -27,6 +27,12 @@ data class ScoringConfigUiState(
     val isLoading: Boolean = true,
     val isSaving: Boolean = false,
     val hasChanges: Boolean = false,
+    /**
+     * The stored configuration could not be read, so [config] holds defaults rather than the user's values.
+     * Saving in this state would overwrite every stored weight with a default the user never chose, so the
+     * screen disables save and offers a retry until the read succeeds.
+     */
+    val loadFailed: Boolean = false,
 )
 
 /**
@@ -47,6 +53,13 @@ class ScoringConfigViewModel(
         loadConfig()
     }
 
+    /** Re-reads the stored configuration; also the retry action after a failed read. */
+    @Suppress("TooGenericExceptionCaught") // A closed DB session surfaces as an arbitrary repository exception
+    fun reloadConfig() {
+        _uiState.value = _uiState.value.copy(isLoading = true, loadFailed = false)
+        loadConfig()
+    }
+
     @Suppress("TooGenericExceptionCaught") // A closed DB session surfaces as an arbitrary repository exception
     private fun loadConfig() {
         scope.launch {
@@ -59,6 +72,7 @@ class ScoringConfigViewModel(
                         config = config,
                         isLoading = false,
                         hasChanges = false,
+                        loadFailed = false,
                     )
                 logger.i("ScoringConfigViewModel.loadConfig", "Config loaded")
             } catch (e: CancellationException) {
@@ -66,12 +80,14 @@ class ScoringConfigViewModel(
             } catch (e: Exception) {
                 logger.e("ScoringConfigViewModel.loadConfig", "Failed to load scoring config", e)
                 val defaults = ScoringConfig.defaults()
-                originalConfig = defaults
+                // The defaults are shown for orientation only; `loadFailed` keeps them from being saved over
+                // the user's stored weights.
                 _uiState.value =
                     _uiState.value.copy(
                         config = defaults,
                         isLoading = false,
                         hasChanges = false,
+                        loadFailed = true,
                     )
             }
         }
@@ -212,6 +228,12 @@ class ScoringConfigViewModel(
      * Persists the current in-progress config and clears the "has changes" flag.
      */
     fun saveConfig() {
+        if (_uiState.value.loadFailed) {
+            // The stored weights were never read, so what is on screen is defaults. Saving them would
+            // replace every user-chosen weight with a value nobody picked.
+            logger.w("ScoringConfigViewModel.saveConfig", "Save refused: the stored config never loaded")
+            return
+        }
         scope.launch {
             logger.i("ScoringConfigViewModel.saveConfig", "Saving scoring config")
             _uiState.value = _uiState.value.copy(isSaving = true)

@@ -112,11 +112,12 @@ fun EditTaskScreen(
     // Saveable, so a rotation while the offer is up does not drop the offer and strand the screen on
     // an edit that was already saved.
     var showNotificationRationale by rememberSaveable { mutableStateOf(false) }
+    // A save in flight blocks a second one: two overlapping saves both succeed and both call onTaskSaved(),
+    // which pops two destinations.
+    var isSaving by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     val unknownErrorMessage = strings.locUnknownErrorOccurred
-    val actionFailedPlaceholder = "__ACTION_FAILED_REASON__"
-    val actionFailedTemplate = strings.locActionFailedWithReason.formatArgs(actionFailedPlaceholder)
     LaunchedEffect(taskId) {
         viewModel.loadTask(taskId)
     }
@@ -176,47 +177,54 @@ fun EditTaskScreen(
                     initialTags = uiState.taskTags,
                     tagSuggestions = uiState.tagSuggestions,
                     onSave = { input ->
-                        // Whether this save leaves a reminder armed - the scheduler's own decision, not
-                        // a guess from the form fields, so a warning is never raised for a reminder no
-                        // alarm was created for.
-                        val reminderArmed =
-                            reminderWillBeArmed(
-                                taskId = taskId,
-                                taskTitle = input.title,
-                                dueAt = input.dueDate,
-                                recurrenceEnabled = input.recurrenceEnabled,
-                                status = uiState.task?.status ?: "pending",
-                                notificationMode = input.notificationMode,
-                                customNotificationMinutes = input.customNotificationMinutes,
-                                remindersEnabled = remindersEnabled,
-                                minimalModeEnabled = minimalModeEnabled,
-                                // The store keeps the loaded due date when the form sends none, so that
-                                // stored date - not a default - is the one the scheduler will read.
-                                storedTask = uiState.task,
+                        if (!isSaving) {
+                            isSaving = true
+                            // Whether this save leaves a reminder armed - the scheduler's own decision, not
+                            // a guess from the form fields, so a warning is never raised for a reminder no
+                            // alarm was created for.
+                            val reminderArmed =
+                                reminderWillBeArmed(
+                                    taskId = taskId,
+                                    taskTitle = input.title,
+                                    dueAt = input.dueDate,
+                                    recurrenceEnabled = input.recurrenceEnabled,
+                                    status = uiState.task?.status ?: "pending",
+                                    notificationMode = input.notificationMode,
+                                    customNotificationMinutes = input.customNotificationMinutes,
+                                    remindersEnabled = remindersEnabled,
+                                    minimalModeEnabled = minimalModeEnabled,
+                                    // The store keeps the loaded due date when the form sends none, so that
+                                    // stored date - not a default - is the one the scheduler will read.
+                                    storedTask = uiState.task,
+                                )
+                            viewModel.updateTask(
+                                input = input,
+                                onResult = { result ->
+                                    result.onSuccess {
+                                        // The offer is raised after the write, so the guard stays set: the
+                                        // screen leaves in either branch and a second save has nothing to do.
+                                        // The edit has COMMITTED; the offer only reports that the notification
+                                        // that would have told the user about it cannot arrive.
+                                        if (reminderArmed && notificationPermission.state == SupportState.DECLINES) {
+                                            showNotificationRationale = true
+                                        } else {
+                                            onTaskSaved()
+                                        }
+                                    }.onFailure {
+                                        // The write did not commit, so the screen stays open with the edits intact
+                                        // and the guard is released for a retry. The reason is already logged by
+                                        // the ViewModel; the snackbar shows a localized message, never the raw
+                                        // exception text.
+                                        isSaving = false
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(unknownErrorMessage)
+                                        }
+                                    }
+                                },
                             )
-                        viewModel.updateTask(
-                            input = input,
-                            onResult = { result ->
-                                result.onSuccess {
-                                    // The edit has COMMITTED; the offer only reports that the notification
-                                    // that would have told the user about it cannot arrive.
-                                    if (reminderArmed && notificationPermission.state == SupportState.DECLINES) {
-                                        showNotificationRationale = true
-                                    } else {
-                                        onTaskSaved()
-                                    }
-                                }.onFailure { error ->
-                                    // The write did not commit, so the screen stays open with the edits intact.
-                                    val message = error.message ?: unknownErrorMessage
-                                    scope.launch {
-                                        snackbarHostState.showSnackbar(
-                                            actionFailedTemplate.replace(actionFailedPlaceholder, message),
-                                        )
-                                    }
-                                }
-                            },
-                        )
+                        }
                     },
+                    saving = isSaving,
                     modifier = Modifier.padding(padding),
                 )
             }
@@ -243,6 +251,7 @@ private fun EditTaskContent(
     initialTags: List<String>,
     tagSuggestions: List<String>,
     onSave: (EditTaskInput) -> Unit,
+    saving: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalUiStrings.current
@@ -698,7 +707,7 @@ private fun EditTaskContent(
                 )
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = title.isNotBlank(),
+            enabled = title.isNotBlank() && !saving,
         ) {
             Text(strings.locSaveChanges)
         }

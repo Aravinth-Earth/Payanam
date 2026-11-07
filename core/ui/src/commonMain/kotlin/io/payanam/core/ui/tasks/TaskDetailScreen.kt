@@ -195,8 +195,9 @@ fun TaskDetailScreen(
                     onMiss = { currentStatusAction = StatusAction.MISS },
                     onReschedule = { showRescheduleDialog = true },
                     onArchive = {
-                        viewModel.archiveTask()
-                        onNavigateBack()
+                        // The screen leaves only when the archive actually landed; a failure keeps the user
+                        // here and the ViewModel's error surfaces in the snackbar above.
+                        viewModel.archiveTask { result -> result.onSuccess { onNavigateBack() } }
                     },
                     modifier = Modifier.padding(padding),
                 )
@@ -251,8 +252,10 @@ fun TaskDetailScreen(
                 confirmButton = {
                     TextButton(
                         onClick = {
-                            viewModel.deleteTask()
-                            onNavigateBack()
+                            showDeleteDialog = false
+                            // Navigating before the delete lands hid a failed delete behind a screen the user
+                            // had already left; the error effect reports the failure in place.
+                            viewModel.deleteTask { result -> result.onSuccess { onNavigateBack() } }
                         },
                     ) {
                         Text(strings.locDelete, color = MaterialTheme.colorScheme.error)

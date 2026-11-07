@@ -415,17 +415,28 @@ class TaskRepositoryJvm(
         lastOccurrenceDate: LocalDateTime,
     ) {
         JdbcFlows.onIo {
-            JdbcQueries.write(
-                session,
-                RECURRENCE_STATE_SQL,
-                arrayOf(
-                    PersistedDateTime.format(newDueDate),
-                    newDueDate.toLocalDate().format(dateFormatter),
-                    PersistedDateTime.format(lastOccurrenceDate),
-                    PersistedDateTime.format(LocalDateTime.now()),
-                    taskId,
-                ),
-            )
+            val changed =
+                JdbcQueries.write(
+                    session,
+                    RECURRENCE_STATE_SQL,
+                    arrayOf(
+                        PersistedDateTime.format(newDueDate),
+                        newDueDate.toLocalDate().format(dateFormatter),
+                        PersistedDateTime.format(lastOccurrenceDate),
+                        PersistedDateTime.format(LocalDateTime.now()),
+                        taskId,
+                    ),
+                )
+            if (changed == 0) {
+                // Archived between the read and this write: nothing advanced, so no dirty day and no
+                // "updated" line that would read as an advancement.
+                logger.w(
+                    "TaskRepositoryJvm.updateRecurrenceState",
+                    "Recurrence update matched no row; task archived",
+                    mapOf("taskId" to taskId),
+                )
+                return@onIo Unit
+            }
             markDirtyForTaskDay(newDueDate.toLocalDate(), "task_recurrence_updated")
             logger.i(
                 "TaskRepositoryJvm.updateRecurrenceState",

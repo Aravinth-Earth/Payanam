@@ -236,6 +236,9 @@ interface TaskDao {
      * and [dayKey], records [lastOccurrenceDate], resets [status] to pending, and
      * stamps [updatedAt]. Matches no row when the task is archived, so an archived
      * task is never returned to pending.
+     *
+     * Returns the number of rows changed: 0 means nothing advanced (the task was archived between the
+     * read and this write), and the caller must not report an advancement or dirty the new day.
      */
     suspend fun updateRecurrenceState(
         id: String,
@@ -243,5 +246,5 @@ interface TaskDao {
         dayKey: String,
         lastOccurrenceDate: String,
         updatedAt: String,
-    )
+    ): Int
 }

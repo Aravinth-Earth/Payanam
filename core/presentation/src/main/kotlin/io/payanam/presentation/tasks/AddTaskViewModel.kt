@@ -140,6 +140,15 @@ class AddTaskViewModel(
                         blockedReason = blockedReason,
                         externalDependency = externalDependency,
                     )
+                // Read the scoring configuration BEFORE anything is written. Reading it after the insert meant a
+                // failed read left a task persisted with no score (and no reminder), while the screen reported a
+                // failed save - and a retry then created a second task.
+                val scoringConfig =
+                    if (PlatformFeatureFlags.current.scoringEnabled) {
+                        scoringConfigRepository.getConfig()
+                    } else {
+                        null
+                    }
                 val task = taskRepository.createTask(input)
                 if (tags.isNotEmpty()) {
                     tagRepository.replaceTaskTags(task.id, tags)
@@ -151,8 +160,8 @@ class AddTaskViewModel(
                 }
 
                 // Calculate and update score
-                if (PlatformFeatureFlags.current.scoringEnabled) {
-                    val score = scoreCalculator.calculateScore(task, scoringConfigRepository.getConfig())
+                if (scoringConfig != null) {
+                    val score = scoreCalculator.calculateScore(task, scoringConfig)
                     taskRepository.updateTaskScore(task.id, score)
                     logger.d(
                         "AddTaskViewModel.createTask",

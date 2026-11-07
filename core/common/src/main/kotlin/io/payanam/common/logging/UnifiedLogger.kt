@@ -380,8 +380,15 @@ class UnifiedLogger private constructor(
                 val tmpFile = File(exportDir, "${logFile.name}.tmp")
                 try {
                     // The flush loop appends to the live file while this copy runs, so a length check
-                    // against it races; the atomic rename is what guarantees a complete publish.
-                    snapshot.file.copyTo(tmpFile, overwrite = true)
+                    // against it races; the atomic rename is what guarantees a complete publish. A
+                    // ROTATION truncates the source instead: the copy then ends early, and the rename
+                    // would publish a short file as if it were the whole session.
+                    val source = snapshot.file
+                    val lengthBefore = source.length()
+                    source.copyTo(tmpFile, overwrite = true)
+                    if (source.length() != lengthBefore || tmpFile.length() != lengthBefore) {
+                        throw IOException("Log rotated during export: ${tmpFile.name} is incomplete")
+                    }
                     if (!tmpFile.renameTo(exportFile)) {
                         throw IOException("Atomic rename failed: ${tmpFile.name} → ${exportFile.name}")
                     }
