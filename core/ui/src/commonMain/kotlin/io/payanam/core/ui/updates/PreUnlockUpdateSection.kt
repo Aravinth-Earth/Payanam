@@ -192,7 +192,7 @@ fun PreUnlockUpdateSection(
                 color = Color.White.copy(alpha = 0.4f),
             )
             Text(
-                text = strings.preUnlockUpdateBuildValue.formatArgs(uiState.buildNumber),
+                text = strings.settingsAboutVersionValue.formatArgs(uiState.buildLabel),
                 style = MaterialTheme.typography.labelMedium,
                 color = Color.White.copy(alpha = 0.85f),
                 fontWeight = FontWeight.SemiBold,

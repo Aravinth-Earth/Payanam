@@ -38,6 +38,11 @@ val declaredVersionCode: Int = rootProject.extra["payanamVersionCode"] as Int
 val declaredPackedVersionCode: Int = rootProject.extra["payanamPackedVersionCode"] as Int
 val declaredShortSha: String = rootProject.extra["payanamShortSha"] as String
 
+// The build scripts pass -PbuildTimestamp=<yyyyMMdd_HHmmss>, the same property the desktop consumes.
+// An IDE or a direct Gradle run passes nothing, so the field stays blank and BuildLabel drops the date
+// part instead of rendering a placeholder as if it were a real build time.
+val declaredBuildTimestamp: String = project.findProperty("buildTimestamp")?.toString().orEmpty()
+
 require(declaredVersionCode == declaredPackedVersionCode) {
     "Declared version drift: version=$declaredVersionName packs to versionCode $declaredPackedVersionCode, " +
         "but the file declares $declaredVersionCode. Run ./gradlew bumpVersion -Pto=<new version>."
@@ -99,6 +104,7 @@ android {
           versionCode = declaredVersionCode
           versionName = declaredVersionName
           buildConfigField("String", "BUILD_SHORT_SHA", "\"$declaredShortSha\"")
+          buildConfigField("String", "BUILD_TIMESTAMP", "\"$declaredBuildTimestamp\"")
 
           buildConfigField("boolean", "MINIMAL_MODE", "false")
         buildConfigField("boolean", "SCORING_ENABLED", "true")
