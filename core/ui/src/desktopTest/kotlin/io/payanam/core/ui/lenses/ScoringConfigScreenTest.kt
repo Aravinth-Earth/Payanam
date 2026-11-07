@@ -76,6 +76,7 @@ class ScoringConfigScreenTest {
 
         repository.failing = false
         composeRule.onNodeWithText(strings.settingsUpdateRetryButton).performClick()
+        composeRule.waitUntil(WAIT_MS) { repository.readCount > 1 }
 
         composeRule.waitUntil(WAIT_MS) { !viewModel.uiState.value.loadFailed }
         composeRule.waitForIdle()
@@ -135,7 +136,10 @@ private class ControllableScoringConfigRepository(
 
     private var stored: ScoringConfig = ScoringConfig.defaults().copy(dimensionWeight = 2.25)
 
+    var readCount: Int = 0
+
     override suspend fun getConfig(): ScoringConfig {
+        readCount++
         if (failing) throw IllegalStateException("the database session is closed")
         return stored
     }

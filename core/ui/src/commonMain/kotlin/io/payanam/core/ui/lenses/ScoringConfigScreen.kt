@@ -110,6 +110,25 @@ fun ScoringConfigScreen(
                     .verticalScroll(rememberScrollState()),
                 verticalArrangement = Arrangement.spacedBy(16.dp),
             ) {
+                // A failed read leaves defaults on screen; saving those would replace the stored weights. The
+                // notice sits above the sections so it is visible without scrolling to the end of the weights.
+                if (uiState.loadFailed) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = strings.locUnknownErrorOccurred,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = { viewModel.reloadConfig() }) {
+                            Text(strings.settingsUpdateRetryButton)
+                        }
+                    }
+                }
+
                 Text(
                     text = strings.locAdjustScoringFactors,
                     style = MaterialTheme.typography.bodyMedium,
@@ -228,24 +247,6 @@ fun ScoringConfigScreen(
                     }
                 }
                 Spacer(modifier = Modifier.height(8.dp))
-
-                // A failed read leaves defaults on screen; saving those would replace the stored weights.
-                if (uiState.loadFailed) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Text(
-                            text = strings.locUnknownErrorOccurred,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.error,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(onClick = { viewModel.reloadConfig() }) {
-                            Text(strings.settingsUpdateRetryButton)
-                        }
-                    }
-                }
 
                 // Action Buttons
                 Row(
