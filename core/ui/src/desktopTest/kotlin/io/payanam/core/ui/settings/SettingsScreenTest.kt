@@ -336,7 +336,6 @@ class SettingsScreenTest {
             strings.preUnlockUpdateDownloadFailed,
             strings.preUnlockUpdateDownloadInstall,
             strings.preUnlockUpdateDownloading,
-            strings.preUnlockUpdateBuildValue,
         ).forEach { copy ->
             composeRule.onAllNodesWithText(copy, substring = true).assertCountEquals(0)
         }

@@ -728,7 +728,6 @@
     <string name="loc_yearly">Yearly</string>
     <string name="loc_yesterday">Yesterday</string>
     <string name="loc_your_thoughts">Your thoughts...</string>
-    <string name="pre_unlock_update_build_value">#%1$d</string>
     <string name="pre_unlock_update_check_failed">Check failed — check connection and retry</string>
     <string name="pre_unlock_update_download_failed">Download failed — tap Retry</string>
     <string name="pre_unlock_update_download_install">Download &amp; install</string>

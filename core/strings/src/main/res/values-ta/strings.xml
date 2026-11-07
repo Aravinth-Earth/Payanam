@@ -729,7 +729,6 @@
     <string name="loc_yearly">ஆண்டுதோறும்</string>
     <string name="loc_yesterday">நேற்று</string>
     <string name="loc_your_thoughts">உங்கள் எண்ணங்கள்...</string>
-    <string name="pre_unlock_update_build_value">#%1$d</string>
     <string name="pre_unlock_update_check_failed">சரிபார்ப்பு தோல்வி — இணைப்பைச் சரிபார்த்து மீண்டும் முயற்சிக்கவும்</string>
     <string name="pre_unlock_update_download_failed">பதிவிறக்கம் தோல்வி — மீண்டும் முயற்சி செய்</string>
     <string name="pre_unlock_update_download_install">பதிவிறக்கி நிறுவு</string>
