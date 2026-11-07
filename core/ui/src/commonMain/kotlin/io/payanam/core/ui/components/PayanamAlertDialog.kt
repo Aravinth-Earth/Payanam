@@ -14,28 +14,9 @@ import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.window.DialogProperties
 
-/**
- * The shared Material 3 [AlertDialog], with a width that is the SAME on Android and the desktop.
- *
- * WHY THIS EXISTS - a measured cross-platform divergence. Material 3's `AlertDialog` defaults to
- * `DialogProperties(usePlatformDefaultWidth = true)`, and the two platforms answer "what is the platform
- * default width" differently: on Android the dialog window is `match_parent`, so at the app's 411 dp window
- * the surface is about **379 dp**; on the desktop the window wraps its content, so the same dialog is about
- * **320 dp**. Measured 2026-10-16 at a 411x891 dp window: the desktop's dialog content came out 272 dp
- * against Android's 331 dp, so every dialog on the desktop was ~60 dp narrower and its content had less
- * room. The parity probe (`DesktopLayoutProbeTest` + `build-tools/scripts/parity-screen-diff.py`) reports it
- * as `dL = 0.11` on the Notes editor and the recurrence picker.
- *
- * THE RULE. Take the width away from the platform and give it an explicit one: `usePlatformDefaultWidth =
- * false`, then `widthIn(max = [PAYANAM_DIALOG_MAX_WIDTH])` (so a wide desktop window does not stretch a
- * phone-shaped dialog) and `fillMaxWidth()` (so the dialog fills the width the dialog's OWN margins leave,
- * which at a 411 dp window is the same ~379 dp Android's platform default already produced - measured
- * 2026-10-16: the desktop's Notes-editor content moved from `L=0.207` to `L=0.097`, matching Android's
- * `L=0.097` exactly).
- *
- * Use this instead of `androidx.compose.material3.AlertDialog` for every dialog the shared screens show.
- * The `properties` parameter is honoured except for `usePlatformDefaultWidth`, which is always false here.
- */
+/** The shared Material 3 [AlertDialog], with a width that is the SAME on Android and the desktop: the
+ * platform default width diverges, so it is taken from the platform and set explicitly. Use this instead of
+ * `material3.AlertDialog` for every dialog the shared screens show. */
 @Composable
 fun PayanamAlertDialog(
     onDismissRequest: () -> Unit,
@@ -59,7 +40,10 @@ fun PayanamAlertDialog(
         modifier =
             modifier
                 .widthIn(max = PAYANAM_DIALOG_MAX_WIDTH)
-                .fillMaxWidth(PAYANAM_DIALOG_WIDTH_FRACTION),
+                .fillMaxWidth(PAYANAM_DIALOG_WIDTH_FRACTION)
+                // A dialog draws in its own window, so the app root's publication of test tags is not
+                // an ancestor of this subtree and the tags inside a dialog stay invisible without this.
+                .exposeTestTagsAsResourceIds(),
         dismissButton = dismissButton,
         icon = icon,
         title = title,
@@ -82,11 +66,5 @@ fun PayanamAlertDialog(
 /** The widest a shared dialog grows, so a desktop window does not stretch a phone-shaped dialog. */
 val PAYANAM_DIALOG_MAX_WIDTH: Dp = 560.dp
 
-/**
- * The fraction of the available dialog width a shared dialog fills.
- *
- * `1f` - the dialog fills what the dialog's OWN margins leave, which at a 411 dp window is the same
- * ~379 dp Android's platform default already produced, so the desktop is brought TO Android rather than
- * Android being changed.
- */
+/** The fraction of the available dialog width a shared dialog fills; `1f` matches Android's own margins. */
 const val PAYANAM_DIALOG_WIDTH_FRACTION: Float = 1f

@@ -5,6 +5,7 @@
 package io.payanam
 
 import android.annotation.SuppressLint
+import android.app.AlarmManager
 import android.app.LocaleManager
 import android.content.Intent
 import android.content.res.Configuration
@@ -42,6 +43,7 @@ import dagger.Lazy
 import dagger.hilt.android.AndroidEntryPoint
 import io.payanam.FeatureFlags
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.components.exposeTestTagsAsResourceIds
 import io.payanam.core.ui.flags.LocalFeatureFlags
 import io.payanam.core.ui.navigation.PayanamExternalNavigationCommand
 import io.payanam.core.ui.navigation.PayanamNavHost
@@ -58,9 +60,15 @@ import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.port.ProcessRestart
 import io.payanam.domain.port.ProcessRestartOutcome
 import io.payanam.domain.repository.AppSettingsRepository
+import io.payanam.notification.NotificationActionCoordinator
+import io.payanam.notification.NotificationActionOutcome
 import io.payanam.notification.NotificationScheduler
+import io.payanam.notification.PendingNotificationAction
+import io.payanam.notification.PendingNotificationActionStore
 import io.payanam.platform.AndroidStartupRecovery
 import io.payanam.presentation.flags.FeatureFlagsState
+import io.payanam.receiver.NotificationActionReceiver
+import io.payanam.receiver.TaskReminderReceiver
 import io.payanam.scoring.RecurrenceManager
 import io.payanam.service.AutoBackupWorker
 import io.payanam.shared.database.DatabaseArtifacts
@@ -83,18 +91,16 @@ import java.io.File
 import java.util.Locale
 import javax.inject.Inject
 
-/**
- * Single-activity entry point: owns the startup gate sequence (database init,
- * passphrase setup/unlock, focus-mode onboarding), language/theme application,
- * external navigation intents, DB-session lifecycle (auto-lock touch, WAL
- * checkpointing), and process-restart handling after DB-replacing operations.
- */
+/** Single-activity entry point: owns the startup gates, navigation intents, and process restart. */
 @AndroidEntryPoint
 class MainActivity : FragmentActivity() {
     private val logger = UnifiedLogger.getInstance()
     private val pendingExternalCommand = MutableStateFlow<PayanamExternalNavigationCommand?>(null)
     private var hasEnteredForegroundOnce = false
     private var lastStoppedAtElapsedMs: Long? = null
+
+    /** Exact-alarm availability at the last resume, or null before this activity has looked. */
+    private var exactAlarmsUnavailableAtLastLook: Boolean? = null
 
     @Inject
     lateinit var notificationScheduler: Lazy<NotificationScheduler>
@@ -120,6 +126,15 @@ class MainActivity : FragmentActivity() {
     @Inject
     lateinit var processRestart: ProcessRestart
 
+    @Inject
+    lateinit var notificationActionCoordinator: Lazy<NotificationActionCoordinator>
+
+    @Inject
+    lateinit var pendingNotificationActions: PendingNotificationActionStore
+
+    /** Applies a tapped reminder action off the main thread; outlives a configuration change. */
+    private val reminderActionScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
+
     private var showDatabaseInit by mutableStateOf(false)
     private var showFocusModeOnboarding by mutableStateOf(false)
     private var showPassphraseSetup by mutableStateOf(false)
@@ -127,19 +142,16 @@ class MainActivity : FragmentActivity() {
     private var showExternalDeletionWarning = mutableStateOf(false)
     private var resumeToRouteAfterUnlock by mutableStateOf<String?>(null)
 
-    /**
-     * Keeps the DB session alive: every user interaction resets the auto-lock
-     * idle timer.
-     */
+    /** A More tap that arrived while the database was locked; applied once the session is open. */
+    private var pendingTaskStatusDialogTaskId: String? = null
+
+    /** Keeps the DB session alive: every user interaction resets the auto-lock idle timer. */
     override fun onUserInteraction() {
         super.onUserInteraction()
         sessionManager.touch()
     }
 
-    /**
-     * Feeds the debug-only interaction trace. Purely observational: the event is forwarded
-     * untouched, so this can never alter gesture handling.
-     */
+    /** Feeds the debug-only interaction trace; the event is forwarded untouched. */
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         InteractionLog.recordTouch(ev)
         return super.dispatchTouchEvent(ev)
@@ -154,12 +166,7 @@ class MainActivity : FragmentActivity() {
         return super.dispatchKeyEvent(event)
     }
 
-    /**
-     * Startup orchestrator: resolves DB artifact/encryption/health state,
-     * self-heals an invalid boot state, decides which gate to show (database
-     * init / passphrase setup / unlock / focus-mode onboarding), then composes
-     * the app UI with language + theme preferences applied.
-     */
+    /** Startup orchestrator: resolves DB state, picks the gate to show, then composes the UI. */
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         logger.i("MainActivity.onCreate", "Activity creating")
@@ -193,10 +200,8 @@ class MainActivity : FragmentActivity() {
         var hasPassphraseConfigured = encryptionManager.hasPassphraseConfigured()
         logger.i("MainActivity.onCreate", "Encryption state resolved", mapOf("hasPassphraseConfigured" to hasPassphraseConfigured))
 
-        // Detect and self-heal an invalid boot state: passphrase/Keystore state exists but no DB
-        // file is present. This can happen if a previous session's backup worker corruption
-        // handler deleted the DB, or if the DB was otherwise lost.
-        // Show a warning to the user so they know data was lost (may be recoverable from backup).
+        // Invalid boot state (credential present, no DB file): warn that data was lost, then reset
+        // the credential so the setup gate can run.
         if (!hasDatabaseArtifacts && hasPassphraseConfigured) {
             logger.e(
                 "MainActivity.onCreate",
@@ -226,11 +231,8 @@ class MainActivity : FragmentActivity() {
             null
         }
 
-        // AppSettingsRepository reads from Room which requires an open DB session.
-        // For unencrypted DBs (e.g. freshly created before the user sets a passphrase),
-        // the session is null at cold boot, so we open a bootstrap session here.
-        // Encrypted DBs are covered by the shouldShowPassphraseUnlock path which opens
-        // the session after the user enters their passphrase.
+        // AppSettingsRepository reads Room, so a session must be open: unencrypted DBs get a
+        // bootstrap session here, encrypted ones are opened by the unlock path.
         if (hasDatabaseArtifacts && healthResult?.isHealthy == true && !shouldShowPassphraseUnlock &&
             !encryptionManager.isEncryptionEnabled() && !sessionManager.isDbOpen()
         ) {
@@ -310,6 +312,9 @@ class MainActivity : FragmentActivity() {
                 ),
             )
         }
+        // Dispatched after the startup gates resolve, so the session state the action reads is final.
+        handleReminderActionIntent(intent)
+        handleOpenTaskStatusDialogIntent(intent)
         enableEdgeToEdge()
         logger.i("MainActivity.onCreate", "Composing UI surface")
         setContent {
@@ -350,7 +355,9 @@ class MainActivity : FragmentActivity() {
                             ),
                     ) {
                         Surface(
-                            modifier = Modifier.fillMaxSize(),
+                            // Publishes every testTag in this tree as a view resource id, which is the
+                            // only form a flow outside Compose can address.
+                            modifier = Modifier.fillMaxSize().exposeTestTagsAsResourceIds(),
                             color = MaterialTheme.colorScheme.background,
                         ) {
                             val externalCommand by pendingExternalCommand.collectAsState()
@@ -368,11 +375,8 @@ class MainActivity : FragmentActivity() {
                                 resumeToRouteAfterUnlock = resumeToRouteAfterUnlock,
                                 onPassphraseUnlocked = { handlePostUnlockInitState() },
                                 onDatabaseReady = {
-                                    // The import path carries on — the smooth transition, on both platforms
-                                    // (owner ruling, 2026-10-08: "in Android as well if the restart is not
-                                    // needed ... we can smoothly handle it"). The import path re-opens the
-                                    // imported database in-process, so the session check is the OBSERVABLE,
-                                    // never a restart trigger: whatever it reports, the app continues on
+                                    // Import re-opens the imported DB in-process, so the session check is
+                                    // an observation only, never a restart trigger: the app continues on
                                     // the imported data with no relaunch.
                                     val sessionOpen = sessionManager.isDbOpen()
                                     logger.i(
@@ -442,10 +446,7 @@ class MainActivity : FragmentActivity() {
                 }
             }
 
-            // Provide updated LocalConfiguration to force stringResource() re-reads.
-            // Compose's internal resources() reads LocalConfiguration.current to trigger
-            // recomposition — a new Configuration object makes all stringResource() calls
-            // re-execute with the already-patched Resources from applyLanguageTag().
+            // A new LocalConfiguration value makes every stringResource() re-read the patched Resources.
             val updatedConfig = remember(localeGeneration) {
                 Configuration(resources.configuration)
             }
@@ -466,7 +467,9 @@ class MainActivity : FragmentActivity() {
                             ),
                     ) {
                         Surface(
-                            modifier = Modifier.fillMaxSize(),
+                            // Publishes every testTag in this tree as a view resource id, which is the
+                            // only form a flow outside Compose can address.
+                            modifier = Modifier.fillMaxSize().exposeTestTagsAsResourceIds(),
                             color = MaterialTheme.colorScheme.background,
                         ) {
                             val externalCommand by pendingExternalCommand.collectAsState()
@@ -484,11 +487,8 @@ class MainActivity : FragmentActivity() {
                                 resumeToRouteAfterUnlock = resumeToRouteAfterUnlock,
                                 onPassphraseUnlocked = { handlePostUnlockInitState() },
                                 onDatabaseReady = {
-                                    // The import path carries on — the smooth transition, on both platforms
-                                    // (owner ruling, 2026-10-08: "in Android as well if the restart is not
-                                    // needed ... we can smoothly handle it"). The import path re-opens the
-                                    // imported database in-process, so the session check is the OBSERVABLE,
-                                    // never a restart trigger: whatever it reports, the app continues on
+                                    // Import re-opens the imported DB in-process, so the session check is
+                                    // an observation only, never a restart trigger: the app continues on
                                     // the imported data with no relaunch.
                                     val sessionOpen = sessionManager.isDbOpen()
                                     logger.i(
@@ -516,19 +516,9 @@ class MainActivity : FragmentActivity() {
                                 onFocusModePresetSelected = { preset ->
                                     prefsViewModel.setActivePreset(preset)
                                     prefsViewModel.markFocusModeOnboardingCompleted()
-                                    // Lower the gate in the SAME breath as marking the row, or the graph is handed
-                                    // straight back to the chooser it just left. `showFocusModeOnboarding` is read
-                                    // once per `onCreate` and is what the nav host follows, so marking the row
-                                    // alone leaves the graph on `focus_mode_selection` until the process restarts.
-                                    //
-                                    // Measured 2026-10-14 on SM-A176B (fresh install, then a language change that
-                                    // restarts the activity): the chooser came up, the tap below selected a preset,
-                                    // and the run then sat on the chooser for the rest of the phase -
-                                    //   PayanamNavHost: Focus mode preset selected, navigating to Lenses | [preset="full_suite"]
-                                    //   PayanamNavHost.destinationChanged | [route="lenses"]
-                                    //   PayanamNavHost: Startup gate moved; the graph follows it | [from="lenses", to="focus_mode_selection"]
-                                    // with no shell on screen afterwards. The same bounce is what a real user would
-                                    // see for as long as the process lived.
+                                    // Lower the gate in the same breath as marking the row, or the nav host
+                                    // is handed straight back to the chooser it just left: the gate is read
+                                    // once per `onCreate` and is what the graph follows.
                                     showFocusModeOnboarding = false
                                 },
                                 onSilentUnlockRequested = { route -> requestSilentUnlock(route) },
@@ -540,11 +530,7 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    /**
-     * Foreground entry: rotates the log session if needed, refreshes the home-
-     * screen widget, and kicks off startup maintenance unless a startup gate
-     * is still pending.
-     */
+    /** Foreground entry: rotates the log session, refreshes the widget, runs startup maintenance. */
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; broad catch intentional
     override fun onStart() {
         super.onStart()
@@ -632,6 +618,8 @@ class MainActivity : FragmentActivity() {
     /** Resolves and applies the post-unlock init/DB state once the database is open. */
     private fun handlePostUnlockInitState() {
         showPassphraseUnlock = false
+        // The More tap deferred while the gate was up opens its dialog now that the session is readable.
+        flushPendingTaskStatusDialog()
         val initCompleted = runBlocking {
             appSettingsRepository.get()
                 .getSetting("database_init_completed")
@@ -644,32 +632,30 @@ class MainActivity : FragmentActivity() {
             )
             showDatabaseInit = true
         } else {
-            // Cold boot with passphrase skips startup maintenance while the
-            // unlock gate is visible (onStart guard). Run it now that the DB
-            // session is open: recurrence auto-advance + one-time score
-            // roll-up backfill both depend on it.
+            // The unlock gate skipped startup maintenance (onStart guard); recurrence advance and
+            // the score roll-up backfill both need it, so run it now that the session is open.
             logger.i("MainActivity.handlePostUnlockInitState", "DB unlocked; running startup maintenance")
             runStartupMaintenance()
         }
     }
 
-    /**
-     * Re-handled while the activity is alive (singleTop): captures external
-     * navigation commands from notifications/widgets/deep links.
-     */
+    /** Re-handled while alive (singleTop): captures external navigation commands. */
     override fun onNewIntent(intent: Intent) {
         super.onNewIntent(intent)
         setIntent(intent)
         handleExternalNavigationIntent(intent)
+        handleReminderActionIntent(intent)
+        handleOpenTaskStatusDialogIntent(intent)
     }
 
-    /**
-     * Safety-net relock: if encryption is on but the DB session died while
-     * backgrounded, presents the in-place unlock gate again.
-     */
+    /** Safety-net relock: presents the in-place unlock gate if the session died while backgrounded. */
     override fun onResume() {
         super.onResume()
         logger.d("MainActivity.onResume", "Activity resumed")
+        handleReminderActionIntent(intent)
+        handleOpenTaskStatusDialogIntent(intent)
+        flushPendingTaskStatusDialog()
+        rearmRemindersWhenExactAlarmsBecomeAvailable()
         // Safety-net: if the process stayed alive but the DB session is gone (e.g., SessionManager
         // timer fired and closed the DB without killing the process, which shouldn't happen but is
         // defensive), restart the process for a clean cold-boot auth flow.
@@ -690,18 +676,41 @@ class MainActivity : FragmentActivity() {
         }
     }
 
-    /**
-     * Marks the background timestamp used by log-session rotation.
-     */
+    /** Re-arms pending reminders once exact alarms become allowed; only the next resume observes it. */
+    @Suppress("TooGenericExceptionCaught") // Intentional: the scheduler read can fail on a locked database
+    private fun rearmRemindersWhenExactAlarmsBecomeAvailable() {
+        if (!FeatureFlags.remindersEnabled) return
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.S) return
+        if (showDatabaseInit || showPassphraseSetup || showPassphraseUnlock) return
+        val alarmManager = getSystemService(AlarmManager::class.java) ?: return
+        val available = alarmManager.canScheduleExactAlarms()
+        val wasUnavailable = exactAlarmsUnavailableAtLastLook
+        exactAlarmsUnavailableAtLastLook = !available
+        if (!available || wasUnavailable != true) return
+        startupMaintenanceScope.launch {
+            try {
+                val taskCount = notificationScheduler.get().scheduleAllPendingTasks()
+                logger.i(
+                    "MainActivity.onResume",
+                    "Exact alarms granted; re-armed pending task reminders",
+                    mapOf("tasks" to taskCount),
+                )
+            } catch (e: CancellationException) {
+                logger.d("MainActivity.onResume", "Reminder re-arm after exact-alarm grant cancelled")
+                throw e
+            } catch (e: Exception) {
+                logger.e("MainActivity.onResume", "Failed to re-arm task reminders after exact-alarm grant", e)
+            }
+        }
+    }
+
+    /** Activity pause is logged; the background timestamp used for log rotation is set in [onStop]. */
     override fun onPause() {
         super.onPause()
         logger.d("MainActivity.onPause", "Activity paused")
     }
 
-    /**
-     * Durability flush before backgrounding: WAL-checkpoints the encrypted DB
-     * and flushes the log buffer so a process kill loses nothing.
-     */
+    /** Durability flush before backgrounding: WAL-checkpoints the encrypted DB and flushes the log. */
     override fun onStop() {
         super.onStop()
         logger.d("MainActivity.onStop", "Activity stopped")
@@ -723,28 +732,7 @@ class MainActivity : FragmentActivity() {
         logger.i("MainActivity.onDestroy", "Activity destroyed")
     }
 
-    // Full process restart: ensures Hilt @Singleton beans (including Room DB) are re-created from
-    // scratch with the correct encryption state. Use after operations that replace the DB file on
-    // disk (e.g. import), where activity.recreate() leaves a stale Room singleton pointing at the
-    // old bootstrap file descriptor.
-
-    /**
-     * Re-resolves the startup gates after a COMPLETED forgot-passphrase reset.
-     *
-     * `onCreate` resolves these ONCE, and a reset invalidates every one of them mid-run: the database
-     * artifact family is deleted and the credential is cleared, so nothing is left to unlock and the
-     * database-init gate is what the user must see. The stale values were the measured defect (build 2038):
-     * after the passphrase was set, the graph went to `lenses` and this Activity's still-true
-     * `showPassphraseUnlock` bounced it back to `passphrase_unlock` - a gate for the credential the reset had
-     * just deleted - and the app then entered the first-run flow over a database the user had asked to be
-     * replaced.
-     *
-     * This is a RE-DERIVATION, not a second answer: the same facts and the same resolvers `onCreate` uses,
-     * with the two session-dependent facts answered as the reset left them (`isHealthy = false` for a file
-     * that is not there, `databaseInitCompleted = false` for a row that went with it). The init gate then
-     * reports ready through the existing `onDatabaseReady` path, which lowers its flag the same way it did
-     * on a first run.
-     */
+    /** Re-resolves the startup gates after a forgot-passphrase reset, which invalidates every one. */
     private fun reresolveStartupGatesAfterReset() {
         val hasDatabaseArtifacts = DatabaseHealthChecker.hasDatabaseArtifacts(this)
         val hasPassphraseConfigured = encryptionManager.hasPassphraseConfigured()
@@ -760,8 +748,8 @@ class MainActivity : FragmentActivity() {
         showPassphraseUnlock = shouldShowPassphraseUnlock
         showDatabaseInit = shouldShowDatabaseInit
         showPassphraseSetup = !hasPassphraseConfigured && !shouldShowDatabaseInit && !shouldShowPassphraseUnlock
-        // A wiped database has no focus-mode row either, and that row is read through the session the reset
-        // closed. The gate is the init gate now; focus onboarding is re-decided when the database is.
+        // A wiped database has no focus-mode row either, and that row is read through the session the
+        // reset closed, so focus onboarding is re-decided when the database is.
         showFocusModeOnboarding = false
         logger.w(
             "MainActivity.reresolveStartupGatesAfterReset",
@@ -777,7 +765,7 @@ class MainActivity : FragmentActivity() {
         )
     }
 
-    /** Forces a process restart (used after unrecoverable DB/init state). */
+    /** Forces a process restart: `recreate()` would leave a stale Room singleton on the old descriptor. */
     private fun restartProcess() {
         logger.i("MainActivity.restartProcess", "Restarting process for clean Room/Hilt re-initialization")
         val snapshot = captureDbArtifactSnapshot()
@@ -787,11 +775,8 @@ class MainActivity : FragmentActivity() {
             stage = "kill_process_for_restart",
         )
         logger.flush()
-        // The rebuild-and-relaunch itself is the shared port's job, not this class's: it already launches
-        // the same intent with NEW_TASK|CLEAR_TASK and kills this pid unconditionally, and it reports a
-        // refusal with a reason instead of leaving the caller unable to tell "restarted" from "nothing
-        // happened". The snapshot marker above stays here because it is this screen's own diagnostic (the
-        // pre-restart DB-artifact state the next launch reads back), not the port's restart bookkeeping.
+        // The relaunch belongs to the shared port, which kills this pid and reports a refusal with a
+        // reason; the snapshot marker above stays here as this screen's own diagnostic.
         val outcome = processRestart.restartProcess()
         if (outcome is ProcessRestartOutcome.Refused) {
             logger.w(
@@ -942,18 +927,205 @@ class MainActivity : FragmentActivity() {
         )
     }
 
+    // Handles a reminder action tapped on a notification. Extras are removed so a relaunch cannot
+    // replay it; only an intent carrying one of our own notification action strings is applied.
+    private fun handleReminderActionIntent(intent: Intent?) {
+        if (intent == null) return
+        val actionType = intent.getStringExtra(TaskReminderReceiver.EXTRA_REMINDER_ACTION_TYPE)
+        val taskId = intent.getStringExtra(TaskReminderReceiver.EXTRA_TASK_ID)
+        if (actionType == null && taskId == null) return
+        val notificationId = intent.getIntExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_ID_INT, -1)
+        consumeReminderActionExtras(intent)
+        if (actionType.isNullOrBlank() || taskId.isNullOrBlank()) {
+            logger.w(
+                LOG_SOURCE,
+                "Missing action type or taskId for reminder action",
+                mapOf(
+                    "actionTypePresent" to !actionType.isNullOrBlank(),
+                    "taskIdPresent" to !taskId.isNullOrBlank(),
+                    "notificationId" to notificationId,
+                ),
+            )
+            return
+        }
+        if (expectedActionTypeFor(intent.action) != actionType) {
+            logger.w(
+                LOG_SOURCE,
+                "Ignoring reminder action intent that did not come from our notification",
+                mapOf(
+                    "action" to (intent.action ?: "none"),
+                    "actionType" to actionType,
+                    "callingPackage" to (callingPackage ?: "none"),
+                ),
+            )
+            return
+        }
+        if (!FeatureFlags.remindersEnabled) {
+            logger.i(
+                LOG_SOURCE,
+                "Ignoring reminder action because reminders are disabled",
+                mapOf("actionType" to actionType, "taskId" to taskId),
+            )
+            return
+        }
+        val action = PendingNotificationAction(
+            actionType = actionType,
+            taskId = taskId,
+            notificationId = notificationId,
+            recordedAtMillis = System.currentTimeMillis(),
+        )
+        val sessionOpen = sessionManager.isDbOpen()
+        logger.i(
+            LOG_SOURCE,
+            "Reminder action received",
+            mapOf(
+                "actionType" to actionType,
+                "taskId" to taskId,
+                "notificationId" to notificationId,
+                "sessionOpen" to sessionOpen,
+            ),
+        )
+        if (sessionOpen) {
+            applyReminderActionNow(action)
+        } else {
+            deferReminderActionUntilUnlock(action)
+        }
+    }
+
+    /** Action type our own notification PendingIntent pairs with [intentAction], or null for anything else. */
+    private fun expectedActionTypeFor(intentAction: String?): String? = when (intentAction) {
+        NotificationActionReceiver.ACTION_COMPLETE_TASK -> NotificationActionCoordinator.ACTION_TYPE_COMPLETE
+        NotificationActionReceiver.ACTION_SKIP_TASK -> NotificationActionCoordinator.ACTION_TYPE_SKIP
+        NotificationActionReceiver.ACTION_MISS_TASK -> NotificationActionCoordinator.ACTION_TYPE_MISS
+        NotificationActionReceiver.ACTION_SNOOZE_TASK -> NotificationActionCoordinator.ACTION_TYPE_SNOOZE
+        else -> null
+    }
+
+    /** Removes the action extras in place; this activity's intent object is what a relaunch reads back. */
+    private fun consumeReminderActionExtras(intent: Intent) {
+        intent.removeExtra(TaskReminderReceiver.EXTRA_REMINDER_ACTION_TYPE)
+        intent.removeExtra(TaskReminderReceiver.EXTRA_TASK_ID)
+        intent.removeExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_ID_INT)
+        setIntent(intent)
+    }
+
+    /** Applies the action on the coordinator path, then clears its pending record so no unlock replays it. */
+    @Suppress("TooGenericExceptionCaught") // Intentional: a throw here must not take down the activity
+    private fun applyReminderActionNow(action: PendingNotificationAction) {
+        reminderActionScope.launch {
+            val outcome = try {
+                notificationActionCoordinator.get().execute(action)
+            } catch (e: Exception) {
+                logger.e(
+                    LOG_SOURCE,
+                    "Failed to execute reminder action",
+                    e,
+                    mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+                )
+                NotificationActionOutcome.FAILED
+            }
+            if (outcome == NotificationActionOutcome.APPLIED) {
+                pendingNotificationActions.clear(action.taskId)
+            }
+            logger.i(
+                LOG_SOURCE,
+                "Reminder action handled from activity",
+                mapOf(
+                    "actionType" to action.actionType,
+                    "taskId" to action.taskId,
+                    "notificationId" to action.notificationId,
+                    "sessionOpen" to true,
+                    "outcome" to outcome.name,
+                ),
+            )
+        }
+    }
+
+    /** Records the action for the next unlock; the reminder stays on screen until it is actually applied. */
+    @Suppress("TooGenericExceptionCaught") // Intentional: a throw here must not take down the activity
+    private fun deferReminderActionUntilUnlock(action: PendingNotificationAction) {
+        try {
+            val outcome = pendingNotificationActions.record(action)
+            logger.i(
+                LOG_SOURCE,
+                "Deferred reminder action until unlock",
+                mapOf(
+                    "actionType" to action.actionType,
+                    "taskId" to action.taskId,
+                    "notificationId" to action.notificationId,
+                    "sessionOpen" to false,
+                    "recordOutcome" to outcome.name,
+                    "recordedDay" to action.recordedDay().toString(),
+                ),
+            )
+        } catch (e: Exception) {
+            logger.e(
+                LOG_SOURCE,
+                "Failed to defer reminder action",
+                e,
+                mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+            )
+        }
+    }
+
+    /** Handles a More tap: opens that task's status dialog once the database is readable. Never writes. */
+    private fun handleOpenTaskStatusDialogIntent(intent: Intent?) {
+        if (intent == null) return
+        val taskId = intent.getStringExtra(TaskReminderReceiver.EXTRA_OPEN_ACTION_TASK_ID)
+        if (taskId.isNullOrBlank()) return
+        consumeOpenTaskStatusDialogExtra(intent)
+        val sessionOpen = sessionManager.isDbOpen()
+        if (sessionOpen) {
+            requestTaskStatusDialog(taskId, sessionOpen)
+        } else {
+            pendingTaskStatusDialogTaskId = taskId
+            logger.i(
+                LOG_SOURCE,
+                "Deferred More tap until unlock",
+                mapOf("taskId" to taskId, "sessionOpen" to false),
+            )
+        }
+    }
+
+    /** Removes the More extra in place; this activity's intent object is what a relaunch reads back. */
+    private fun consumeOpenTaskStatusDialogExtra(intent: Intent) {
+        intent.removeExtra(TaskReminderReceiver.EXTRA_OPEN_ACTION_TASK_ID)
+        setIntent(intent)
+    }
+
+    /** Applies a More tap held back by the unlock gate; a closed session leaves it pending. */
+    private fun flushPendingTaskStatusDialog() {
+        val taskId = pendingTaskStatusDialogTaskId ?: return
+        if (!sessionManager.isDbOpen()) return
+        pendingTaskStatusDialogTaskId = null
+        requestTaskStatusDialog(taskId, true)
+    }
+
+    /** Hands the graph the request; the task-detail screen opens the dialog and clears the request. */
+    private fun requestTaskStatusDialog(
+        taskId: String,
+        sessionOpen: Boolean,
+    ) {
+        pendingExternalCommand.value = PayanamExternalNavigationCommand.OpenTaskStatusDialog(
+            taskId = taskId,
+            source = MORE_SOURCE,
+            requestId = System.currentTimeMillis(),
+        )
+        logger.i(
+            LOG_SOURCE,
+            "Queued task status dialog request from More tap",
+            mapOf("taskId" to taskId, "sessionOpen" to sessionOpen),
+        )
+    }
+
     /** Applies the chosen [appLanguage] / [effectiveLanguageTag] to the base context.
      *  @return true if the locale was actually changed. */
     private fun applyLanguagePreference(
         appLanguage: AppLanguageOption,
         effectiveLanguageTag: String,
     ): Boolean {
-        // The JVM default locale is what every SHARED formatter reads for dates, weekday names and the
-        // "last updated" timestamps (`Locale.getDefault()` in the shared screens). It is set on EVERY
-        // application - both API branches and both the SYSTEM and explicit cases - because the pre-33 branch
-        // already did and the 33+ per-app-locale branch did not, so on a modern device whose app language
-        // differs from the system locale the shared screens formatted with the SYSTEM locale while their copy
-        // was the app language. The desktop applies the same rule in its shell root.
+        // Shared formatters read the JVM default locale for dates, weekday names and "last updated"
+        // timestamps, so it is set on every path, not only the pre-33 one.
         Locale.setDefault(Locale.forLanguageTag(effectiveLanguageTag))
         if (appLanguage == AppLanguageOption.SYSTEM && Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
             val localeManager = getSystemService(LocaleManager::class.java)
@@ -1053,12 +1225,18 @@ class MainActivity : FragmentActivity() {
         private var startupMaintenanceJob: Job? = null
         private val startupMaintenanceScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         private const val LOG_SESSION_ROLLOVER_MIN_BACKGROUND_MS = 5_000L
+
+        /** Same source the broadcast entry point logs under, so both paths read alike. */
+        private const val LOG_SOURCE = NotificationActionReceiver.LOG_SOURCE
         const val EXTRA_NAVIGATE_TO = "navigate_to"
         const val EXTRA_OPEN_TIME_QUICK_START = "open_time_quick_start"
         const val EXTRA_OPEN_TIME_STOP_TRACKING = "open_time_stop_tracking"
         const val EXTRA_NAV_SOURCE = "nav_source"
         const val EXTRA_RETURN_ROUTE_AFTER_UNLOCK = "return_route_after_unlock"
         const val NAV_TARGET_TIME = "time"
+
+        /** Source tag carried by the navigation command a More tap produces. */
+        private const val MORE_SOURCE = "notification_more"
         private const val PREFS_RESTART_MARKER = "payanam_restart_marker"
         private const val KEY_RESTART_MARKER_TS = "marker_ts"
         private const val KEY_RESTART_MARKER_DB = "marker_db_exists"
@@ -1071,14 +1249,7 @@ class MainActivity : FragmentActivity() {
     }
 }
 
-/**
- * Pure function: resolves whether DatabaseInit screen should be shown at startup.
- *
- * Key invariant: missing artifacts ALWAYS shows DatabaseInit, even if a passphrase is
- * configured. Passphrase unlock only suppresses DatabaseInit when the DB file actually
- * exists (i.e. we have something to unlock). Without this order, a missing DB + configured
- * passphrase → unlock shown → SQLCipher silently creates a blank encrypted DB.
- */
+/** Missing artifacts always win, even with a passphrase configured, or SQLCipher would create a blank DB. */
 internal fun resolveShouldShowDatabaseInit(
     hasDatabaseArtifacts: Boolean,
     shouldShowPassphraseUnlock: Boolean,

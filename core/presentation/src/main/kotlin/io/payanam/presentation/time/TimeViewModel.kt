@@ -11,11 +11,13 @@ import io.payanam.domain.model.TimeEntryInput
 import io.payanam.domain.port.TaskReminderScheduler
 import io.payanam.domain.port.TimeTrackingController
 import io.payanam.domain.port.TimeTrackingWidgetRefresher
+import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.flags.PlatformFeatureFlags
+import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.scoring.port.TaskRecurrenceHandler
 import io.payanam.shared.logging.AppLogger
 import kotlinx.coroutines.CancellationException
@@ -29,11 +31,12 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.LocalTime
 import java.util.UUID
-import java.util.concurrent.atomic.AtomicReference
 
 /**
  * ViewModel for the Time-tracking screen: loads the selected day's entries,
@@ -49,9 +52,14 @@ class TimeViewModel(
     private val reminderScheduler: TaskReminderScheduler,
     private val timeTrackingController: TimeTrackingController,
     private val widgetRefresher: TimeTrackingWidgetRefresher,
+    private val appSettings: AppSettingsRepository,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val logger = AppLogger.current
+    // Serialises the transitions that read or write the active entry while driving the tracking service: a
+    // start and an end-of-entry reconciliation racing lets the stop end a session that has just begun. A
+    // plain row edit or delete holds no lock of its own; only its reconciliation does.
+    private val sessionMutex = Mutex()
     private val _uiState = MutableStateFlow(TimeScreenUiState())
     val uiState: StateFlow<TimeScreenUiState> = _uiState.asStateFlow()
     private var entriesJob: Job? = null
@@ -253,48 +261,45 @@ class TimeViewModel(
         )
         scope.launch {
             try {
-                // Closing any previous entry is DB bookkeeping only - do NOT also stop the
-                // tracking service here. timeTrackingController.stopTracking() reaches
-                // TrackingService, which calls stopSelf(); that teardown races the
-                // startTracking(...) below and can land while the replacement foreground start
-                // is still pending, killing the process with
-                // ForegroundServiceDidNotStartInTimeException. The start below re-enters the very
-                // same service instance and calls startForeground with the same NOTIFICATION_ID,
-                // so the session is replaced in place; no stop is needed because the session is
-                // replaced, not ended.
-                timeEntryRepository.stopActiveTimeEntry()
-                val input =
-                    TimeEntryInput(
-                        lifeIntentionCategory = dimensionLabel,
-                        dimensionId = dimensionId,
-                        taskId = normalizedTaskId,
-                        startedAt = startedAt,
+                sessionMutex.withLock {
+                    // Do NOT stop the tracking service before this start: stopTracking() reaches
+                    // TrackingService.stopSelf(), whose teardown races the start below and can kill the process
+                    // with ForegroundServiceDidNotStartInTimeException. The start replaces the session in place.
+                    timeEntryRepository.stopActiveTimeEntry()
+                    val input =
+                        TimeEntryInput(
+                            lifeIntentionCategory = dimensionLabel,
+                            dimensionId = dimensionId,
+                            taskId = normalizedTaskId,
+                            startedAt = startedAt,
+                        )
+                    val entry = timeEntryRepository.startTimeEntry(input)
+                    logger.i(
+                        "TimeViewModel.startTracking",
+                        "Tracking started successfully",
+                        mapOf(
+                            "entryId" to entry.id,
+                            "dimensionId" to dimensionId,
+                            "startTime" to startedAt.toString(),
+                        ),
                     )
-                val entry = timeEntryRepository.startTimeEntry(input)
-                logger.i(
-                    "TimeViewModel.startTracking",
-                    "Tracking started successfully",
-                    mapOf(
-                        "entryId" to entry.id,
-                        "dimensionId" to dimensionId,
-                        "startTime" to startedAt.toString(),
-                    ),
-                )
-                val taskTitle =
-                    normalizedTaskId?.let { id ->
-                        _uiState.value.tasks
-                            .find { it.id == id }
-                            ?.title
+                    val taskTitle =
+                        normalizedTaskId?.let { id ->
+                            _uiState.value.tasks
+                                .find { it.id == id }
+                                ?.title
+                        }
+                    timeTrackingController.startTracking(
+                        taskId = normalizedTaskId,
+                        taskTitle = taskTitle ?: dimensionLabel,
+                        dimension = dimensionLabel,
+                        startTime = startedAt,
+                    )
+                    if (_uiState.value.selectedDate == startedAt.toLocalDate()) {
+                        loadEntriesForDate(_uiState.value.selectedDate)
                     }
-                timeTrackingController.startTracking(
-                    taskId = normalizedTaskId,
-                    taskTitle = taskTitle ?: dimensionLabel,
-                    dimension = dimensionLabel,
-                    startTime = startedAt,
-                )
-                if (_uiState.value.selectedDate == startedAt.toLocalDate()) {
-                    loadEntriesForDate(_uiState.value.selectedDate)
                 }
+                // Outside the lock: a caller's callback must never be able to re-enter a session transition.
                 onSuccess?.invoke()
             } catch (e: CancellationException) {
                 throw e
@@ -344,22 +349,26 @@ class TimeViewModel(
         )
         scope.launch {
             try {
-                val stoppedEntry =
-                    timeTrackingController.stopTrackingAndCompleteTask(
-                        focusRating = safeFocusRating,
-                        focusNote = normalizedFocusNote,
+                sessionMutex.withLock {
+                    // Under the session lock: a start that ran between the store write and the service stop
+                    // would leave an active entry with no service behind it.
+                    val stoppedEntry =
+                        timeTrackingController.stopTrackingAndCompleteTask(
+                            focusRating = safeFocusRating,
+                            focusNote = normalizedFocusNote,
+                        )
+                    timeTrackingController.stopTracking()
+                    widgetRefresher.refreshWidget()
+                    logger.i(
+                        "TimeViewModel.stopTracking",
+                        "Tracking stopped successfully",
+                        mapOf(
+                            "taskCompleted" to (stoppedEntry?.taskId != null).toString(),
+                            "focusRating" to safeFocusRating.toString(),
+                        ),
                     )
-                timeTrackingController.stopTracking()
-                widgetRefresher.refreshWidget()
-                logger.i(
-                    "TimeViewModel.stopTracking",
-                    "Tracking stopped successfully",
-                    mapOf(
-                        "taskCompleted" to (stoppedEntry?.taskId != null).toString(),
-                        "focusRating" to safeFocusRating.toString(),
-                    ),
-                )
-                loadEntriesForDate(_uiState.value.selectedDate)
+                    loadEntriesForDate(_uiState.value.selectedDate)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -414,7 +423,40 @@ class TimeViewModel(
                         focusNote = normalizedFocusNote,
                         focusRatedAt = resolvedFocusRatedAt,
                     )
+                // Read BEFORE the write: the entry stops being active once it has an end time, so afterwards
+                // there is no way to tell whether the service was showing it. An unreadable store counts as
+                // "may have been active", so the reconciliation below re-reads instead of failing the edit.
+                val wasActiveEntry =
+                    try {
+                        timeEntryRepository.getActiveTimeEntry()?.id == entryId
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.e(
+                            "TimeViewModel.updateTimeEntry",
+                            "Could not read the active entry before the edit; reconciling the service afterwards",
+                            e,
+                            mapOf(
+                                "entryId" to entryId,
+                            ),
+                        )
+                        true
+                    }
                 timeEntryRepository.updateTimeEntry(entryId, input)
+                // Ending the entry the service is showing owes it a stop. The mark is what a LATER retry
+                // reads, so a write that fails is not allowed to gate the stop owed now: the entry has
+                // already ended and no later save can take this branch again.
+                val endedTheActiveEntry = input.endedAt != null && wasActiveEntry
+                if (endedTheActiveEntry && !markServiceStopPending()) {
+                    logger.w(
+                        "TimeViewModel.updateTimeEntry",
+                        "Owed tracking-service stop could not be recorded; this save attempts it and no later save will retry",
+                        mapOf("entryId" to entryId),
+                    )
+                }
+                // Reconciled after EVERY successful write, and forced when this one ended the active entry:
+                // a later save is what retries a stop an earlier save could not make.
+                reconcileTrackingServiceNow(owedNow = endedTheActiveEntry)
                 loadEntriesForDate(_uiState.value.selectedDate)
             } catch (e: CancellationException) {
                 throw e
@@ -433,6 +475,114 @@ class TimeViewModel(
     }
 
     /**
+     * Retries a tracking-service stop an earlier save could not complete.
+     *
+     * The mark is a stored `app_settings` row ([AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING]), not a
+     * field, so it outlives this instance and the process: a recreated screen retries the same owed stop.
+     * The Time screen calls this on every return to the foreground.
+     *
+     * The mark is also the guard: with none there is nothing owed, and a stop with no session is not free on
+     * either platform - the Android controller starts the service to deliver the stop action, and the
+     * desktop's logs a refusal.
+     */
+    fun reconcileTrackingService() {
+        scope.launch { reconcileTrackingServiceNow() }
+    }
+
+    /** [reconcileTrackingService] on the caller's coroutine, for a save that already runs in one. */
+    private suspend fun reconcileTrackingServiceNow(owedNow: Boolean = false) {
+        sessionMutex.withLock { reconcileTrackingServiceNowLocked(owedNow) }
+    }
+
+    /** [reconcileTrackingServiceNow] with [sessionMutex] already held by the caller. */
+    private suspend fun reconcileTrackingServiceNowLocked(owedNow: Boolean = false) {
+        if (!owedNow && !isServiceStopPending()) return
+        logger.i(
+            "TimeViewModel.reconcileTrackingService",
+            "Reconciling the tracking service against a stop it is owed",
+        )
+        stopTrackingIfNoEntryRemainsLocked()
+    }
+
+    /**
+     * Records that a stop is still owed and returns whether the mark was stored; a failed write is logged, not thrown.
+     */
+    private suspend fun markServiceStopPending(): Boolean =
+        try {
+            appSettings.setSetting(AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING, "true")
+            true
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.e("TimeViewModel.markServiceStopPending", "Could not record the owed tracking-service stop", e)
+            false
+        }
+
+    /** Clears the owed stop once it has been made, or once no entry is left for it to affect. */
+    private suspend fun clearServiceStopPending() {
+        try {
+            appSettings.setSetting(AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING, "false")
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.e("TimeViewModel.clearServiceStopPending", "Could not clear the owed tracking-service stop", e)
+        }
+    }
+
+    /**
+     * Whether a stop is still owed; an unreadable store answers "no" and leaves the mark in place for a later retry.
+     */
+    private suspend fun isServiceStopPending(): Boolean =
+        try {
+            appSettings
+                .getSetting(AppPreferenceKeys.KEY_TRACKING_SERVICE_STOP_PENDING)
+                ?.toBoolean() ?: false
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.e("TimeViewModel.isServiceStopPending", "Could not read the owed tracking-service stop", e)
+            false
+        }
+
+    /**
+     * Ends the foreground session only when no entry is still active; the answer comes from the store, not the save.
+     */
+    private suspend fun stopTrackingIfNoEntryRemainsLocked() {
+        val stillActive =
+            try {
+                timeEntryRepository.getActiveTimeEntry()
+            } catch (e: CancellationException) {
+                throw e
+            } catch (e: Exception) {
+                logger.e(
+                    "TimeViewModel.stopTrackingIfNoEntryRemains",
+                    "Could not read the active entry; leaving the tracking service as it is",
+                    e,
+                )
+                return
+            }
+        // One session, one notification: a second live entry keeps the service, because it owns that notification.
+        if (stillActive != null) {
+            clearServiceStopPending()
+            logger.i(
+                "TimeViewModel.stopTrackingIfNoEntryRemains",
+                "Another entry is still active; keeping the tracking service",
+                mapOf("entryId" to stillActive.id),
+            )
+            return
+        }
+        // A failing stop is logged and leaves the owed-stop mark in place, so a later save or resume retries it.
+        try {
+            timeTrackingController.stopTracking()
+            widgetRefresher.refreshWidget()
+            clearServiceStopPending()
+            logger.i("TimeViewModel.stopTrackingIfNoEntryRemains", "No entry left active; stopping the tracking service")
+        } catch (e: Exception) {
+            logger.e("TimeViewModel.stopTrackingIfNoEntryRemains", "Failed to stop the tracking service", e)
+        }
+    }
+
+    /**
      * Deletes [entryId] and, if it was linked to a task, reverts that task's
      * completion status, then reloads the day.
      */
@@ -442,10 +592,39 @@ class TimeViewModel(
         scope.launch {
             try {
                 val entryToDelete = _uiState.value.timeEntries.find { it.id == entryId }
+                // Read BEFORE the delete, for the reason the edit path reads it before its write: once the row
+                // is gone there is no way to tell whether the tracking service was showing it. An unreadable
+                // store counts as "may have been active", which reconciles rather than skipping the stop.
+                val wasActiveEntry =
+                    try {
+                        timeEntryRepository.getActiveTimeEntry()?.id == entryId
+                    } catch (e: CancellationException) {
+                        throw e
+                    } catch (e: Exception) {
+                        logger.e(
+                            "TimeViewModel.deleteTimeEntry",
+                            "Could not read the active entry before the delete; reconciling the service afterwards",
+                            e,
+                            mapOf(
+                                "entryId" to entryId,
+                            ),
+                        )
+                        true
+                    }
                 timeEntryRepository.deleteTimeEntry(entryId)
                 entryToDelete?.taskId?.let { taskId ->
                     revertTaskCompletionFromTimeTracking(taskId, entryToDelete)
                 }
+                // Deleting the entry the service is showing owes it the same stop an edit that ended it does,
+                // and the mark is what a later save or resume retries.
+                if (wasActiveEntry && !markServiceStopPending()) {
+                    logger.w(
+                        "TimeViewModel.deleteTimeEntry",
+                        "Owed tracking-service stop could not be recorded; this delete attempts it and no later save will retry",
+                        mapOf("entryId" to entryId),
+                    )
+                }
+                sessionMutex.withLock { reconcileTrackingServiceNowLocked(owedNow = wasActiveEntry) }
                 logger.i(
                     "TimeViewModel.deleteTimeEntry",
                     "Time entry deleted",
@@ -659,59 +838,58 @@ class TimeViewModel(
         logger.i("TimeViewModel.continueEntry", "Continuing specific entry", mapOf("entryId" to entryId))
         scope.launch {
             try {
-                // Resolve the entry to continue BEFORE mutating anything. The lookup is a pure
-                // in-memory read of _uiState with no side effects, so it runs first; that way the
-                // unknown-id path below changes nothing at all, instead of stopping the active DB
-                // entry and leaving the tracking service running a session the DB no longer knows.
-                val entry =
-                    _uiState.value.timeEntries.find { it.id == entryId }
-                        ?: _uiState.value.lastEntry?.takeIf { it.id == entryId }
-                if (entry == null) {
-                    logger.w("TimeViewModel.continueEntry", "Entry not found", mapOf("entryId" to entryId))
-                    return@launch
-                }
-                // DB bookkeeping only: do NOT stop the tracking service before restarting it.
-                // See startTracking() above - stopTracking() leads to TrackingService.stopSelf()
-                // and that teardown races this method's foreground start, so the process can be
-                // killed for a missing startForeground(). startTracking(...) below replaces the
-                // session in place on the same service instance and notification id.
-                timeEntryRepository.stopActiveTimeEntry()
-                val input =
-                    TimeEntryInput(
-                        lifeIntentionCategory = entry.lifeIntentionCategory,
-                        dimensionId = entry.dimensionId,
-                        taskId = entry.taskId,
-                        startedAt = entry.startedAt,
-                        endedAt = null,
-                        focusRating = entry.focusRating,
-                        focusNote = entry.focusNote,
-                        focusRatedAt = entry.focusRatedAt,
-                    )
-                timeEntryRepository.updateTimeEntry(entryId, input)
-                val taskTitle =
-                    entry.taskId?.let { id ->
-                        _uiState.value.tasks
-                            .find { it.id == id }
-                            ?.title
+                sessionMutex.withLock {
+                    // Resolve the entry BEFORE mutating anything: the lookup is a side-effect-free read of
+                    // _uiState, so an unknown id changes nothing instead of stopping the active DB entry and
+                    // leaving the service running a session the DB no longer knows.
+                    val entry =
+                        _uiState.value.timeEntries.find { it.id == entryId }
+                            ?: _uiState.value.lastEntry?.takeIf { it.id == entryId }
+                    if (entry == null) {
+                        logger.w("TimeViewModel.continueEntry", "Entry not found", mapOf("entryId" to entryId))
+                        return@withLock
                     }
-                val dimensionLabel = entry.lifeIntentionCategory
-                val dimensionId = entry.dimensionId ?: "dim_unassigned"
-                timeTrackingController.startTracking(
-                    taskId = entry.taskId,
-                    taskTitle = taskTitle ?: dimensionLabel,
-                    dimension = dimensionLabel,
-                    startTime = entry.startedAt,
-                )
-                logger.i(
-                    "TimeViewModel.continueEntry",
-                    "Entry continued successfully",
-                    mapOf(
-                        "entryId" to entryId,
-                        "dimensionId" to dimensionId,
-                        "originalStartTime" to entry.startedAt.toString(),
-                    ),
-                )
-                loadEntriesForDate(_uiState.value.selectedDate)
+                    // DB bookkeeping only: do NOT stop the tracking service before restarting it.
+                    // See startTracking() above - stopTracking() leads to stopSelf(), which races this
+                    // foreground start; startTracking() below replaces the session in place.
+                    timeEntryRepository.stopActiveTimeEntry()
+                    val input =
+                        TimeEntryInput(
+                            lifeIntentionCategory = entry.lifeIntentionCategory,
+                            dimensionId = entry.dimensionId,
+                            taskId = entry.taskId,
+                            startedAt = entry.startedAt,
+                            endedAt = null,
+                            focusRating = entry.focusRating,
+                            focusNote = entry.focusNote,
+                            focusRatedAt = entry.focusRatedAt,
+                        )
+                    timeEntryRepository.updateTimeEntry(entryId, input)
+                    val taskTitle =
+                        entry.taskId?.let { id ->
+                            _uiState.value.tasks
+                                .find { it.id == id }
+                                ?.title
+                        }
+                    val dimensionLabel = entry.lifeIntentionCategory
+                    val dimensionId = entry.dimensionId ?: "dim_unassigned"
+                    timeTrackingController.startTracking(
+                        taskId = entry.taskId,
+                        taskTitle = taskTitle ?: dimensionLabel,
+                        dimension = dimensionLabel,
+                        startTime = entry.startedAt,
+                    )
+                    logger.i(
+                        "TimeViewModel.continueEntry",
+                        "Entry continued successfully",
+                        mapOf(
+                            "entryId" to entryId,
+                            "dimensionId" to dimensionId,
+                            "originalStartTime" to entry.startedAt.toString(),
+                        ),
+                    )
+                    loadEntriesForDate(_uiState.value.selectedDate)
+                }
             } catch (e: CancellationException) {
                 throw e
             } catch (e: Exception) {
@@ -1245,6 +1423,7 @@ fun timeViewModel(scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispa
         reminderScheduler = dataLayer.reminderScheduler,
         timeTrackingController = dataLayer.timeTrackingController,
         widgetRefresher = dataLayer.timeTrackingWidgetRefresher,
+        appSettings = dataLayer.appSettings,
         scope = scope,
     )
 }

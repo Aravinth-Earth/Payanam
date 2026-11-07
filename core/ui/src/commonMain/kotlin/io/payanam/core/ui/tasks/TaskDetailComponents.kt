@@ -42,6 +42,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.preferences.LocalAppPreferences
@@ -56,6 +57,7 @@ import io.payanam.domain.model.TaskReschedule
 import io.payanam.scoring.CompletionStats
 import io.payanam.core.ui.components.DimensionIdentityRow
 import io.payanam.core.ui.components.RescheduleHistorySection
+import io.payanam.core.ui.components.TestTags
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 
@@ -306,7 +308,7 @@ internal fun TaskDetailContent(
                 // Archive Button
                 OutlinedButton(
                     onClick = onArchive,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).testTag(TestTags.TaskDetail.ARCHIVE_BUTTON),
                 ) {
                     Icon(
                         imageVector = Icons.Default.Archive,

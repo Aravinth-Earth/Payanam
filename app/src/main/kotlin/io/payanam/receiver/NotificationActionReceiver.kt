@@ -9,12 +9,12 @@ import dagger.hilt.android.AndroidEntryPoint
 import io.payanam.FeatureFlags
 import io.payanam.MainActivity
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.common.util.PersistedDateTime
-import io.payanam.domain.model.TaskOccurrence
-import io.payanam.domain.repository.TaskOccurrenceRepository
-import io.payanam.domain.repository.TaskRepository
-import io.payanam.notification.NotificationScheduler
-import io.payanam.scoring.RecurrenceManager
+import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.notification.NotificationActionCoordinator
+import io.payanam.notification.NotificationActionOutcome
+import io.payanam.notification.PendingActionRecordOutcome
+import io.payanam.notification.PendingNotificationAction
+import io.payanam.notification.PendingNotificationActionStore
 import io.payanam.widget.TimeTrackingWidgetProvider
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -23,7 +23,13 @@ import kotlinx.coroutines.launch
 import javax.inject.Inject
 
 /**
- * Handles notification action button clicks.
+ * Handles notification action button clicks delivered as broadcasts.
+ *
+ * A reminder action tapped while the database session is closed cannot be applied: every repository
+ * call fails inside [DatabaseSessionManager]. That case records the action in
+ * [PendingNotificationActionStore], opens the app on its unlock screen, and leaves
+ * [NotificationActionCoordinator] to apply it once the passphrase opens the session. A tapped action
+ * whose session is open runs immediately, on the same coordinator path.
  */
 @AndroidEntryPoint
 class NotificationActionReceiver : BroadcastReceiver() {
@@ -34,27 +40,27 @@ class NotificationActionReceiver : BroadcastReceiver() {
         const val ACTION_SKIP_TASK = "io.payanam.action.NOTIFICATION_SKIP_TASK"
         const val ACTION_MISS_TASK = "io.payanam.action.NOTIFICATION_MISS_TASK"
         const val ACTION_SNOOZE_TASK = "io.payanam.action.NOTIFICATION_SNOOZE_TASK"
+
+        /** Shared with [MainActivity], so both entry points log a reminder action under one source. */
+        const val LOG_SOURCE = "NotificationActionReceiver"
     }
 
     @Inject
-    lateinit var taskRepository: TaskRepository
+    lateinit var sessionManager: DatabaseSessionManager
 
     @Inject
-    lateinit var taskOccurrenceRepository: TaskOccurrenceRepository
+    lateinit var coordinator: NotificationActionCoordinator
 
     @Inject
-    lateinit var notificationScheduler: NotificationScheduler
-
-    @Inject
-    lateinit var recurrenceManager: RecurrenceManager
+    lateinit var pendingActions: PendingNotificationActionStore
 
     private val logger = UnifiedLogger.getInstance()
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
-     * Dispatches the tapped action: stop-tracking redirect, complete/skip/miss
-     * (with occurrence + recurrence advancement), or snooze.
+     * Dispatches the tapped action: stop-tracking redirect, or a reminder action that either runs now
+     * or is recorded for the next unlock.
      */
     override fun onReceive(context: Context, intent: Intent) {
         val pendingResult = goAsync()
@@ -69,10 +75,12 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
         when (intent.action) {
             ACTION_STOP_TRACKING -> handleStopTracking(context, pendingResult)
-            ACTION_COMPLETE_TASK -> handleTaskAction(context, intent, "completed", pendingResult)
-            ACTION_SKIP_TASK -> handleTaskAction(context, intent, "skipped", pendingResult)
-            ACTION_MISS_TASK -> handleTaskAction(context, intent, "missed", pendingResult)
-            ACTION_SNOOZE_TASK -> handleSnooze(context, intent, pendingResult)
+
+            // Reminder actions arrive at MainActivity now, from the notification's getActivity tap;
+            // this branch is kept for an intent still routed to the receiver.
+            ACTION_COMPLETE_TASK, ACTION_SKIP_TASK, ACTION_MISS_TASK, ACTION_SNOOZE_TASK ->
+                handleReminderAction(context, intent, pendingResult)
+
             else -> pendingResult.finish()
         }
     }
@@ -97,121 +105,93 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
-    @Suppress("TooGenericExceptionCaught") // Intentional: multi-system-API catch in background component
-    private fun handleTaskAction(
+    /**
+     * Resolves the tapped action and either executes it or records it until the session opens.
+     *
+     * Each branch owns its own `finish()`; the catch is for a throw before a branch is entered, and a
+     * second `finish()` on an already-finished result throws, so it is wrapped.
+     */
+    @Suppress("TooGenericExceptionCaught") // Intentional: a throw out of goAsync() would kill the receiver
+    private fun handleReminderAction(
         context: Context,
         intent: Intent,
-        status: String,
         pendingResult: BroadcastReceiver.PendingResult,
     ) {
-        val taskId = intent.getStringExtra(TaskReminderReceiver.EXTRA_TASK_ID)
-        val notificationIdInt = intent.getIntExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_ID_INT, -1)
-        if (taskId.isNullOrBlank()) {
-            logger.w(
-                "NotificationActionReceiver.handleTaskAction",
-                "Missing taskId for action",
+        try {
+            val actionType = actionTypeFor(intent.action)
+            val taskId = intent.getStringExtra(TaskReminderReceiver.EXTRA_TASK_ID)
+            val notificationIdInt = intent.getIntExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_ID_INT, -1)
+            if (actionType == null || taskId.isNullOrBlank()) {
+                logger.w(
+                    LOG_SOURCE,
+                    "Missing action type or taskId for reminder action",
+                    mapOf(
+                        "action" to (intent.action ?: "null"),
+                        "actionType" to (actionType ?: "null"),
+                        "taskIdPresent" to !taskId.isNullOrBlank(),
+                    ),
+                )
+                pendingResult.finish()
+                return
+            }
+            val action =
+                PendingNotificationAction(
+                    actionType = actionType,
+                    taskId = taskId,
+                    notificationId = notificationIdInt,
+                    recordedAtMillis = System.currentTimeMillis(),
+                )
+            val sessionOpen = sessionManager.isDbOpen()
+            logger.i(
+                LOG_SOURCE,
+                "Reminder action received",
                 mapOf(
-                    "status" to status,
+                    "actionType" to actionType,
+                    "taskId" to taskId,
+                    "notificationId" to notificationIdInt,
+                    "sessionOpen" to sessionOpen,
                 ),
             )
-            pendingResult.finish()
-            return
+            if (sessionOpen) {
+                executeNow(action, pendingResult)
+            } else {
+                deferUntilUnlock(context, action, pendingResult)
+            }
+        } catch (e: Exception) {
+            logger.e(
+                LOG_SOURCE,
+                "Failed to dispatch reminder action",
+                e,
+                mapOf("action" to (intent.action ?: "null")),
+            )
+            runCatching { pendingResult.finish() }
         }
+    }
 
+    /**
+     * Runs the action immediately, on the same coordinator path the unlock drain uses.
+     *
+     * A stale pending record for the same task is cleared on success, so it cannot be replayed on the
+     * next unlock.
+     */
+    @Suppress("TooGenericExceptionCaught") // Intentional: keeps the broadcast alive to its finish()
+    private fun executeNow(action: PendingNotificationAction, pendingResult: BroadcastReceiver.PendingResult) {
         scope.launch {
             try {
-                val task = taskRepository.getTaskById(taskId)
-                if (task == null) {
-                    logger.w(
-                        "NotificationActionReceiver.handleTaskAction",
-                        "Task not found",
-                        mapOf(
-                            "taskId" to taskId,
-                        ),
-                    )
-                    return@launch
+                when (coordinator.execute(action)) {
+                    NotificationActionOutcome.APPLIED -> pendingActions.clear(action.taskId)
+
+                    NotificationActionOutcome.ALREADY_HANDLED,
+                    NotificationActionOutcome.NOT_APPLICABLE,
+                    NotificationActionOutcome.FAILED,
+                    -> Unit
                 }
-                val isFrequencyHabit = task.recurrenceEnabled && recurrenceManager.isFrequencyHabit(task)
-                if (!isFrequencyHabit) {
-                    when (status) {
-                        "completed" -> taskRepository.completeTask(taskId)
-
-                        "skipped" -> taskRepository.skipTask(taskId)
-
-                        "missed" -> taskRepository.missTask(taskId)
-
-                        else -> {
-                            logger.w(
-                                "NotificationActionReceiver.handleTaskAction",
-                                "Unknown action status",
-                                mapOf(
-                                    "status" to status,
-                                    "taskId" to taskId,
-                                ),
-                            )
-                        }
-                    }
-                }
-                if (task.recurrenceEnabled) {
-                    val occurrence = TaskOccurrence(
-                        id = java.util.UUID.randomUUID().toString(),
-                        taskId = taskId,
-                        occurrenceDate = java.time.LocalDate.now().toString(),
-                        status = status,
-                        statusNote = null,
-                        statusReason = "notification_action",
-                        completedAt = if (status == "completed") System.currentTimeMillis().toString() else null,
-                        skippedAt = if (status == "skipped" || status == "missed") {
-                            System.currentTimeMillis().toString()
-                        } else {
-                            null
-                        },
-                    )
-                    taskOccurrenceRepository.recordOccurrence(occurrence)
-                    if (FeatureFlags.minimalModeEnabled && task.recurrenceEnabled) {
-                        logger.i(
-                            "NotificationActionReceiver.handleTaskAction",
-                            "Minimal mode: skipping recurrence advancement for recurring task",
-                            mapOf("taskId" to taskId, "status" to status),
-                        )
-                    } else {
-                        when (status) {
-                            "completed" -> recurrenceManager.onTaskCompleted(task, note = null, reason = "notification_action", nextDueStrategy = null)
-                            "skipped" -> recurrenceManager.onTaskSkipped(task, note = null, reason = "notification_action", nextDueStrategy = null)
-                            "missed" -> recurrenceManager.onTaskMissed(task, note = null, reason = "notification_action", nextDueStrategy = null)
-                        }
-                        val updatedTask = taskRepository.getTaskById(taskId)
-                        if (updatedTask != null && updatedTask.recurrenceEnabled) {
-                            notificationScheduler.scheduleForTask(
-                                task = updatedTask,
-                                overrideScheduledAt = null,
-                                overrideDueAt = null,
-                                isSnoozed = false,
-                            )
-                        }
-                    }
-                } else {
-                    notificationScheduler.cancelForTask(taskId)
-                }
-                cancelDisplayedNotification(context, notificationIdInt)
-
-                logger.i(
-                    "NotificationActionReceiver.handleTaskAction",
-                    "Task action handled",
-                    mapOf(
-                        "taskId" to taskId,
-                        "status" to status,
-                    ),
-                )
             } catch (e: Exception) {
                 logger.e(
-                    "NotificationActionReceiver.handleTaskAction",
-                    "Failed to handle task action",
+                    LOG_SOURCE,
+                    "Failed to execute reminder action",
                     e,
-                    mapOf(
-                        "taskId" to taskId,
-                        "status" to status,
-                    ),
+                    mapOf("actionType" to action.actionType, "taskId" to action.taskId),
                 )
             } finally {
                 pendingResult.finish()
@@ -219,59 +199,67 @@ class NotificationActionReceiver : BroadcastReceiver() {
         }
     }
 
-    @Suppress("TooGenericExceptionCaught") // Intentional: multi-system-API catch in background component
-    private fun handleSnooze(context: Context, intent: Intent, pendingResult: BroadcastReceiver.PendingResult) {
-        val taskId = intent.getStringExtra(TaskReminderReceiver.EXTRA_TASK_ID)
-        val dueAtRaw = intent.getStringExtra(TaskReminderReceiver.EXTRA_DUE_AT)
-        val notificationIdInt = intent.getIntExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_ID_INT, -1)
-        if (taskId.isNullOrBlank()) {
-            logger.w("NotificationActionReceiver.handleSnooze", "Missing taskId for snooze")
+    /**
+     * Records the action for the next unlock and opens the app so the user can unlock.
+     *
+     * The reminder is not cancelled here: its action has not been applied yet, and a reminder that
+     * reported a change which never happened would be wrong. It stays until the action is applied.
+     */
+    @Suppress("TooGenericExceptionCaught") // Intentional: keeps the broadcast alive to its finish()
+    private fun deferUntilUnlock(
+        context: Context,
+        action: PendingNotificationAction,
+        pendingResult: BroadcastReceiver.PendingResult,
+    ) {
+        try {
+            val outcome = pendingActions.record(action)
+            logger.i(
+                LOG_SOURCE,
+                "Deferred reminder action until unlock",
+                mapOf(
+                    "actionType" to action.actionType,
+                    "taskId" to action.taskId,
+                    "notificationId" to action.notificationId,
+                    "sessionOpen" to false,
+                    "recordOutcome" to outcome.name,
+                    "recordedDay" to action.recordedDay().toString(),
+                ),
+            )
+            launchUnlockScreen(context, outcome)
+        } catch (e: Exception) {
+            logger.e(
+                LOG_SOURCE,
+                "Failed to defer reminder action",
+                e,
+                mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+            )
+        } finally {
             pendingResult.finish()
-            return
-        }
-
-        scope.launch {
-            try {
-                val task = taskRepository.getTaskById(taskId)
-                if (task == null) {
-                    logger.w(
-                        "NotificationActionReceiver.handleSnooze",
-                        "Task not found",
-                        mapOf(
-                            "taskId" to taskId,
-                        ),
-                    )
-                    return@launch
-                }
-                val dueAt = PersistedDateTime.parseOrNull(dueAtRaw)
-                notificationScheduler.scheduleSnooze(task, dueAt)
-                cancelDisplayedNotification(context, notificationIdInt)
-
-                logger.i(
-                    "NotificationActionReceiver.handleSnooze",
-                    "Snoozed task reminder",
-                    mapOf(
-                        "taskId" to taskId,
-                    ),
-                )
-            } catch (e: Exception) {
-                logger.e(
-                    "NotificationActionReceiver.handleSnooze",
-                    "Failed to snooze reminder",
-                    e,
-                    mapOf(
-                        "taskId" to taskId,
-                    ),
-                )
-            } finally {
-                pendingResult.finish()
-            }
         }
     }
 
-    private fun cancelDisplayedNotification(context: Context, notificationIdInt: Int) {
-        if (notificationIdInt <= 0) return
-        val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as android.app.NotificationManager
-        notificationManager.cancel(notificationIdInt)
+    @Suppress("TooGenericExceptionCaught") // Intentional: startActivity from a background component
+    private fun launchUnlockScreen(context: Context, outcome: PendingActionRecordOutcome) {
+        try {
+            val launchIntent = Intent(context, MainActivity::class.java).apply {
+                flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP
+            }
+            context.startActivity(launchIntent)
+            logger.i(
+                LOG_SOURCE,
+                "Launched app for unlock",
+                mapOf("actionRecorded" to (outcome == PendingActionRecordOutcome.RECORDED)),
+            )
+        } catch (e: Exception) {
+            logger.e(LOG_SOURCE, "Failed to launch app for unlock", e)
+        }
+    }
+
+    private fun actionTypeFor(intentAction: String?): String? = when (intentAction) {
+        ACTION_COMPLETE_TASK -> NotificationActionCoordinator.ACTION_TYPE_COMPLETE
+        ACTION_SKIP_TASK -> NotificationActionCoordinator.ACTION_TYPE_SKIP
+        ACTION_MISS_TASK -> NotificationActionCoordinator.ACTION_TYPE_MISS
+        ACTION_SNOOZE_TASK -> NotificationActionCoordinator.ACTION_TYPE_SNOOZE
+        else -> null
     }
 }

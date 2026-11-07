@@ -24,4 +24,14 @@ sealed interface PayanamExternalNavigationCommand {
         val source: String,
         val requestId: Long,
     ) : PayanamExternalNavigationCommand
+
+    /**
+     * Asks for [taskId]'s status dialog on the task-detail destination. Navigation only: the request
+     * itself writes nothing, and the graph hands it to the screen that owns the dialog.
+     */
+    data class OpenTaskStatusDialog(
+        val taskId: String,
+        val source: String,
+        val requestId: Long,
+    ) : PayanamExternalNavigationCommand
 }

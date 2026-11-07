@@ -590,6 +590,8 @@ internal class AndroidPayanamNavHostScreens(
                 logger.i("PayanamNavHost", "Navigating to edit task", mapOf("taskId" to taskId))
                 nav.openEditTask(taskId)
             },
+            // A reminder's More tap for a task that is gone lands on the list instead of a dead screen.
+            onTaskUnavailable = { nav.openTasks() },
         )
     }
 
