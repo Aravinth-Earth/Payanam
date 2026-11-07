@@ -408,12 +408,16 @@ class TaskRepositoryJvm(
             tasks
         }
 
-    /** Advances recurring task [taskId] to its next occurrence and marks the new day dirty. */
+    /**
+     * Advances recurring task [taskId] to its next occurrence and marks the new day dirty.
+     *
+     * Returns the written-row count: 0 means the task was archived between the read and this write.
+     */
     override suspend fun updateRecurrenceState(
         taskId: String,
         newDueDate: LocalDateTime,
         lastOccurrenceDate: LocalDateTime,
-    ) {
+    ): Int =
         JdbcFlows.onIo {
             val changed =
                 JdbcQueries.write(
@@ -435,7 +439,7 @@ class TaskRepositoryJvm(
                     "Recurrence update matched no row; task archived",
                     mapOf("taskId" to taskId),
                 )
-                return@onIo Unit
+                return@onIo 0
             }
             markDirtyForTaskDay(newDueDate.toLocalDate(), "task_recurrence_updated")
             logger.i(
@@ -443,9 +447,8 @@ class TaskRepositoryJvm(
                 "Recurrence state updated",
                 mapOf("taskId" to taskId, "newDueDate" to newDueDate.toString()),
             )
-            Unit
+            changed
         }
-    }
 
     /**
      * Shared body of complete / skip / miss: one status write, then a dirty mark, then a re-read.

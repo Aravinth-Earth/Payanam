@@ -188,12 +188,26 @@ class RecurrenceManager(
                     ),
                 )
 
-                taskRepository.updateRecurrenceState(
-                    taskId = task.id,
-                    newDueDate = newDueDate,
-                    lastOccurrenceDate = LocalDateTime.now(),
-                )
-                repairedCount++
+                val changed =
+                    taskRepository.updateRecurrenceState(
+                        taskId = task.id,
+                        newDueDate = newDueDate,
+                        lastOccurrenceDate = LocalDateTime.now(),
+                    )
+                if (changed > 0) {
+                    repairedCount++
+                } else {
+                    // Archived between the read and this write: nothing was repaired, so it must not be
+                    // counted as one.
+                    logger.w(
+                        "RecurrenceManager.repairStuckRecurringTasks",
+                        "Recurrence update matched no row; task archived",
+                        mapOf(
+                            "taskId" to task.id,
+                            "title" to task.title,
+                        ),
+                    )
+                }
             }
         }
 
@@ -250,11 +264,24 @@ class RecurrenceManager(
         val newDueDate = effectiveToday.atTime(originalTime)
 
         // Update task
-        taskRepository.updateRecurrenceState(
-            taskId = task.id,
-            newDueDate = newDueDate,
-            lastOccurrenceDate = effectiveToday.minusDays(1).atStartOfDay(),
-        )
+        val changed =
+            taskRepository.updateRecurrenceState(
+                taskId = task.id,
+                newDueDate = newDueDate,
+                lastOccurrenceDate = effectiveToday.minusDays(1).atStartOfDay(),
+            )
+        if (changed <= 0) {
+            // Archived between the read and this write: nothing advanced, so no "advanced" line.
+            logger.w(
+                "RecurrenceManager.processOverdueTask",
+                "Recurrence update matched no row; task archived",
+                mapOf(
+                    "taskId" to task.id,
+                    "newDueDate" to newDueDate.toString(),
+                ),
+            )
+            return
+        }
 
         logger.i(
             "RecurrenceManager.processOverdueTask",

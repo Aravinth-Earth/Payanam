@@ -852,7 +852,7 @@ class DayViewModelTest {
                 taskId: String,
                 newDueDate: LocalDateTime,
                 lastOccurrenceDate: LocalDateTime,
-            ) {
+            ): Int {
                 error("stub")
             }
         }

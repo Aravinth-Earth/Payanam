@@ -280,10 +280,12 @@ class FrequencyHabitSyncTest {
             taskId: String,
             newDueDate: LocalDateTime,
             lastOccurrenceDate: LocalDateTime,
-        ) {
+        ): Int {
             updated += Update(taskId, newDueDate, lastOccurrenceDate)
             val index = all.indexOfFirst { it.id == taskId }
-            if (index >= 0) all[index] = all[index].copy(dueDate = newDueDate)
+            if (index < 0) return 0
+            all[index] = all[index].copy(dueDate = newDueDate)
+            return 1
         }
 
         override fun getAllTasks(): Flow<List<Task>> = flowOf(all.toList())

@@ -289,9 +289,11 @@ internal class FakeTaskRepository : TaskRepository {
         taskId: String,
         newDueDate: LocalDateTime,
         lastOccurrenceDate: LocalDateTime,
-    ) {
+    ): Int {
+        if (tasks.value.none { it.id == taskId }) return 0
         tasks.value =
             tasks.value.map { if (it.id == taskId) it.copy(dueDate = newDueDate, lastOccurrenceDate = lastOccurrenceDate) else it }
+        return 1
     }
 
     private fun applyTo(

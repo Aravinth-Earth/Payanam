@@ -374,7 +374,7 @@ class LensRepositoryDailyInsightCacheTest {
             taskId: String,
             newDueDate: LocalDateTime,
             lastOccurrenceDate: LocalDateTime,
-        ) = unused("updateRecurrenceState")
+        ): Int = unused("updateRecurrenceState")
     }
 
     private class FakeTimeEntryRepository : TimeEntryRepository {

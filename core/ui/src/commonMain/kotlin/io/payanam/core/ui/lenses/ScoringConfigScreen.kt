@@ -56,6 +56,9 @@ fun ScoringConfigScreen(
     val strings = LocalUiStrings.current
     val uiState by viewModel.uiState.collectAsState()
     val prefs = LocalAppPreferences.current
+    // Nothing on this screen may be edited or written until the stored config has been read: while a read is
+    // in flight, or after one failed, the values shown are defaults rather than the user's weights.
+    val editingEnabled = !uiState.isLoading && !uiState.loadFailed
 
     logger.d("ScoringConfigScreen", "Rendering", mapOf("hasChanges" to uiState.hasChanges))
     Scaffold(
@@ -73,6 +76,9 @@ fun ScoringConfigScreen(
                 actions = {
                     IconButton(
                         onClick = { viewModel.resetToDefaults() },
+                        // Reset persists defaults, so it would delete a configuration this screen never
+                        // managed to read. The ViewModel refuses it too; this is the visible half.
+                        enabled = editingEnabled,
                     ) {
                         Icon(
                             imageVector = Icons.Default.Refresh,
@@ -117,36 +123,42 @@ fun ScoringConfigScreen(
                         value = uiState.config.dimensionWeight,
                         onValueChange = { viewModel.setDimensionWeight(it) },
                         range = 0.1f..3.0f,
+                        enabled = editingEnabled,
                     )
                     WeightSlider(
                         label = strings.locImpact,
                         value = uiState.config.impactWeight,
                         onValueChange = { viewModel.setImpactWeight(it) },
                         range = 0.1f..3.0f,
+                        enabled = editingEnabled,
                     )
                     WeightSlider(
                         label = strings.locGoalAlignment,
                         value = uiState.config.alignmentWeight,
                         onValueChange = { viewModel.setAlignmentWeight(it) },
                         range = 0.1f..3.0f,
+                        enabled = editingEnabled,
                     )
                     WeightSlider(
                         label = strings.locEnergyRequired,
                         value = uiState.config.energyWeight,
                         onValueChange = { viewModel.setEnergyWeight(it) },
                         range = 0.1f..3.0f,
+                        enabled = editingEnabled,
                     )
                     WeightSlider(
                         label = strings.locControlLevel,
                         value = uiState.config.controlWeight,
                         onValueChange = { viewModel.setControlWeight(it) },
                         range = 0.1f..3.0f,
+                        enabled = editingEnabled,
                     )
                     WeightSlider(
                         label = strings.locDuration,
                         value = uiState.config.durationWeight,
                         onValueChange = { viewModel.setDurationWeight(it) },
                         range = 0.1f..3.0f,
+                        enabled = editingEnabled,
                     )
                 }
 
@@ -158,6 +170,7 @@ fun ScoringConfigScreen(
                             value = value,
                             onValueChange = { viewModel.setImpactLevelValue(level, it) },
                             range = 0.0f..1.0f,
+                            enabled = editingEnabled,
                         )
                     }
                 }
@@ -170,6 +183,7 @@ fun ScoringConfigScreen(
                             value = value,
                             onValueChange = { viewModel.setAlignmentValue(level, it) },
                             range = 0.0f..1.0f,
+                            enabled = editingEnabled,
                         )
                     }
                 }
@@ -182,6 +196,7 @@ fun ScoringConfigScreen(
                             value = value,
                             onValueChange = { viewModel.setEnergyLevelValue(level, it) },
                             range = 0.0f..1.0f,
+                            enabled = editingEnabled,
                         )
                     }
                 }
@@ -194,6 +209,7 @@ fun ScoringConfigScreen(
                             value = value,
                             onValueChange = { viewModel.setControlLevelValue(level, it) },
                             range = 0.0f..1.0f,
+                            enabled = editingEnabled,
                         )
                     }
                 }
@@ -207,6 +223,7 @@ fun ScoringConfigScreen(
                             value = value,
                             onValueChange = { viewModel.setDimensionValue(dimension.id, it) },
                             range = 0.0f..1.0f,
+                            enabled = editingEnabled,
                         )
                     }
                 }
@@ -247,13 +264,15 @@ fun ScoringConfigScreen(
                     }
                     Button(
                         onClick = {
-                            if (!uiState.loadFailed) {
+                            // Double-gated with `editingEnabled` rather than `loadFailed` alone: a retry
+                            // in flight is a read that has not succeeded yet either.
+                            if (editingEnabled) {
                                 viewModel.saveConfig()
                                 onNavigateBack()
                             }
                         },
                         modifier = Modifier.weight(1f),
-                        enabled = uiState.hasChanges && !uiState.isSaving && !uiState.loadFailed,
+                        enabled = uiState.hasChanges && !uiState.isSaving && editingEnabled,
                     ) {
                         if (uiState.isSaving) {
                             CircularProgressIndicator(
@@ -304,6 +323,9 @@ private fun WeightSlider(
     value: Double,
     onValueChange: (Double) -> Unit,
     range: ClosedFloatingPointRange<Float> = 0f..1f,
+    // A slider that cannot be driven is the visible half of the ViewModel's refusal to edit before a
+    // successful read; the ViewModel refuses the same callbacks, so neither alone is the guard.
+    enabled: Boolean = true,
 ) {
     Column(
         modifier = Modifier.fillMaxWidth(),
@@ -327,6 +349,7 @@ private fun WeightSlider(
             value = value.toFloat().coerceIn(range),
             onValueChange = { onValueChange(it.toDouble()) },
             valueRange = range,
+            enabled = enabled,
             modifier = Modifier
                 .fillMaxWidth()
                 .semantics { contentDescription = label }

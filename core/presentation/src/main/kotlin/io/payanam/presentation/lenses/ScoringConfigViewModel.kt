@@ -31,6 +31,11 @@ data class ScoringConfigUiState(
      * The stored configuration could not be read, so [config] holds defaults rather than the user's values.
      * Saving in this state would overwrite every stored weight with a default the user never chose, so the
      * screen disables save and offers a retry until the read succeeds.
+     *
+     * The flag stays raised for the WHOLE retry window, not just until the retry starts: it records that the
+     * last read did not succeed, so only a successful read may clear it. While it is set the ViewModel also
+     * refuses edits (the values on screen are defaults, not the user's) and refuses a reset (that would
+     * delete the stored configuration nobody has managed to read).
      */
     val loadFailed: Boolean = false,
 )
@@ -53,10 +58,16 @@ class ScoringConfigViewModel(
         loadConfig()
     }
 
-    /** Re-reads the stored configuration; also the retry action after a failed read. */
+    /**
+     * Re-reads the stored configuration; also the retry action after a failed read.
+     *
+     * [ScoringConfigUiState.loadFailed] is deliberately NOT cleared on entry. Only a successful read may lift
+     * it: clearing it here would re-open editing, Reset and Save for the whole retry window, during which
+     * [ScoringConfigUiState.config] still holds defaults rather than the user's stored values.
+     */
     @Suppress("TooGenericExceptionCaught") // A closed DB session surfaces as an arbitrary repository exception
     fun reloadConfig() {
-        _uiState.value = _uiState.value.copy(isLoading = true, loadFailed = false)
+        _uiState.value = _uiState.value.copy(isLoading = true)
         loadConfig()
     }
 
@@ -226,12 +237,21 @@ class ScoringConfigViewModel(
 
     /**
      * Persists the current in-progress config and clears the "has changes" flag.
+     *
+     * Refused while a read is in flight or the last read failed. Both flags guard the same hazard: until a
+     * read succeeds, [ScoringConfigUiState.config] holds defaults, and writing them would replace every
+     * user-chosen weight with a value nobody picked. `isLoading` is not redundant — the first load starts
+     * with `loadFailed == false`, and a retry runs with `loadFailed` still raised, so each flag covers a
+     * window the other leaves open.
      */
     fun saveConfig() {
-        if (_uiState.value.loadFailed) {
-            // The stored weights were never read, so what is on screen is defaults. Saving them would
-            // replace every user-chosen weight with a value nobody picked.
-            logger.w("ScoringConfigViewModel.saveConfig", "Save refused: the stored config never loaded")
+        val state = _uiState.value
+        if (state.loadFailed || state.isLoading) {
+            logger.w(
+                "ScoringConfigViewModel.saveConfig",
+                "Save refused: no successful read of the stored config",
+                mapOf("loadFailed" to state.loadFailed, "isLoading" to state.isLoading),
+            )
             return
         }
         scope.launch {
@@ -252,8 +272,22 @@ class ScoringConfigViewModel(
 
     /**
      * Reverts the config to the app defaults (persisting them) and clears changes.
+     *
+     * Refused while a read is in flight or the last read failed, for the same reason as [saveConfig]: a reset
+     * writes, and before a successful read nobody — including this ViewModel — knows what is stored to be
+     * overwritten. Showing defaults over a configuration that was never read must not destroy that
+     * configuration either.
      */
     fun resetToDefaults() {
+        val state = _uiState.value
+        if (state.loadFailed || state.isLoading) {
+            logger.w(
+                "ScoringConfigViewModel.resetToDefaults",
+                "Reset refused: no successful read of the stored config",
+                mapOf("loadFailed" to state.loadFailed, "isLoading" to state.isLoading),
+            )
+            return
+        }
         scope.launch {
             logger.i("ScoringConfigViewModel.resetToDefaults", "Resetting to defaults")
             scoringConfigRepository.resetToDefaults()
@@ -280,11 +314,23 @@ class ScoringConfigViewModel(
     }
 
     private fun updateConfig(update: (ScoringConfig) -> ScoringConfig) {
-        val newConfig = update(_uiState.value.config)
+        val state = _uiState.value
+        if (state.isLoading || state.loadFailed) {
+            // A slider callback that outlived a failed read must not mutate the config: the values on screen
+            // are defaults standing in for weights nobody could read, so an edit would make them look like
+            // the user's own choices - and would arm a Save the guards would then have to refuse.
+            logger.w(
+                "ScoringConfigViewModel.updateConfig",
+                "Edit ignored: no successful read of the stored config",
+                mapOf("loadFailed" to state.loadFailed, "isLoading" to state.isLoading),
+            )
+            return
+        }
+        val newConfig = update(state.config)
         val hasChanges = newConfig != originalConfig
         logger.d("ScoringConfigViewModel.updateConfig", "Config updated", mapOf("hasChanges" to hasChanges))
         _uiState.value =
-            _uiState.value.copy(
+            state.copy(
                 config = newConfig,
                 hasChanges = hasChanges,
             )

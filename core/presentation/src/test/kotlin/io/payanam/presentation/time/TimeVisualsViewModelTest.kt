@@ -1208,7 +1208,7 @@ class TimeVisualsViewModelTest {
             taskId: String,
             newDueDate: LocalDateTime,
             lastOccurrenceDate: LocalDateTime,
-        ) = Unit
+        ): Int = 0
     }
 
     private class FakeDayPlanRepository : DayPlanRepository {

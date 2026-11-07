@@ -145,7 +145,7 @@ class DesktopTimeTrackingControllerTest {
                 taskId: String,
                 newDueDate: LocalDateTime,
                 lastOccurrenceDate: LocalDateTime,
-            ) = unexpected("updateRecurrenceState")
+            ): Int = unexpected("updateRecurrenceState")
         }
 
     private val taskOccurrences =
