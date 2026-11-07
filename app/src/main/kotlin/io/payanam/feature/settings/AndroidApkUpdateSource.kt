@@ -326,7 +326,8 @@ class AndroidApkUpdateSource(
      * One lookup for both asset URLs (the APK and its `.sha256` sibling), so a digest can never be
      * paired with a build from a different release.
      */
-    private fun releaseFor(versionCode: Int): UpdateCheckResult? = lastChecked?.takeIf { it.latestVersionCode == versionCode }
+    private fun releaseFor(versionCode: Int): UpdateCheckResult? =
+        lastChecked?.takeIf { it.latestVersionCode == versionCode }
 
     /**
      * Polls the system download until it reports a finished file, and returns null for every other ending.

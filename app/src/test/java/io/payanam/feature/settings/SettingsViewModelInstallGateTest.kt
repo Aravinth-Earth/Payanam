@@ -137,9 +137,10 @@ class SettingsViewModelInstallGateTest {
     // ── helpers ─────────────────────────────────────────────────────────
 
     /** A real file on disk, so "the APK is left in place" is a claim about something that exists. */
-    private fun downloadedApk(): File = File(context.cacheDir, "payanam-settings-gate-${System.nanoTime()}.apk").apply {
-        writeBytes(byteArrayOf(0x50, 0x4b, 0x03, 0x04, 0x2a))
-    }
+    private fun downloadedApk(): File =
+        File(context.cacheDir, "payanam-settings-gate-${System.nanoTime()}.apk").apply {
+            writeBytes(byteArrayOf(0x50, 0x4b, 0x03, 0x04, 0x2a))
+        }
 
     /**
      * The ViewModel with the scripted verdict, its update state seeded as a completed download.
