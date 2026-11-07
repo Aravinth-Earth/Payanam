@@ -38,14 +38,9 @@ class BootReceiver : BroadcastReceiver() {
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
-     * Restores tracking and re-arms reminders on boot and on package replace; re-arms reminders only on
-     * a clock or timezone change.
-     *
-     * Boot and package replace both leave no armed alarms, so both run the same restore path. Each step
-     * has its own [runCatching] so a failure in one cannot skip the rest, and the tracking restore is
-     * skipped explicitly when the database session is closed instead of throwing into a shared catch
-     * that would starve the reminder re-arm. The broadcast is held with [goAsync] until both steps
-     * finish, so the process is not reclaimed mid-work.
+     * Restores tracking and re-arms reminders on boot and package replace; re-arms reminders only on a
+     * clock or timezone change. Each step uses [runCatching] independently and the broadcast is held
+     * with [goAsync] until both finish.
      */
     override fun onReceive(context: Context, intent: Intent) {
         val action = intent.action ?: return

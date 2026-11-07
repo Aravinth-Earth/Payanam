@@ -16,6 +16,8 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Keyboard
+import androidx.compose.material.icons.filled.Schedule
 import androidx.compose.material3.Button
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -23,6 +25,7 @@ import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedButton
@@ -42,6 +45,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.DimensionDropdownBadge
@@ -152,6 +156,8 @@ fun ScoringSegmentedRow(
 fun TimePickerDialog(
     onDismiss: () -> Unit,
     onConfirm: (hour: Int, minute: Int) -> Unit,
+    /** Applies to the confirm action, so the caller's screen names it rather than this shared dialog. */
+    confirmButtonModifier: Modifier = Modifier,
 ) {
     val strings = LocalUiStrings.current
     val timePickerState =
@@ -159,16 +165,101 @@ fun TimePickerDialog(
             initialHour = 9,
             initialMinute = 0,
         )
+    // The dial's hour and minute numbers are canvas text, so they are not accessibility nodes: a screen
+    // reader cannot set a time on them and an automated flow has nothing to target. Typed entry is the
+    // alternative, and the dial stays the mode the dialog opens in.
+    var typingTime by remember { mutableStateOf(false) }
+    var hourText by remember { mutableStateOf("") }
+    var minuteText by remember { mutableStateOf("") }
+    val hourValid = hourText.toIntOrNull()?.let { it in 0..23 } == true
+    val minuteValid = minuteText.toIntOrNull()?.let { it in 0..59 } == true
+    // Every valid keystroke is written into the picker state, so confirm reads the SAME state in both
+    // modes and the typed value is what the caller receives. An invalid entry is never written and keeps
+    // confirm disabled, so it can neither crash nor silently become 0.
+    val canConfirm = !typingTime || (hourValid && minuteValid)
 
     PayanamAlertDialog(
         onDismissRequest = onDismiss,
         title = { Text(strings.locSelectTime) },
         text = {
-            TimePicker(state = timePickerState)
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End,
+                ) {
+                    IconButton(
+                        onClick = {
+                            typingTime = !typingTime
+                            if (typingTime) {
+                                hourText = timePickerState.hour.toString()
+                                minuteText = timePickerState.minute.toString()
+                            }
+                        },
+                        modifier = Modifier.testTag(TestTags.TaskAdd.DUE_TIME_INPUT_TOGGLE),
+                    ) {
+                        Icon(
+                            imageVector = if (typingTime) Icons.Filled.Schedule else Icons.Filled.Keyboard,
+                            contentDescription =
+                                if (typingTime) {
+                                    strings.locEnterTimeWithDial
+                                } else {
+                                    strings.locEnterTimeWithKeyboard
+                                },
+                        )
+                    }
+                }
+                if (typingTime) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    ) {
+                        OutlinedTextField(
+                            value = hourText,
+                            onValueChange = { value ->
+                                hourText = value.filter { it.isDigit() }.take(2)
+                                hourText
+                                    .toIntOrNull()
+                                    ?.takeIf { it in 0..23 }
+                                    ?.let { timePickerState.hour = it }
+                            },
+                            label = { Text(strings.locHour) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            isError = hourText.isNotEmpty() && !hourValid,
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .testTag(TestTags.TaskAdd.DUE_TIME_HOUR_FIELD),
+                        )
+                        OutlinedTextField(
+                            value = minuteText,
+                            onValueChange = { value ->
+                                minuteText = value.filter { it.isDigit() }.take(2)
+                                minuteText
+                                    .toIntOrNull()
+                                    ?.takeIf { it in 0..59 }
+                                    ?.let { timePickerState.minute = it }
+                            },
+                            label = { Text(strings.locMinute) },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                            singleLine = true,
+                            isError = minuteText.isNotEmpty() && !minuteValid,
+                            modifier =
+                                Modifier
+                                    .weight(1f)
+                                    .testTag(TestTags.TaskAdd.DUE_TIME_MINUTE_FIELD),
+                        )
+                    }
+                } else {
+                    TimePicker(state = timePickerState)
+                }
+            }
         },
         confirmButton = {
             TextButton(
                 onClick = { onConfirm(timePickerState.hour, timePickerState.minute) },
+                enabled = canConfirm,
+                modifier = confirmButtonModifier,
             ) {
                 Text(strings.locOk)
             }
@@ -347,7 +438,10 @@ fun EnhancedRecurrencePickerDialog(
                                 onClick = {
                                     selectedType = io.payanam.domain.model.RecurrenceType.DAILY
                                 },
-                                modifier = Modifier.weight(1f),
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .testTag(TestTags.Recurrence.PRESET_DAILY),
                             ) {
                                 Text(strings.locDaily, style = MaterialTheme.typography.labelSmall)
                             }
@@ -356,7 +450,10 @@ fun EnhancedRecurrencePickerDialog(
                                 onClick = {
                                     selectedType = io.payanam.domain.model.RecurrenceType.DAILY
                                 },
-                                modifier = Modifier.weight(1f),
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .testTag(TestTags.Recurrence.PRESET_DAILY),
                             ) {
                                 Text(strings.locDaily, style = MaterialTheme.typography.labelSmall)
                             }
@@ -366,7 +463,10 @@ fun EnhancedRecurrencePickerDialog(
                                 onClick = {
                                     selectedType = io.payanam.domain.model.RecurrenceType.WEEKDAYS_ONLY
                                 },
-                                modifier = Modifier.weight(1f),
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .testTag(TestTags.Recurrence.PRESET_WEEKDAYS),
                             ) {
                                 Text(strings.locWeekdays, style = MaterialTheme.typography.labelSmall)
                             }
@@ -375,7 +475,10 @@ fun EnhancedRecurrencePickerDialog(
                                 onClick = {
                                     selectedType = io.payanam.domain.model.RecurrenceType.WEEKDAYS_ONLY
                                 },
-                                modifier = Modifier.weight(1f),
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .testTag(TestTags.Recurrence.PRESET_WEEKDAYS),
                             ) {
                                 Text(strings.locWeekdays, style = MaterialTheme.typography.labelSmall)
                             }
@@ -388,7 +491,10 @@ fun EnhancedRecurrencePickerDialog(
                                         selectedWeekdays = setOf(LocalDate.now().dayOfWeek.value)
                                     }
                                 },
-                                modifier = Modifier.weight(1f),
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .testTag(TestTags.Recurrence.PRESET_WEEKLY),
                             ) {
                                 Text(strings.locWeekly, style = MaterialTheme.typography.labelSmall)
                             }
@@ -400,7 +506,10 @@ fun EnhancedRecurrencePickerDialog(
                                         selectedWeekdays = setOf(LocalDate.now().dayOfWeek.value)
                                     }
                                 },
-                                modifier = Modifier.weight(1f),
+                                modifier =
+                                    Modifier
+                                        .weight(1f)
+                                        .testTag(TestTags.Recurrence.PRESET_WEEKLY),
                             ) {
                                 Text(strings.locWeekly, style = MaterialTheme.typography.labelSmall)
                             }
@@ -726,6 +835,7 @@ fun EnhancedRecurrencePickerDialog(
                     onDismiss()
                 },
                 enabled = canConfirm,
+                modifier = Modifier.testTag(TestTags.Recurrence.CONFIRM_BUTTON),
             ) {
                 Text(strings.locOk)
             }

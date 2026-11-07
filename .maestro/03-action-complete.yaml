@@ -1,0 +1,135 @@
+appId: io.payanam
+name: Reminder Complete reaches the DB after the passphrase unlock
+---
+# Complete tapped on the dead-process reminder is applied after the passphrase unlock.
+# The reminder fires 15 min before the due time (the runner sets the due 22 min ahead)
+# and delivery can slip without SCHEDULE_EXACT_ALARM, so the shade wait is generous.
+
+# killApp is `am kill`, which only kills BACKGROUND processes: Home first.
+- pressKey: Home
+- killApp
+- launchApp
+# Cold start after the kill: the unlock screen comes up before the database opens.
+- extendedWaitUntil:
+    visible:
+      id: "passphrase_unlock.passphrase_field"
+    timeout: 60000
+- tapOn:
+    id: "passphrase_unlock.passphrase_field"
+- inputText: "${PASS}"
+- hideKeyboard
+- tapOn:
+    id: "passphrase_unlock.unlock_button"
+# The unlock decrypts the database; nothing renders until it finishes.
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 60000
+- tapOn:
+    id: "nav.tab.habits"
+
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${HABIT_NAME}"
+- hideKeyboard
+
+# Recurring makes it a habit; DAILY is preselected in the rule dialog.
+- tapOn:
+    id: "task_add.task_type.recurring"
+- extendedWaitUntil:
+    visible:
+      id: "recurrence.confirm_button"
+- tapOn:
+    id: "recurrence.preset.daily"
+    optional: true
+- tapOn:
+    id: "recurrence.confirm_button"
+
+# Due time by keyboard: the dial has no addressable elements.
+- tapOn:
+    id: "task_add.due_time_button"
+- extendedWaitUntil:
+    visible:
+      id: "task_add.due_time_input_toggle"
+- tapOn:
+    id: "task_add.due_time_input_toggle"
+- tapOn:
+    id: "task_add.due_time_hour_field"
+- eraseText
+- inputText: "${DUE_HOUR}"
+- tapOn:
+    id: "task_add.due_time_minute_field"
+- eraseText
+- inputText: "${DUE_MINUTE}"
+- hideKeyboard
+- tapOn:
+    id: "task_add.due_time_confirm_button"
+
+# Reminder mode stays at its default (auto) = 15 min before the due time.
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+# The save is async and the bottom bar is visible on the add form too, so wait for the
+# list's own add action before Home + killApp can interrupt the write and the arming.
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 60000
+- takeScreenshot: 110-habit-created
+
+- pressKey: Home
+- killApp
+- takeScreenshot: 111-app-closed
+
+- swipe:
+    start: 50%, 0%
+    end: 50%, 70%
+- extendedWaitUntil:
+    visible: "${HABIT_NAME}"
+    timeout: ${REMINDER_WAIT_MS}
+- takeScreenshot: 112-reminder-in-shade
+
+- tapOn:
+    text: "${ACTION_EXPAND}"
+    index: 0
+    optional: true
+- extendedWaitUntil:
+    visible: "${ACTION_COMPLETE}"
+- tapOn: "${ACTION_COMPLETE}"
+- takeScreenshot: 113-action-tapped
+
+# The activity opens itself on the action tap; its cold start precedes the unlock.
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: "passphrase_unlock.passphrase_field"
+    timeout: 60000
+- tapOn:
+    id: "passphrase_unlock.passphrase_field"
+- inputText: "${PASS}"
+- hideKeyboard
+- tapOn:
+    id: "passphrase_unlock.unlock_button"
+# Decrypt plus the queued Complete write; the list renders after both.
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.habits"
+
+# Completing the LAST habit replaces the list with the congratulation message, so
+# accept either that message or the row carrying today's date with the status.
+- extendedWaitUntil:
+    visible: "${ALL_HABITS_DONE}|${HABIT_NAME}, ${TODAY}, ${STATUS_COMPLETED}"
+- takeScreenshot: 115-complete-verified

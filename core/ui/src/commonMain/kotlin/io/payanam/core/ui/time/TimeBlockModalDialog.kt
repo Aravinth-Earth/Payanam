@@ -58,6 +58,7 @@ import io.payanam.core.ui.components.DimensionDropdownBadge
 import io.payanam.core.ui.components.DimensionDropdownBadgeLabelRow
 import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.components.TagEditorField
+import io.payanam.core.ui.components.exposeTestTagsAsResourceIds
 import io.payanam.core.ui.components.parseTagsInput
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
@@ -258,7 +259,10 @@ fun TimeBlockModalDialog(
         Surface(
             modifier = Modifier
                 .fillMaxSize()
-                .imePadding(),
+                .imePadding()
+                // The dialog draws in its own window, so the app root's test-tag publication is not an
+                // ancestor of this subtree and the tags inside it stay invisible without this.
+                .exposeTestTagsAsResourceIds(),
             color = MaterialTheme.colorScheme.surface,
         ) {
             Column(modifier = Modifier.fillMaxSize()) {

@@ -31,12 +31,14 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.settings.StatRow
 import io.payanam.feature.settings.ApkBuildType
 import io.payanam.feature.settings.versionFromFileName
@@ -82,7 +84,7 @@ internal fun DebugLogExportActions(
                         }
                     }
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag(TestTags.LogExport.EXPORT_LATEST_BUTTON),
             ) {
                 Icon(
                     imageVector = Icons.Default.CloudUpload,
@@ -111,7 +113,7 @@ internal fun DebugLogExportActions(
                         }
                     }
                 },
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).testTag(TestTags.LogExport.EXPORT_ALL_BUTTON),
             ) {
                 Icon(
                     imageVector = Icons.Default.Storage,
@@ -152,16 +154,7 @@ internal fun DebugLogExportActions(
     }
 }
 
-/**
- * The about card's CONTENT, without the card.
- *
- * WHY THE CARD IS NOT HERE ANY MORE: the shared screen owns the card list now, so the about section
- * arrives as a composable slot it fills and frames itself - the same arrangement the debug-log exporter
- * already used. A second card nested inside the shared one would have given the section two collapsible
- * headers fighting over one body.
- *
- * `expanded` and `onToggleExpanded` are gone for the same reason: nothing in here reads them.
- */
+/** The about card's CONTENT, without the card: the shared screen owns the card list and frames the slot. */
 @Composable
 internal fun AboutSettingsContent(
     uiState: SettingsUiState,
@@ -328,14 +321,8 @@ internal fun AboutSettingsContent(
             }
             Spacer(modifier = Modifier.height(4.dp))
 
-            // Update check
-            // Single state-driven action button (never two actions at once):
-            //   Idle           → Check for update
-            //   Checking       → disabled spinner "Checking…"
-            //   Downloading    → disabled "Downloading… N%"
-            //   Downloaded     → Install now
-            //   Failed         → Retry
-            //   Up to date     → Check for update (re-check allowed, cooldown guards)
+            // Update check: one state-driven action button, never two at once
+            // (idle/up-to-date → check, checking/downloading → disabled, downloaded → install, failed → retry).
             val buttonLabel: String
             val buttonEnabled: Boolean
             val buttonAction: () -> Unit

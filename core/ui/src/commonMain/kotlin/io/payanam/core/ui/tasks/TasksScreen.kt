@@ -69,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import io.payanam.presentation.tasks.HabitSortOption
@@ -81,6 +82,7 @@ import io.payanam.presentation.tasks.DayCheckmark
 import io.payanam.core.ui.components.DayHeaderRow
 import io.payanam.core.ui.components.DayMetricsStrip
 import io.payanam.core.ui.components.HabitCard
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.components.calculateButtonCount
 import io.payanam.domain.model.Task
 import io.payanam.presentation.habits.HabitDayMetricsState
@@ -323,6 +325,7 @@ fun TasksScreen(
                     logger.i("TasksScreen", "Add task FAB clicked", mapOf())
                     onNavigateToAddTask()
                 },
+                modifier = Modifier.testTag(TestTags.Tasks.ADD_BUTTON),
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {

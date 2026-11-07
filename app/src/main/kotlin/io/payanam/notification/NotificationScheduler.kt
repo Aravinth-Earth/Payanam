@@ -47,13 +47,13 @@ class NotificationScheduler @Inject constructor(
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
 
     /**
-     * Re-arms reminders for every currently eligible task (app start /
-     * settings change).
+     * Re-arms reminders for every currently eligible task (app start / settings change), returning how many
+     * tasks it considered.
      */
-    suspend fun scheduleAllPendingTasks() {
+    suspend fun scheduleAllPendingTasks(): Int {
         if (!FeatureFlags.remindersEnabled) {
             logger.i("NotificationScheduler.scheduleAllPendingTasks", "Reminder scheduling disabled by feature flag")
-            return
+            return 0
         }
         val tasks = taskRepository.getAllTasks().first()
         logger.i(
@@ -66,6 +66,7 @@ class NotificationScheduler @Inject constructor(
         tasks.forEach { task ->
             scheduleForTask(task, overrideScheduledAt = null, overrideDueAt = null, isSnoozed = false)
         }
+        return tasks.size
     }
 
     /**

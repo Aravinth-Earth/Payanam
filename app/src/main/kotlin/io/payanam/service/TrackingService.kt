@@ -119,16 +119,10 @@ class TrackingService : Service() {
     override fun onBind(intent: Intent?): IBinder = binder
 
     /**
-     * Dispatches the incoming command: start (with extras), stop, or a
-     * notification refresh. Sticky so the OS restarts it after reclaim.
+     * Dispatches start, stop or refresh; sticky so the OS restarts it after reclaim.
      *
-     * The foreground entitlement is taken FIRST, before the action is even looked at, because the framework's
-     * obligation is created per `startForegroundService()` call and is satisfied only by a `startForeground()`
-     * on that same start. A START is not the only action this service can be started with: a STOP that arrives
-     * first used to return without ever going foreground, so the obligation stayed open and the framework
-     * raised `ForegroundServiceDidNotStartInTimeException` about five seconds later — the process crashed even
-     * though a later START did call `startForeground()`, because that satisfied a different start. Every branch
-     * below therefore either keeps this foreground state or ends it deliberately.
+     * Foreground is taken FIRST for every action: the framework's per-delivery obligation is satisfied only by
+     * a `startForeground()` on that same start, or it raises `ForegroundServiceDidNotStartInTimeException`.
      */
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         val action = intent?.action
@@ -177,14 +171,10 @@ class TrackingService : Service() {
     }
 
     /**
-     * The notification the service goes foreground with before it knows what it was started for.
-     *
-     * Deliberately bare: it exists to satisfy the framework's obligation at the top of [onStartCommand], and
-     * a START replaces it with the session's own notification moments later. It reuses the channel's own name
-     * as its title, so no new string is needed for a state the user sees only for an instant.
+     * The bare notification posted before the action is known; a START replaces it moments later.
      */
     private fun buildStartUpNotification(): Notification = NotificationCompat.Builder(this, CHANNEL_ID)
-        .setSmallIcon(R.mipmap.ic_launcher_foreground)
+        .setSmallIcon(R.drawable.ic_notification)
         .setContentTitle(getString(R.string.notification_channel_tracking))
         .setOngoing(true)
         .setOnlyAlertOnce(true)
@@ -308,7 +298,7 @@ class TrackingService : Service() {
         )
 
         return NotificationCompat.Builder(this, CHANNEL_ID)
-            .setSmallIcon(R.mipmap.ic_launcher_foreground)
+            .setSmallIcon(R.drawable.ic_notification)
             .setContentTitle(session.taskTitle)
             .setContentText(session.dimension)
             .setSubText(getString(R.string.tracking_notification_subtext))

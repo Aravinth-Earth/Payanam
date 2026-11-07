@@ -104,6 +104,7 @@ fun EditTaskScreen(
     // Hoisted here on purpose: the feature flag is a composition read, so it has to happen in a
     // composable scope and not inside the save callback.
     val remindersEnabled = LocalFeatureFlags.current.remindersEnabled
+    val minimalModeEnabled = LocalFeatureFlags.current.minimalModeEnabled
     // The notification permission, and the offer that may follow a save that left a reminder armed. The
     // offer is raised AFTER the save, never before it: the edit is committed either way, and the user
     // is only losing the notification that would have told them about the reminder.
@@ -175,11 +176,24 @@ fun EditTaskScreen(
                     initialTags = uiState.taskTags,
                     tagSuggestions = uiState.tagSuggestions,
                     onSave = { input ->
-                        // The three facts the reminder needs, and the same question the scheduler asks.
+                        // Whether this save leaves a reminder armed - the scheduler's own decision, not
+                        // a guess from the form fields, so a warning is never raised for a reminder no
+                        // alarm was created for.
                         val reminderArmed =
-                            remindersEnabled &&
-                                input.notificationMode != "off" &&
-                                input.dueDate != null
+                            reminderWillBeArmed(
+                                taskId = taskId,
+                                taskTitle = input.title,
+                                dueAt = input.dueDate,
+                                recurrenceEnabled = input.recurrenceEnabled,
+                                status = uiState.task?.status ?: "pending",
+                                notificationMode = input.notificationMode,
+                                customNotificationMinutes = input.customNotificationMinutes,
+                                remindersEnabled = remindersEnabled,
+                                minimalModeEnabled = minimalModeEnabled,
+                                // The store keeps the loaded due date when the form sends none, so that
+                                // stored date - not a default - is the one the scheduler will read.
+                                storedTask = uiState.task,
+                            )
                         viewModel.updateTask(
                             input = input,
                             onResult = { result ->
@@ -321,6 +335,19 @@ private fun EditTaskContent(
     val dateFormatter = DateTimeFormatter.ofPattern("EEE, MMM d")
     val timePattern = if (prefs.timeFormat.use24Hour) "HH:mm" else "h:mm a"
     val timeFormatter = DateTimeFormatter.ofPattern(timePattern)
+    // The recurring first occurrence feeds the preview, and the saved due date only when the task has no
+    // stored date to keep.
+    val recurringFirstOccurrence =
+        if (recurrenceEnabled) {
+            selectedTime?.let { time ->
+                io.payanam.domain.model.RecurrenceConfig.parse(recurrenceRule)
+                    .getScheduledDatesInRange(LocalDate.now(), LocalDate.now().plusMonths(1))
+                    .firstOrNull()
+                    ?.atTime(time)
+            }
+        } else {
+            null
+        }
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -422,39 +449,29 @@ private fun EditTaskContent(
                         ?: strings.locSelectTime,
                 )
             }
-            if (selectedTime != null) {
-                val calculatedFirstOccurrence = run {
-                    val config = io.payanam.domain.model.RecurrenceConfig.parse(recurrenceRule)
-                    val nextDates = config.getScheduledDatesInRange(
-                        LocalDate.now(),
-                        LocalDate.now().plusMonths(1),
-                    )
-                    nextDates.firstOrNull()?.atTime(selectedTime!!)
-                }
-                if (calculatedFirstOccurrence != null) {
-                    androidx.compose.material3.Surface(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(top = 8.dp),
-                        color = MaterialTheme.colorScheme.surfaceVariant,
-                        shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+            if (recurringFirstOccurrence != null) {
+                androidx.compose.material3.Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(top = 8.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    shape = androidx.compose.foundation.shape.RoundedCornerShape(8.dp),
+                ) {
+                    Column(
+                        modifier = Modifier.padding(12.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp),
                     ) {
-                        Column(
-                            modifier = Modifier.padding(12.dp),
-                            verticalArrangement = Arrangement.spacedBy(4.dp),
-                        ) {
-                            Text(
-                                text = strings.locFirstOccurrence,
-                                style = MaterialTheme.typography.labelSmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant,
-                            )
-                            Text(
-                                text = calculatedFirstOccurrence.format(
-                                    DateTimeFormatter.ofPattern("EEE, MMM d, yyyy • h:mm a"),
-                                ),
-                                style = MaterialTheme.typography.bodyMedium,
-                            )
-                        }
+                        Text(
+                            text = strings.locFirstOccurrence,
+                            style = MaterialTheme.typography.labelSmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                        Text(
+                            text = recurringFirstOccurrence.format(
+                                DateTimeFormatter.ofPattern("EEE, MMM d, yyyy • h:mm a"),
+                            ),
+                            style = MaterialTheme.typography.bodyMedium,
+                        )
                     }
                 }
             }
@@ -627,6 +644,14 @@ private fun EditTaskContent(
             onClick = {
                 val dueDateTime = if (selectedDate != null) {
                     LocalDateTime.of(selectedDate, selectedTime ?: LocalTime.MIDNIGHT)
+                } else if (recurrenceEnabled) {
+                    // An edit keeps the stored date and takes only the time of day: the rule's next matching
+                    // day is not the date the store already holds.
+                    resolveRecurringEditDueDateTime(
+                        storedDueDate = task.dueDate,
+                        selectedTime = selectedTime,
+                        firstOccurrence = recurringFirstOccurrence,
+                    )
                 } else {
                     null
                 }

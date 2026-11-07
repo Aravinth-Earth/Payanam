@@ -43,6 +43,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
@@ -55,6 +56,7 @@ import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.IMPORT_PICKER_MIME
 import io.payanam.core.ui.components.ImportDatabaseFileButton
 import io.payanam.core.ui.components.PayanamAlertDialog
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.onboarding.OnboardingIntroScreen
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
@@ -67,32 +69,9 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/**
- * The database initialisation / import gate, rendered identically by every platform.
- *
- * Moved here from `:app` with its layout unchanged: same column, same spacing, same field order. Only the
- * things that are genuinely platform- or app-specific were lifted out, so the Android app and the desktop
- * cannot render two different screens:
- *
- *  - The copy comes from [LocalUiStrings], the ambient table the navigation graph installs, exactly as it
- *    arrived from the platform's resources before. Which language is active is OS interaction (per-app
- *    language on Android, `Locale.getDefault()` on the desktop) and this module holds none of it.
- *  - The ViewModel arrives as a parameter rather than being built here. The platform owns retention
- *    (`retainSharedViewModel` on Android, the desktop's own holder) and construction from the Hilt graph;
- *    the shared screen owns none of it.
- *  - [onImportFileSelected] replaces the SAF launcher. The picker is Android's own `OpenDocument` contract
- *    and the `Uri` it returns is an Android type, so the shared screen asks the platform to pick and hands
- *    back the MIME filter to use. Each platform answers with its own picker: Android launches `OpenDocument`
- *    and passes the returned `Uri` on, and the desktop drives its file dialog and passes the token back to
- *    the ViewModel's import entry. The screen itself never picks, so an empty answer here is a dead control.
- *  - [debugLogExport] replaces the log-export actions, following the [MandatoryDimensionSetupSection]
- *    precedent: the exporter writes to Android's own storage and reads Android's Rclass, so the shared
- *    screen takes a composable slot instead of a parallel exporter.
- *
- * The passphrase validation is inlined here rather than imported from `:core:database` because that module
- * is an Android library and this one is KMP - the validation itself is pure Kotlin with no platform
- * meaning, so it lives beside the screen that uses it.
- */
+/** The database initialisation / import gate, rendered identically by every platform. Copy comes from
+ * [LocalUiStrings], the ViewModel arrives as a parameter, and the platform-specific pieces are slots:
+ * [onImportFileSelected] for the picker and [debugLogExport] for the exporter. */
 @Composable
 fun DatabaseInitScreen(
     onDatabaseReady: () -> Unit,
@@ -100,37 +79,14 @@ fun DatabaseInitScreen(
     onImportFileSelected: (Array<String>) -> Unit,
     language: UiLanguage,
     debugLogExport: (@Composable () -> Unit)? = null,
-    /**
-     * True when the host already showed the shared intro in this run - the desktop renders it from its own
-     * startup surface first, so the graph must not show it a second time.
-     */
+    /** True when the host already showed the shared intro in this run, so the graph must not repeat it. */
     onboardingIntroAlreadyCompleted: Boolean = false,
-    /**
-     * Records that the user has now been through the tour, so a LATER visit to this gate does not repeat it.
-     *
-     * The fact is the PLATFORM's to keep, and it must not live in the encrypted database: this gate is also
-     * reached after a reset, which deletes that database, so a tour flag stored inside it is answered "no"
-     * by the very wipe that made the user reach this screen again. The owner's ruling (2026-10-14):
-     * *"When a user is using a reset option which means user already know how an app works only then they
-     * will be using the reset option. So in that case we don't need to show them the onboarding flow once
-     * more."* A genuinely fresh install has no marker and still sees the tour.
-     */
+    /** Records that the tour is done, so a LATER visit does not repeat it. The fact belongs to the
+     * platform and must not live in the encrypted database: a reset deletes that, which is exactly what
+     * brings the user back here. */
     onOnboardingCompleted: () -> Unit = {},
-    /**
-     * Opens this gate at its CREATE form instead of the first-run pair of the tour and the create/import
-     * chooser.
-     *
-     * WHY IT EXISTS, and why it is not "onboarding again". A reset the user asked for leaves a state no
-     * first install has: they know the app, they asked for the data to be replaced, and the only question
-     * that is genuinely open is the passphrase for the database that will replace it. Both alternatives were
-     * measured as wrong on the device (build 2038): the tour re-taught an app the user had been using, and
-     * the chooser offered "create a new database" over the one the reset had just replaced.
-     *
-     * The dimension step behind it is NOT skipped: a new database genuinely needs its life dimensions, and
-     * [io.payanam.presentation.database.DatabaseInitViewModel.createNewDatabase] decides from a FRESH
-     * artifact check at that moment whether there is anything to wipe first - a row or a flag cannot answer
-     * that question.
-     */
+    /** Opens this gate at its CREATE form instead of the tour and the create/import chooser, for a reset:
+     * the user knows the app, and only the passphrase for the replacing database is genuinely open. */
     beginAtDatabaseCreation: Boolean = false,
 ) {
     val strings = LocalUiStrings.current
@@ -239,10 +195,8 @@ fun DatabaseInitScreen(
             )
             Spacer(modifier = Modifier.height(24.dp))
 
-            // Fold the passphrase-pause state in too: the import is staged there, so a tap must not
-            // start a second one over the only pre-import restore copy. Defined once for all three
-            // onboarding import call sites below (Settings' copy also folds `isExporting`, a flag this
-            // screen does not have).
+            // Folds the passphrase pause in too: the import is staged there, so a tap must not start a
+            // second one over the only pre-import restore copy.
             val importInFlight = uiState.isImporting || uiState.awaitingImportPassphrase
 
             when {
@@ -252,11 +206,9 @@ fun DatabaseInitScreen(
                         color = MaterialTheme.colorScheme.background,
                     ) {
                         Column(modifier = Modifier.fillMaxSize()) {
-                            // WHY THIS IS HERE AND NOT ONLY IN THE STATUS CARD: this flag is set on the
-                            // NEXT launch, and the user is sent straight back to this screen by their own
-                            // need to redo the setup. A message that only appeared on the status screen
-                            // would be scrolled away by the time the re-ask is in front of them - which is
-                            // the same silent loss it exists to report.
+                            // Shown here, not only in the status card: the flag is set on the NEXT launch
+                            // and the user is sent straight back here, where a status-card message would
+                            // already be scrolled away.
                             if (uiState.firstRunDimensionsNotSaved) {
                                 LostFirstRunDimensionsNotice(
                                     message = strings.dbInitDimensionSetupNotSaved,
@@ -398,7 +350,10 @@ fun DatabaseInitScreen(
                             createPassphrase = it
                             createPassphraseError = null
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .testTag(TestTags.DatabaseInit.PASSPHRASE_FIELD),
                         label = { Text(strings.dbPassphraseInputLabel) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         visualTransformation = if (showCreatePassphrase) VisualTransformation.None else PasswordVisualTransformation(),
@@ -420,7 +375,10 @@ fun DatabaseInitScreen(
                             createPassphraseConfirm = it
                             createPassphraseError = null
                         },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .testTag(TestTags.DatabaseInit.PASSPHRASE_CONFIRM_FIELD),
                         label = { Text(strings.dbPassphraseConfirmLabel) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
                         visualTransformation = if (showCreatePassphraseConfirm) VisualTransformation.None else PasswordVisualTransformation(),
@@ -459,7 +417,8 @@ fun DatabaseInitScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(56.dp)
+                            .testTag(TestTags.DatabaseInit.PASSPHRASE_SUBMIT_BUTTON),
                         enabled = createPassphrase.isNotBlank() && createPassphraseConfirm.isNotBlank() && !uiState.isCreating,
                     ) {
                         if (uiState.isCreating) {
@@ -593,7 +552,8 @@ fun DatabaseInitScreen(
                         },
                         modifier = Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(56.dp)
+                            .testTag(TestTags.DatabaseInit.CREATE_DATABASE_BUTTON),
                         enabled = !uiState.isCreating && !uiState.isImporting,
                     ) {
                         Icon(Icons.Default.Add, contentDescription = null)
@@ -738,7 +698,8 @@ fun DatabaseInitScreen(
                             },
                             modifier = Modifier
                                 .fillMaxWidth()
-                                .height(56.dp),
+                                .height(56.dp)
+                                .testTag(TestTags.DatabaseInit.CREATE_DATABASE_BUTTON),
                             enabled = !uiState.isCreating && !uiState.isImporting,
                         ) {
                             Icon(Icons.Default.Add, contentDescription = null)
@@ -793,19 +754,9 @@ fun DatabaseInitScreen(
 /** The shortest passphrase [validatePassphrase] will accept, in characters. */
 private const val PASSPHRASE_MIN_LENGTH = 12
 
-/**
- * The banner that says a previously confirmed life-dimension setup did not survive.
- *
- * Its own composable, and not an inline `Text`, for one reason that is about the test rather than the
- * layout: the notice is the ONLY thing in the app that reports a lost first-run confirmation, so a
- * test needs a stable semantics identity to assert that the message is on screen when the flag says
- * it should be - and absent when it does not. The identity is declared here, in one place, instead of
- * being spelled as a literal at the call site where a reformat could silently change it.
- *
- * The tone is deliberately neutral rather than alarming: nothing was corrupted and nothing else was
- * kept. A red error card would imply the app had damaged something, and this is the opposite - the
- * user's unsaved choice is simply not here any more.
- */
+/** The banner that says a previously confirmed life-dimension setup did not survive. Its own composable so
+ * the notice has one stable semantics identity for a test to assert on, and its tone is neutral: nothing was
+ * corrupted, the unsaved choice is simply not here any more. */
 @Composable
 internal fun LostFirstRunDimensionsNotice(message: String) {
     Card(
@@ -824,23 +775,13 @@ internal fun LostFirstRunDimensionsNotice(message: String) {
     }
 }
 
-/**
- * The semantics identity [LostFirstRunDimensionsNotice] publishes.
- *
- * Internal rather than private so the render test can name the same constant the composable uses;
- * a test that retyped the literal would pass against a renamed id and fail for the wrong reason.
- */
+/** The semantics identity [LostFirstRunDimensionsNotice] publishes. Internal so a test names the same
+ * constant instead of retyping the literal, which would pass against a renamed id. */
 internal const val LOST_FIRST_RUN_DIMENSIONS_NOTICE_ID = "First-run life dimensions were not saved"
 
-/**
- * Validates a candidate database passphrase: requires at least
- * [PASSPHRASE_MIN_LENGTH] characters and at least one uppercase, lowercase, digit, and symbol,
- * returning the first failing rule as [PassphraseValidation.reasonCode].
- *
- * Inlined here rather than imported from `:core:database` because that module
- * is an Android library and this one is KMP - the validation itself is pure
- * Kotlin with no platform meaning.
- */
+/** Validates a candidate passphrase: at least [PASSPHRASE_MIN_LENGTH] characters plus one uppercase,
+ * lowercase, digit and symbol, returning the first failing rule as [PassphraseValidation.reasonCode]. Inlined
+ * because `:core:database` is an Android library and this module is KMP; the rules are pure Kotlin. */
 private fun validatePassphrase(passphrase: String): PassphraseValidation {
     if (passphrase.length < PASSPHRASE_MIN_LENGTH) {
         return PassphraseValidation(
@@ -875,11 +816,8 @@ private fun validatePassphrase(passphrase: String): PassphraseValidation {
     return PassphraseValidation(isValid = true, reasonCode = null)
 }
 
-/**
- * Result of [validatePassphrase]: whether the candidate passphrase is
- * acceptable, and when rejected the [reasonCode] naming the first failed rule
- * (e.g. `min_length`, `missing_symbol`).
- */
+/** Result of [validatePassphrase]: whether the candidate is acceptable, and when rejected the [reasonCode]
+ * naming the first failed rule (e.g. `min_length`, `missing_symbol`). */
 private data class PassphraseValidation(
     val isValid: Boolean,
     val reasonCode: String?,
