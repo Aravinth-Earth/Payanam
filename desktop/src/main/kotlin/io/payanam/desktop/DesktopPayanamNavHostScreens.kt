@@ -542,7 +542,7 @@ internal class DesktopPayanamNavHostScreens(
             onOpenJournal = { nav.openJournal() },
             onOpenNotes = { nav.openNotes() },
             onOpenScoreDetail = { type, key ->
-                logger.i("PayanamNavHost", "Opening score detail from lenses", mapOf("type" to type, "key" to key))
+                logger.i("PayanamNavHost", "Opening score detail from lenses", mapOf("type" to type, "dimensionKey" to key))
                 nav.openScoreDetail(type, key)
             },
         )

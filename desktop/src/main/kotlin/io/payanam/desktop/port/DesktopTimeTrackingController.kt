@@ -16,11 +16,10 @@ import java.time.LocalDateTime
 import java.util.UUID
 
 /**
- * The desktop's [TimeTrackingController]: two honest refusals and one real implementation.
- *
- * [startTracking] and [stopTracking] refuse — no foreground service, notification or widget host exists here.
- * [stopTrackingAndCompleteTask] does real work; refusing it reports a stop that never happened. The injected
- * [recurrenceHandler] is the platform's only recurrence owner; do not construct a second one.
+ * The desktop's [TimeTrackingController]: [startTracking] and [stopTracking] refuse because no foreground
+ * service, notification or widget host exists here; [stopTrackingAndCompleteTask] does real work, since
+ * refusing it reports a stop that never happened. The injected [recurrenceHandler] is the shared
+ * `RecurrenceManager` bound by `DesktopPayanamDataLayer` and the only recurrence owner; never construct a second.
  */
 internal class DesktopTimeTrackingController(
     private val timeEntries: TimeEntryRepository,

@@ -7,6 +7,7 @@ package io.payanam.presentation.tasks
 import com.google.common.truth.Truth.assertThat
 import io.payanam.domain.model.Tag
 import io.payanam.presentation.flags.PlatformFeatureFlags
+import io.payanam.presentation.lenses.FakeScoringConfigRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -64,6 +65,7 @@ class EditTaskViewModelTest {
             notificationScheduler = reminderScheduler,
             scoreRollupTrigger = scoreRollupTrigger,
             scoreCalculator = scoreCalculator,
+            scoringConfigRepository = FakeScoringConfigRepository(),
             scope = scope,
         )
     }
@@ -240,6 +242,7 @@ class EditTaskViewModelTest {
                     notificationScheduler = reminderScheduler,
                     scoreRollupTrigger = scoreRollupTrigger,
                     scoreCalculator = scoreCalculator,
+                    scoringConfigRepository = FakeScoringConfigRepository(),
                     scope = scope,
                 )
 

@@ -87,7 +87,8 @@ class DesktopNotesJourneyTest : DesktopAppJourneyHarness() {
             // ---- 4. DELETE: reopen the note and delete it ----------------------------------------
             onNodeWithText(EDITED_TITLE).performClick()
             awaitNodeWithText(strings.locDeleteNote)
-            onNodeWithText(strings.locDeleteNote).performClick()
+            onNodeWithText(strings.locDeleteNote).performClick() // opens the confirm dialog
+            onNodeWithText(strings.locDelete).performClick() // confirms - the dialog reuses the "Delete" label
 
             awaitNodeGone(EDITED_TITLE)
             awaitNodeWithText(strings.locNoNotesYet)

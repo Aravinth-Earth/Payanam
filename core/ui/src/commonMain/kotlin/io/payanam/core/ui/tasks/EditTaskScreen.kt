@@ -3,6 +3,7 @@
 package io.payanam.core.ui.tasks
 
 import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.text.formatArgs
 import io.payanam.shared.logging.AppLogger
 import io.payanam.core.ui.flags.LocalFeatureFlags
 import io.payanam.core.ui.platform.NotificationPermissionReason
@@ -38,6 +39,9 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SegmentedButton
 import androidx.compose.material3.SegmentedButtonDefaults
 import androidx.compose.material3.SingleChoiceSegmentedButtonRow
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -50,6 +54,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -74,6 +79,8 @@ import io.payanam.presentation.tasks.EditTaskInput
 import io.payanam.core.ui.components.EditTimePickerDialog
 import io.payanam.core.ui.components.EnhancedRecurrencePickerDialog
 import io.payanam.core.ui.components.resolveAlignmentIndex
+import io.payanam.core.ui.components.resolveControlIndex
+import io.payanam.core.ui.components.resolveEnergyIndex
 import io.payanam.core.ui.components.resolveImpactIndex
 import java.time.Instant
 import java.time.LocalDate
@@ -81,6 +88,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
+import kotlinx.coroutines.launch
 private val logger = AppLogger.current
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -104,10 +112,26 @@ fun EditTaskScreen(
     // Saveable, so a rotation while the offer is up does not drop the offer and strand the screen on
     // an edit that was already saved.
     var showNotificationRationale by rememberSaveable { mutableStateOf(false) }
+    // A save in flight blocks a second one: two overlapping saves both succeed and both call onTaskSaved(),
+    // which pops two destinations.
+    var isSaving by remember { mutableStateOf(false) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val scope = rememberCoroutineScope()
+    val unknownErrorMessage = strings.locUnknownErrorOccurred
     LaunchedEffect(taskId) {
         viewModel.loadTask(taskId)
     }
     Scaffold(
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.inverseSurface,
+                    contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                    actionColor = MaterialTheme.colorScheme.inversePrimary,
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 title = { Text(strings.locEditTask) },
@@ -153,34 +177,54 @@ fun EditTaskScreen(
                     initialTags = uiState.taskTags,
                     tagSuggestions = uiState.tagSuggestions,
                     onSave = { input ->
-                        viewModel.updateTask(input)
-                        // Whether this save leaves a reminder armed - the scheduler's own decision, not
-                        // a guess from the form fields, so a warning is never raised for a reminder no
-                        // alarm was created for.
-                        val reminderArmed =
-                            reminderWillBeArmed(
-                                taskId = taskId,
-                                taskTitle = input.title,
-                                dueAt = input.dueDate,
-                                recurrenceEnabled = input.recurrenceEnabled,
-                                status = uiState.task?.status ?: "pending",
-                                notificationMode = input.notificationMode,
-                                customNotificationMinutes = input.customNotificationMinutes,
-                                remindersEnabled = remindersEnabled,
-                                minimalModeEnabled = minimalModeEnabled,
-                                // The store keeps the loaded due date when the form sends none, so that
-                                // stored date - not a default - is the one the scheduler will read.
-                                storedTask = uiState.task,
+                        if (!isSaving) {
+                            isSaving = true
+                            // Whether this save leaves a reminder armed - the scheduler's own decision, not
+                            // a guess from the form fields, so a warning is never raised for a reminder no
+                            // alarm was created for.
+                            val reminderArmed =
+                                reminderWillBeArmed(
+                                    taskId = taskId,
+                                    taskTitle = input.title,
+                                    dueAt = input.dueDate,
+                                    recurrenceEnabled = input.recurrenceEnabled,
+                                    status = uiState.task?.status ?: "pending",
+                                    notificationMode = input.notificationMode,
+                                    customNotificationMinutes = input.customNotificationMinutes,
+                                    remindersEnabled = remindersEnabled,
+                                    minimalModeEnabled = minimalModeEnabled,
+                                    // The store keeps the loaded due date when the form sends none, so that
+                                    // stored date - not a default - is the one the scheduler will read.
+                                    storedTask = uiState.task,
+                                )
+                            viewModel.updateTask(
+                                input = input,
+                                onResult = { result ->
+                                    result.onSuccess {
+                                        // The offer is raised after the write, so the guard stays set: the
+                                        // screen leaves in either branch and a second save has nothing to do.
+                                        // The edit has COMMITTED; the offer only reports that the notification
+                                        // that would have told the user about it cannot arrive.
+                                        if (reminderArmed && notificationPermission.state == SupportState.DECLINES) {
+                                            showNotificationRationale = true
+                                        } else {
+                                            onTaskSaved()
+                                        }
+                                    }.onFailure {
+                                        // The write did not commit, so the screen stays open with the edits intact
+                                        // and the guard is released for a retry. The reason is already logged by
+                                        // the ViewModel; the snackbar shows a localized message, never the raw
+                                        // exception text.
+                                        isSaving = false
+                                        scope.launch {
+                                            snackbarHostState.showSnackbar(unknownErrorMessage)
+                                        }
+                                    }
+                                },
                             )
-                        // The save has been handed over and the reminder re-armed. The offer only reports
-                        // that the notification cannot arrive, so the way back is held until the offer
-                        // has been seen - the edit itself is already saved either way.
-                        if (reminderArmed && notificationPermission.state == SupportState.DECLINES) {
-                            showNotificationRationale = true
-                        } else {
-                            onTaskSaved()
                         }
                     },
+                    saving = isSaving,
                     modifier = Modifier.padding(padding),
                 )
             }
@@ -207,6 +251,7 @@ private fun EditTaskContent(
     initialTags: List<String>,
     tagSuggestions: List<String>,
     onSave: (EditTaskInput) -> Unit,
+    saving: Boolean = false,
     modifier: Modifier = Modifier,
 ) {
     val strings = LocalUiStrings.current
@@ -286,10 +331,10 @@ private fun EditTaskContent(
         mutableIntStateOf(resolveAlignmentIndex(task.goalAlignment))
     }
     var energyIndex by remember {
-        mutableIntStateOf(energyValues.indexOf(task.energyLevel).coerceAtLeast(0))
+        mutableIntStateOf(resolveEnergyIndex(task.energyLevel))
     }
     var controlIndex by remember {
-        mutableIntStateOf(controlValues.indexOf(task.controlLevel).coerceAtLeast(0))
+        mutableIntStateOf(resolveControlIndex(task.controlLevel))
     }
     var explicitUrgency by remember { mutableStateOf(task.explicitUrgency?.toString() ?: "") }
     var focusRequired by remember { mutableStateOf(task.focusRequired?.toString() ?: "") }
@@ -662,7 +707,7 @@ private fun EditTaskContent(
                 )
             },
             modifier = Modifier.fillMaxWidth(),
-            enabled = title.isNotBlank(),
+            enabled = title.isNotBlank() && !saving,
         ) {
             Text(strings.locSaveChanges)
         }

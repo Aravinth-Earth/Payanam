@@ -304,8 +304,10 @@
     <string name="loc_default_time_with_label">இயல்பு நேரம்: %1$s</string>
     <string name="loc_delete">நீக்கு</string>
     <string name="loc_delete_note">குறிப்பை நீக்கு</string>
+    <string name="loc_delete_note_confirm">குறிப்பை நீக்கவா?</string>
     <string name="loc_delete_task">பணியை நீக்கவா?</string>
     <string name="loc_delete_template">வார்ப்புருவை நீக்கு</string>
+    <string name="loc_delete_time_entry">நேரப் பதிவை நீக்கவா?</string>
     <string name="loc_description_optional">விளக்கம் (விரும்பினால்)</string>
     <string name="loc_details_optional">விவரங்கள் (விரும்பினால்)</string>
     <string name="loc_deviation">விலகல்</string>
@@ -331,6 +333,7 @@
     <string name="loc_dimension_desc_community_service">பிறருக்கு உதவி, சமூக பங்குபெறல், ஒத்துழைப்பு, மற்றும் தனிப்பட்ட அல்லது குடும்ப தேவைகளைத் தாண்டி பயன் உருவாக்கும் செயல்கள்.</string>
     <string name="loc_dimension_desc_unassigned">வகைப்படுத்தப்படாத அல்லது இறக்குமதி செய்யப்பட்ட பதிவுகளுக்கான அமைப்பு fallback.</string>
     <string name="loc_dimension_reflections">பரிமாண பிரதிபலிப்புகள்</string>
+    <string name="loc_dismiss">மூடு</string>
     <string name="loc_done">முடிந்தது</string>
     <string name="loc_done_2">✓ முடிந்தது</string>
     <string name="loc_due_date">இறுதி தேதி</string>
@@ -376,6 +379,7 @@
     <string name="loc_focus_rating_0_1">கவனம் மதிப்பீடு (0.00-1.00)</string>
     <string name="loc_focus_rating_value">தேர்ந்தெடுக்கப்பட்டது: %1$s</string>
     <string name="loc_focus_required_0_1">கவனம் தேவை (0-1)</string>
+    <string name="loc_focus_tabs_visible">%1$d தாவல்கள் தெரியும்</string>
     <string name="loc_focused_minutes_value">கவன நேரம்: %1$s</string>
     <string name="loc_follow_original_schedule">அசல் அட்டவணையைப் பின்பற்றவும்</string>
     <string name="loc_friday">வெள்ளிக்கிழமை</string>
@@ -983,7 +987,6 @@
     <string name="tracking_notification_subtext">கண்காணிப்பு நடைபெறுகிறது</string>
     <string name="tracking_notification_action_open">நேரத்தைத் திற</string>
     <string name="tracking_notification_action_stop">நிறுத்து</string>
-    <string name="tracking_notification_content">%1$s • %2$s</string>
     <string name="tracking_notification_channel_description">செயலில் உள்ள நேர கண்காணிப்பு நிலையை காட்டும்</string>
     <string name="task_reminders_channel_description">வரவிருக்கும் மற்றும் நிலுவை பணிகளுக்கான நினைவூட்டல்கள்</string>
     <string name="habit_tracking_channel_description">மீளும் பழக்கங்களுக்கு நினைவூட்டல்கள்</string>

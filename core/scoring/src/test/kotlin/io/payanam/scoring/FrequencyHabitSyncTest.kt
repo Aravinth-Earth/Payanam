@@ -263,10 +263,26 @@ class FrequencyHabitSyncTest {
                 tasks.updated.single().newDueDate.toLocalDate() <= today.plusDays(1),
             )
         }
+
+    @Test
+    fun `a write that matched no row leaves the sync without a success path`() =
+        runBlocking {
+            // Archived between the read and the write: the reminder was never moved, so the sync must not
+            // carry on as if it had been.
+            val task = frequencyTask(dueDate = today.atStartOfDay())
+            val tasks = FakeTasks(listOf(task), writesMatchNothing = true)
+
+            sync(tasks, FakeOccurrences(emptyList())).refresh(task.id)
+
+            assertEquals(1, tasks.updated.size)
+        }
+
     // ---- fakes -------------------------------------------------------------------------------------
 
     private class FakeTasks(
         initial: List<Task>,
+        /** Behaves like the store when the row went away between the read and the write. */
+        private val writesMatchNothing: Boolean = false,
     ) : TaskRepository {
         private val all = initial.toMutableList()
         val updated = mutableListOf<Update>()
@@ -280,10 +296,13 @@ class FrequencyHabitSyncTest {
             taskId: String,
             newDueDate: LocalDateTime,
             lastOccurrenceDate: LocalDateTime,
-        ) {
+        ): Int {
             updated += Update(taskId, newDueDate, lastOccurrenceDate)
+            if (writesMatchNothing) return 0
             val index = all.indexOfFirst { it.id == taskId }
-            if (index >= 0) all[index] = all[index].copy(dueDate = newDueDate)
+            if (index < 0) return 0
+            all[index] = all[index].copy(dueDate = newDueDate)
+            return 1
         }
 
         override fun getAllTasks(): Flow<List<Task>> = flowOf(all.toList())
@@ -341,6 +360,7 @@ class FrequencyHabitSyncTest {
 
         override suspend fun deleteOccurrence(taskId: String, date: LocalDate): Unit = unused()
         override suspend fun deleteOccurrence(id: String): Unit = unused()
+        override suspend fun clearActualDurationMinutes(taskId: String, date: LocalDate): Unit = unused()
 
         override suspend fun recordOccurrence(occurrence: TaskOccurrence) {
             recorded += occurrence

@@ -45,6 +45,7 @@ import io.payanam.domain.repository.TaskRescheduleRepository
 import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.presentation.data.PayanamDataLayer
 import io.payanam.scoring.ElegantTaskScoring
+import io.payanam.scoring.RecurrenceManager
 import io.payanam.scoring.port.TaskRecurrenceHandler
 
 /**
@@ -109,7 +110,7 @@ class DesktopPayanamDataLayer(
     override val lifeDimensions: LifeDimensionCatalogRepository =
         LifeDimensionCatalogRepositoryJvm(session, pollIntervalMs)
 
-    // Platform capabilities. The three the desktop genuinely has are shared implementations; the rest are this
+    // Platform capabilities. The ones the desktop genuinely has are shared implementations; the rest are this
     // platform's own no-ops, and each one says so in the log - see [DesktopUnsupportedPorts].
     override val scoreCalculator: ScoreCalculator = ElegantTaskScoring
 
@@ -119,7 +120,14 @@ class DesktopPayanamDataLayer(
 
     override val scoreRollupTrigger: ScoreRollupTrigger = ScoreRollupTriggerJdbc(session, scoreChangeEventBus)
 
-    override val recurrenceHandler: TaskRecurrenceHandler = DesktopUnsupportedPorts.recurrenceHandler
+    /**
+     * The shared [RecurrenceManager], over this layer's own [tasks] and [taskOccurrences] - the same
+     * implementation Android binds through `PortBindingsModule`.
+     *
+     * Declared after both, because a property initialiser may only read properties declared before it.
+     */
+    override val recurrenceHandler: TaskRecurrenceHandler =
+        RecurrenceManager(tasks, taskOccurrences)
 
     override val habitTimeEntryRecorder: HabitTimeEntryRecorder =
         DesktopUnsupportedPorts.habitTimeEntryRecorder

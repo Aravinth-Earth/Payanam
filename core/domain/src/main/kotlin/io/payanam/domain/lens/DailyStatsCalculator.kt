@@ -111,11 +111,13 @@ object DailyStatsCalculator {
         val grouped = segments.groupBy { it.dayKey }
         val result =
             allDaysBetween(segments.minOf { it.dayKey }, segments.maxOf { it.dayKey }).map { dayKey ->
+                // Summed as Double: truncating each segment to a Long drops a short segment's whole
+                // contribution (ten 1-minute segments at 0.9 focus would total 0 minutes).
                 val focusedMinutes =
                     grouped[dayKey]?.sumOf { seg ->
-                        (seg.minutes * (seg.focusRating ?: 0.0)).toLong()
-                    } ?: 0L
-                val focusedHours = (focusedMinutes.toDouble() / 60.0).coerceIn(0.0, 24.0)
+                        seg.minutes * (seg.focusRating ?: 0.0)
+                    } ?: 0.0
+                val focusedHours = (focusedMinutes / 60.0).coerceIn(0.0, 24.0)
                 DailyFocusedHoursStat(dayKey = dayKey, focusedHours = focusedHours)
             }
         logger.d(

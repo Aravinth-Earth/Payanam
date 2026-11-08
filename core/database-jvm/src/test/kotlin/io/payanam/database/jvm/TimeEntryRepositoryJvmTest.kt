@@ -285,6 +285,20 @@ class TimeEntryRepositoryJvmTest {
         }
 
     @Test
+    fun `createTimeEntry spanning midnight marks the end day dirty too`(): Unit =
+        runBlocking {
+            val yesterday = today.minusDays(1)
+
+            val created =
+                repository().createTimeEntry(
+                    input(startedAt = yesterday.atTime(23, 30), endedAt = today.atTime(0, 30)),
+                )
+
+            assertThat(rawField(created.id, "day_key")).isEqualTo(yesterday.toString())
+            assertThat(dirtyDays()).containsExactly(yesterday.toString(), today.toString())
+        }
+
+    @Test
     fun `updateTimeEntry moving an entry to another day marks both days dirty`(): Unit =
         runBlocking {
             val created = repository().createTimeEntry(input(endedAt = elevenAm))

@@ -332,6 +332,9 @@ class UnifiedLogger private constructor(
                     flushInternal()
                     sequenceCounter.set(0)
                     logFile = createSessionLogFile()
+                    // One file is created per foreground, so retention must run here too; without it a
+                    // long-lived process grows the log directory without bound.
+                    clearOldLogsSync(keepLast = 9)
                     logFile.absolutePath
                 }
             }
@@ -365,7 +368,6 @@ class UnifiedLogger private constructor(
         withContext(Dispatchers.IO) {
             val startedAtMs = SystemClock.elapsedRealtime()
             try {
-                val snapshot = snapshotLogState()
                 val externalDir = Environment.getExternalStoragePublicDirectory(Environment.DIRECTORY_DOCUMENTS)
                 val suffix = if (context.packageName.endsWith(".debug")) "-debug" else ""
                 val exportDir = File(externalDir, "Payanam$suffix/exported-logs")
@@ -373,22 +375,34 @@ class UnifiedLogger private constructor(
                     exportDir.mkdirs()
                 }
 
-                val exportFile = File(exportDir, logFile.name)
-                val tmpFile = File(exportDir, "${logFile.name}.tmp")
-                try {
-                    snapshot.file.copyTo(tmpFile, overwrite = true)
-                    if (tmpFile.length() != snapshot.file.length()) {
-                        throw IOException("Copy verification failed: ${snapshot.file.length()} != ${tmpFile.length()}")
+                // Snapshot and copy under the SAME mutex that rotation takes. Taken in two steps, a
+                // rotation in between truncates the source after this code read its length, so the copy
+                // stops early and the rename publishes a short file as if it were the whole session.
+                val exportFile =
+                    mutex.withLock {
+                        val source = snapshotLogStateLocked().file
+                        val target = File(exportDir, source.name)
+                        val tmpFile = File(exportDir, "${source.name}.tmp")
+                        try {
+                            val lengthBefore = source.length()
+                            source.copyTo(tmpFile, overwrite = true)
+                            // The source cannot change while the mutex is held, so this no longer guards
+                            // against rotation: it catches a copy that itself came up short, such as a
+                            // disk that filled mid-write.
+                            if (tmpFile.length() != lengthBefore) {
+                                throw IOException("Log export incomplete: ${tmpFile.name} is short")
+                            }
+                            if (!tmpFile.renameTo(target)) {
+                                throw IOException("Atomic rename failed: ${tmpFile.name} → ${target.name}")
+                            }
+                        } catch (
+                            @Suppress("TooGenericExceptionCaught") e: Exception,
+                        ) {
+                            tmpFile.delete()
+                            throw e
+                        }
+                        target
                     }
-                    if (!tmpFile.renameTo(exportFile)) {
-                        throw IOException("Atomic rename failed: ${tmpFile.name} → ${exportFile.name}")
-                    }
-                } catch (
-                    @Suppress("TooGenericExceptionCaught") e: Exception,
-                ) {
-                    tmpFile.delete()
-                    throw e
-                }
 
                 val durationMs = SystemClock.elapsedRealtime() - startedAtMs
                 i(
@@ -469,15 +483,19 @@ class UnifiedLogger private constructor(
     /** Capture the buffer snapshot FIRST, then flush — so session-live.log
      *  carries the not-yet-flushed lines (flush would empty the buffer). */
     private suspend fun snapshotLogState(): LogSnapshot =
-        mutex.withLock {
-            val bufferSnapshot = logBuffer.toList()
-            flushInternal()
-            LogSnapshot(
-                file = logFile,
-                files = getLogFiles(),
-                bufferSnapshot = bufferSnapshot,
-            )
-        }
+        mutex.withLock { snapshotLogStateLocked() }
+
+    /** Body of [snapshotLogState] for callers that already hold the mutex: `Mutex` is not reentrant,
+     *  so re-locking here would block forever instead of nesting. */
+    private fun snapshotLogStateLocked(): LogSnapshot {
+        val bufferSnapshot = logBuffer.toList()
+        flushInternal()
+        return LogSnapshot(
+            file = logFile,
+            files = getLogFiles(),
+            bufferSnapshot = bufferSnapshot,
+        )
+    }
 
     private data class LogSnapshot(
         val file: File,

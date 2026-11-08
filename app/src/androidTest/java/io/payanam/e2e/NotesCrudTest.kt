@@ -84,7 +84,8 @@ class NotesCrudTest {
         // ── 5. Delete the second card ───────────────────────────────────────
         rule.onAllNodesWithTag("notes_note_card")[1].performClick()
         h.assertVisible(l.ui.locDeleteNote)
-        h.click(l.ui.locDeleteNote)
+        h.click(l.ui.locDeleteNote) // opens the confirm dialog
+        h.click(l.ui.locDelete) // confirms - the dialog reuses the "Delete" label
         h.waitForGone("Alpha Note")
         h.assertNotVisible("Alpha Note")
     }

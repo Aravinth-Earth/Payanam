@@ -523,7 +523,7 @@ class DayViewModelTest {
         }
 
     @Test
-    fun `loadDayData ignores non-canonical dimension key`() =
+    fun `loadDayData keeps a non-canonical dimension key under its stored key`() =
         runTest {
             val todayStr = LocalDate.now().toString()
             val entry =
@@ -548,10 +548,10 @@ class DayViewModelTest {
             val vm = viewModel()
             advanceUntilIdle()
 
-            // Non-canonical dimension key is silently ignored during load
-            assertTrue(
-                vm.uiState.value.dimensionResponses
-                    .isEmpty(),
+            // The stored key is kept verbatim, so a user-defined dimension's response is not dropped.
+            assertEquals(
+                mapOf("feeling" to "calm"),
+                vm.uiState.value.dimensionResponses["not_real_dimension"],
             )
         }
 
@@ -852,7 +852,7 @@ class DayViewModelTest {
                 taskId: String,
                 newDueDate: LocalDateTime,
                 lastOccurrenceDate: LocalDateTime,
-            ) {
+            ): Int {
                 error("stub")
             }
         }
@@ -1044,6 +1044,13 @@ class DayViewModelTest {
             ): TaskOccurrence = error("stub")
 
             override suspend fun deleteOccurrence(id: String) {
+                error("stub")
+            }
+
+            override suspend fun clearActualDurationMinutes(
+                taskId: String,
+                date: LocalDate,
+            ) {
                 error("stub")
             }
         }

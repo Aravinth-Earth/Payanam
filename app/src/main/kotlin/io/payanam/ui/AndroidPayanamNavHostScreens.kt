@@ -119,10 +119,8 @@ internal class AndroidPayanamNavHostScreens(
         nav: PayanamNavActions,
         onConfigured: () -> Unit,
     ) {
-        // The ViewModel is SHARED now (`:core:presentation`), so it is built from the installed ports and
-        // retained here - the platform owns retention, the shared class owns none. It cannot come from
-        // `hiltViewModel()`: that factory only knows `@HiltViewModel` classes, and a shared module cannot
-        // carry the annotation because the desktop has no Hilt. Same shape as the unlock gate below.
+        // The shared ViewModel is built from the installed ports and retained by this Activity;
+        // hiltViewModel() cannot create a class that lives outside the Hilt graph.
         val context = LocalContext.current
         val viewModel = retainSharedViewModel(key = "passphrase_setup", onRelease = { it.dispose() }) {
             val entryPoint =
@@ -137,10 +135,7 @@ internal class AndroidPayanamNavHostScreens(
                 encryptionStateCheckpoint = entryPoint.encryptionStateCheckpoint(),
             )
         }
-        // The screen is shared now (`:core:ui`), so Android supplies what only it can: the log exporter.
-        // It is a slot for a stated reason - `exportLatestLog()`/`exportAllLogs()` return an Android
-        // `java.io.File` written to Android's own storage - and it keeps the exact block this screen had
-        // before the move, including the buttons' disabled-while-saving behaviour.
+        // Android supplies the log exporter slot: it returns an Android File in Android storage.
         DatabasePassphraseSetupScreen(
             onPassphraseConfigured = onConfigured,
             viewModel = viewModel,
@@ -156,20 +151,9 @@ internal class AndroidPayanamNavHostScreens(
         onUnlocked: () -> Unit,
         onForgotPassphraseReset: () -> Unit,
     ) {
-        // The unlock ViewModel is SHARED with the desktop, so it is built from the installed data layer and
-        // retained here - the platform owns retention, the shared screen owns none. It cannot come from
-        // `hiltViewModel<T>()`: that goes through Hilt's factory, which only knows `@HiltViewModel` classes,
-        // and a class in `:core:presentation` cannot carry that annotation because the desktop has no Hilt.
-        // So this is the construction site, exactly like `tasksViewModel()` above, and the collaborators
-        // are the ones Hilt already binds.
-        //
-        // The biometric adapter is built per Activity rather than resolved from the graph: it takes a
-        // `FragmentActivity` because a `BiometricPrompt` must be shown from one to survive a rotation, and
-        // an Activity is not in the SingletonComponent. `LocalContext.current` IS the MainActivity here -
-        // this destination only ever renders inside it. It is read HERE, not inside the `create` lambda,
-        // because that lambda is an ordinary function: a `Local` read inside it is a `@Composable`
-        // invocation with no composable context, and the lambda runs once per retained key so the adapter
-        // is not rebuilt on every recomposition anyway.
+        // The shared unlock ViewModel is retained here because it cannot come from hiltViewModel().
+        // The biometric adapter is per-Activity (it needs a FragmentActivity) and is built outside the
+        // composition graph, so LocalContext is read here rather than inside the `create` lambda.
         val context = LocalContext.current
         val activity = context as? FragmentActivity
         val biometricPrompt =
@@ -211,23 +195,14 @@ internal class AndroidPayanamNavHostScreens(
                     promptDispatcher = Dispatchers.Main.immediate,
                 )
             }
-        // The screen is shared now (`:core:ui`), so Android supplies what only it can: the biometric
-        // block, the pre-unlock APK-update hatch, and the log exporter. Each is a slot for a stated
-        // reason, and each keeps the exact behaviour this file's screen had before the move.
-        //
-        // `biometricPromptAvailable` is the SAME expression the screen used inside itself, read from the
-        // shared ViewModel: it deliberately is not a "is the adapter the Android one" type check, because
-        // the original gate asked whether a prompt can be shown right now, and that is the adapter's
-        // answer. `UnauthenticatedBiometricUnlockPrompt` still answers honestly to that question.
+        // Android supplies the biometric block, the pre-unlock APK-update hatch and the log exporter.
+        // biometricPromptAvailable is the adapter's live answer, not an adapter-type check.
         val preUnlockUpdateViewModel: PreUnlockUpdateViewModel = hiltViewModel()
         DatabasePassphraseUnlockScreen(
             onPassphraseUnlocked = onUnlocked,
             onForgotPassphraseReset = {
-                // The reset has just run: it deleted the database artifacts and cleared the credential. The
-                // gate flags this Activity resolved in `onCreate` now describe a database that is not there,
-                // so they are re-resolved BEFORE the graph's own navigation into the init gate - otherwise
-                // the stale unlock flag bounces the user straight back to a gate for a credential that no
-                // longer exists, which is exactly what build 2038's log shows.
+                // The reset deleted the database and credential, so the Activity's cached gate flags are
+                // re-resolved before the graph navigates to the init gate.
                 logger.w("PayanamNavHost.passphraseUnlock", "Forgot-passphrase reset completed; re-resolving the startup gates")
                 onDatabaseResetObserved()
                 onForgotPassphraseReset()
@@ -243,17 +218,8 @@ internal class AndroidPayanamNavHostScreens(
                 logger = logger,
             ),
             preUnlockUpdate = {
-                // The section itself now lives in :core:ui; this lambda is the Android ADAPTER - it maps
-                // this platform's ViewModel onto the framework-free state/actions contract the shared
-                // section takes. collectAsState lives here rather than in the shared body because this is
-                // the composable scope that owns the collection.
-                //
-                // RENDERED ON EVERY PLATFORM NOW, off one shared contract. `isFDroidBuild` is a build
-                // fact - a compile-time flag this APK carries, not a lookup of whichever installer is
-                // present - so it is translated here into the three-valued state the section renders:
-                // Android has an in-app APK updater and either runs it (SUPPORTED) or has its updates
-                // taken over by F-Droid's packager (DECLINES). Neither value is a mapping Android can be
-                // wrong about - both platforms agree that a store-managed install draws the static note.
+                // This lambda adapts the Android ViewModel to the shared section's contract.
+                // isFDroidBuild is a compile-time fact mapped to the section's SUPPORTED/DECLINES state.
                 val downloadState by preUnlockUpdateViewModel.downloadState.collectAsState()
                 val isChecking by preUnlockUpdateViewModel.checking.collectAsState()
                 val resultMessage by preUnlockUpdateViewModel.checkResultMessage.collectAsState()
@@ -282,13 +248,8 @@ internal class AndroidPayanamNavHostScreens(
         nav: PayanamNavActions,
         onPassphraseChanged: () -> Unit,
     ) {
-        // The screen itself is in :core:ui and rendered by every platform. There is deliberately no
-        // Android wrapper for it: the ViewModel and the log line are wired here, at the one call site.
-        //
-        // The ViewModel is SHARED now (`:core:presentation`), so it is built from the installed ports and
-        // retained here - the platform owns retention, the shared class owns none, and `hiltViewModel()`
-        // cannot build it because that factory only knows `@HiltViewModel` classes, which a shared module
-        // cannot carry. Same shape as the unlock gate above.
+        // The shared screen is rendered here with the ViewModel and log line wired at this one call site.
+        // The shared ViewModel cannot come from hiltViewModel() and is retained by the platform.
         val context = LocalContext.current
         val passphraseChangeViewModel =
             retainSharedViewModel(key = "passphrase_change", onRelease = { it.dispose() }) {
@@ -537,7 +498,7 @@ internal class AndroidPayanamNavHostScreens(
                 nav.openNotes()
             },
             onOpenScoreDetail = { type, key ->
-                logger.i("PayanamNavHost", "Opening score detail from lenses", mapOf("type" to type, "key" to key))
+                logger.i("PayanamNavHost", "Opening score detail from lenses", mapOf("type" to type, "dimensionKey" to key))
                 nav.openScoreDetail(type, key)
             },
         )

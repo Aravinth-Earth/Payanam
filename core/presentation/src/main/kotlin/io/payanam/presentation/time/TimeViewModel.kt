@@ -584,7 +584,8 @@ class TimeViewModel(
 
     /**
      * Deletes [entryId] and, if it was linked to a task, reverts that task's
-     * completion status, then reloads the day.
+     * completion status and clears the duration recorded on its occurrence for
+     * the entry's day, then reloads the day.
      */
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun deleteTimeEntry(entryId: String) {
@@ -614,6 +615,7 @@ class TimeViewModel(
                 timeEntryRepository.deleteTimeEntry(entryId)
                 entryToDelete?.taskId?.let { taskId ->
                     revertTaskCompletionFromTimeTracking(taskId, entryToDelete)
+                    clearTrackedDuration(taskId, entryToDelete)
                 }
                 // Deleting the entry the service is showing owes it the same stop an edit that ended it does,
                 // and the mark is what a later save or resume retries.
@@ -640,6 +642,37 @@ class TimeViewModel(
                 logger.e("TimeViewModel.deleteTimeEntry", "Failed to delete time entry", e, mapOf("entryId" to entryId))
                 _uiState.update { it.copy(error = e.message) }
             }
+        }
+    }
+
+    /**
+     * Clears the duration this entry wrote onto its task's occurrence, so a deleted
+     * session does not come back as supplemental minutes for the day.
+     */
+    private suspend fun clearTrackedDuration(
+        taskId: String,
+        timeEntry: TimeEntry,
+    ) {
+        try {
+            taskOccurrenceRepository.clearActualDurationMinutes(taskId, timeEntry.startedAt.toLocalDate())
+            logger.i(
+                "TimeViewModel.clearTrackedDuration",
+                "Cleared tracked duration from task occurrence",
+                mapOf(
+                    "taskId" to taskId,
+                    "timeEntryId" to timeEntry.id,
+                    "date" to timeEntry.startedAt.toLocalDate().toString(),
+                ),
+            )
+        } catch (e: CancellationException) {
+            throw e
+        } catch (e: Exception) {
+            logger.e(
+                "TimeViewModel.clearTrackedDuration",
+                "Failed to clear tracked duration from task occurrence",
+                e,
+                mapOf("taskId" to taskId),
+            )
         }
     }
 

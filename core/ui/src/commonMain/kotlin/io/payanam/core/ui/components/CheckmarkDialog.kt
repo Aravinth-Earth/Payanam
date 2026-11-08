@@ -67,6 +67,8 @@ fun CheckmarkDialog(
     val dateFormatter = DateTimeFormatter.ofPattern("EEEE, MMM d, yyyy")
     PayanamAlertDialog(
         onDismissRequest = onDismiss,
+        // The dialog holds a typed note: an outside tap must not discard it.
+        dismissOnClickOutside = false,
         title = {
             Text(
                 text = date.format(dateFormatter),

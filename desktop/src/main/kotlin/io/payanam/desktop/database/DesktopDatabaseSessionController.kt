@@ -126,20 +126,15 @@ internal class DesktopDatabaseSessionController(
      * `StartupRecoveryStep.BACKFILL_SCORE_ROLLUPS` — so it is guarded by the SAME `app_settings` key Android
      * writes, which is what makes one database backfilled once across both platforms instead of twice.
      *
-     * The desktop's refusal of the LIVE cascade remains a separate, declared position: this platform still
-     * does not recompute roll-ups day by day (see `DesktopUnsupportedPorts.scoreRollupTrigger`), on the
-     * stated premise that Android computes them into the same database the desktop reads back. The one-time
-     * historical rebuild is not that thing — it reconstructs what an earlier version never wrote, and it is
-     * the half that can be reached without a cascade — so the two positions are compatible rather than in
-     * conflict, and it is the cascade, not the backfill, that a product decision still holds open. Today's
-     * rows therefore stay absent until a cascade equivalent exists, which is the backfill's own documented
-     * boundary rather than a failure.
+     * The LIVE cascade runs on this platform too: the data layer binds the shared `ScoreRollupTrigger` to
+     * `ScoreRollupTriggerJdbc` (`DesktopPayanamDataLayer.scoreRollupTrigger`), so a status or rule change
+     * recomputes the same `habit_metrics` / `dimension_metrics` / `day_metrics` rows Android writes. The
+     * one-time historical rebuild above is a separate step and is guarded by the same `app_settings` key, so
+     * the two platforms backfill one database between them rather than twice.
      *
-     * What genuinely does not exist here is a RE-ARM of reminders at session resume: delivery itself is
-     * complete on this platform (the sink is constructed with a freedesktop delivery behind it and the data
-     * layer binds the producer that hands it reminders), but the scheduler arms reminders from task due
-     * times and there is no desktop step that replays a backlog of them at resume or after a restart.
-     * Pretending otherwise would make this log claim a reconciliation that did not happen.
+     * Reminders do not exist on this platform at all: there is no delivery channel, so there is nothing to
+     * re-arm at session resume, after a restart, or from a task's due time - and the reminder feature flag is
+     * off, so the shared task screen does not offer controls that would do nothing.
      *
      * Called from the one place a session comes into existence, so it runs on every open exactly as
      * Android's runs on every `onStart` past the gates. It is fire-and-forget: startup must not be delayed
@@ -190,11 +185,9 @@ internal class DesktopDatabaseSessionController(
      * rather than a second rebuild.
      *
      * Android's `scheduleAllPendingTasks` still has no desktop equivalent, and that one really is absent
-     * rather than merely unwired: the reminder DELIVERY surface is complete on this platform (the sink is
-     * constructed with a freedesktop delivery behind it and the data layer binds the producer that hands it
-     * reminders), but the scheduler arms reminders from task due times and there is no desktop step that
-     * replays a backlog of them at resume. Inventing steps this platform cannot perform would make the log
-     * claim a reconciliation that did not happen.
+     * rather than merely unwired: this platform has no reminder delivery channel, so nothing is armed and
+     * there is no backlog to replay. Inventing steps this platform cannot perform would make the log claim a
+     * reconciliation that did not happen.
      */
     internal suspend fun runMaintenanceAfterResume() {
         val layer = installedLayer
@@ -729,8 +722,8 @@ internal class DesktopDatabaseSessionController(
  * ported into `:core:database-jvm` as `ScoreRollupBackfillJdbc`, and the call below reaches it through
  * [DesktopStartupRecovery], which is the same three-step set the open path runs. It is guarded by the same
  * `app_settings` key Android writes, so the two platforms backfill one database between them rather than
- * twice. See the KDoc on `DesktopDatabaseSessionController.runStartupMaintenance` — including why the LIVE
- * cascade this drives is still, and separately, a platform that has not adopted it.
+ * twice. See the KDoc on `DesktopDatabaseSessionController.runStartupMaintenance` for the LIVE cascade
+ * (`ScoreRollupTriggerJdbc`) that the layer binds alongside these steps.
  *
  * Top-level rather than a method, so the controller's `maintenance` parameter can default to it: a default
  * argument cannot reference an instance member of the object being constructed.

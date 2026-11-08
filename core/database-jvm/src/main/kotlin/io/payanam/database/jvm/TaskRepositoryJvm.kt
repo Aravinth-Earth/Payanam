@@ -408,33 +408,47 @@ class TaskRepositoryJvm(
             tasks
         }
 
-    /** Advances recurring task [taskId] to its next occurrence and marks the new day dirty. */
+    /**
+     * Advances recurring task [taskId] to its next occurrence and marks the new day dirty.
+     *
+     * Returns the written-row count: 0 means the task was archived between the read and this write.
+     */
     override suspend fun updateRecurrenceState(
         taskId: String,
         newDueDate: LocalDateTime,
         lastOccurrenceDate: LocalDateTime,
-    ) {
+    ): Int =
         JdbcFlows.onIo {
-            JdbcQueries.write(
-                session,
-                RECURRENCE_STATE_SQL,
-                arrayOf(
-                    PersistedDateTime.format(newDueDate),
-                    newDueDate.toLocalDate().format(dateFormatter),
-                    PersistedDateTime.format(lastOccurrenceDate),
-                    PersistedDateTime.format(LocalDateTime.now()),
-                    taskId,
-                ),
-            )
+            val changed =
+                JdbcQueries.write(
+                    session,
+                    RECURRENCE_STATE_SQL,
+                    arrayOf(
+                        PersistedDateTime.format(newDueDate),
+                        newDueDate.toLocalDate().format(dateFormatter),
+                        PersistedDateTime.format(lastOccurrenceDate),
+                        PersistedDateTime.format(LocalDateTime.now()),
+                        taskId,
+                    ),
+                )
+            if (changed == 0) {
+                // Archived between the read and this write: nothing advanced, so no dirty day and no
+                // "updated" line that would read as an advancement.
+                logger.w(
+                    "TaskRepositoryJvm.updateRecurrenceState",
+                    "Recurrence update matched no row; task archived",
+                    mapOf("taskId" to taskId),
+                )
+                return@onIo 0
+            }
             markDirtyForTaskDay(newDueDate.toLocalDate(), "task_recurrence_updated")
             logger.i(
                 "TaskRepositoryJvm.updateRecurrenceState",
                 "Recurrence state updated",
                 mapOf("taskId" to taskId, "newDueDate" to newDueDate.toString()),
             )
-            Unit
+            changed
         }
-    }
 
     /**
      * Shared body of complete / skip / miss: one status write, then a dirty mark, then a re-read.
@@ -739,10 +753,10 @@ class TaskRepositoryJvm(
                 " WHERE $KEY_COLUMN = ?"
 
         /** Verbatim from `TaskDao.getAllTasks`. */
-        const val ALL_TASKS_SQL = "SELECT * FROM tasks ORDER BY taskScore DESC, createdAt DESC"
+        const val ALL_TASKS_SQL = "SELECT * FROM tasks ORDER BY taskScore DESC, createdAt DESC, id ASC"
 
         /** Verbatim from `TaskDao.getTasksByStatus`. */
-        const val STATUS_SQL = "SELECT * FROM tasks WHERE status = ? ORDER BY taskScore DESC"
+        const val STATUS_SQL = "SELECT * FROM tasks WHERE status = ? ORDER BY taskScore DESC, id ASC"
 
         /** Verbatim from `TaskDao.getTasksDueOn`. */
         const val DUE_ON_SQL = """
@@ -752,7 +766,7 @@ class TaskRepositoryJvm(
                 day_key = ?
                 OR (day_key IS NULL AND date(dueDate) = date(?))
             )
-            ORDER BY taskScore DESC
+            ORDER BY taskScore DESC, id ASC
         """
 
         /** Verbatim from `TaskDao.getTaskById`. */
@@ -778,11 +792,11 @@ class TaskRepositoryJvm(
                 )
             )
             OR (recurrenceEnabled = 1 AND status = 'pending')
-            ORDER BY taskScore DESC
+            ORDER BY taskScore DESC, id ASC
         """
 
         /** Verbatim from `TaskDao.getRecurringTasks`. */
-        const val RECURRING_SQL = "SELECT * FROM tasks WHERE recurrenceEnabled = 1"
+        const val RECURRING_SQL = "SELECT * FROM tasks WHERE recurrenceEnabled = 1 AND status != 'archived'"
 
         /** Verbatim from `TaskDao.deleteById`. */
         const val DELETE_BY_ID_SQL = "DELETE FROM tasks WHERE id = ?"
@@ -850,7 +864,7 @@ class TaskRepositoryJvm(
                 status = 'pending',
                 lastOccurrenceDate = ?,
                 updatedAt = ?
-            WHERE id = ?
+            WHERE id = ? AND status != 'archived'
         """
     }
 }

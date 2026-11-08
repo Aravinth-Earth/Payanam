@@ -41,6 +41,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
@@ -55,12 +56,14 @@ import io.payanam.domain.model.Task
 import io.payanam.core.ui.components.DimensionBadgeLabelRow
 import io.payanam.core.ui.components.DimensionDropdownBadge
 import io.payanam.core.ui.components.DimensionDropdownBadgeLabelRow
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.components.TagEditorField
 import io.payanam.core.ui.components.exposeTestTagsAsResourceIds
 import io.payanam.core.ui.components.parseTagsInput
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.shared.logging.AppLogger
+import kotlinx.coroutines.delay
 import java.time.Duration
 import java.time.LocalDate
 import java.time.LocalDateTime
@@ -139,6 +142,7 @@ fun TimeBlockModalDialog(
     var tagsRaw by remember(initialTags) { mutableStateOf(initialTags.joinToString(", ")) }
     var showStartDatePicker by remember { mutableStateOf(false) }
     var showEndDatePicker by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     var showStartTimePicker by remember { mutableStateOf(false) }
     var showEndTimePicker by remember { mutableStateOf(false) }
     var dimensionExpanded by remember { mutableStateOf(false) }
@@ -158,8 +162,15 @@ fun TimeBlockModalDialog(
     val selectedTaskTitle = tasks.firstOrNull { it.id == selectedTaskId }?.title
     val timeFormatter = DateTimeFormatter.ofPattern(if (use24Hour) "HH:mm" else "h:mm a")
     val dateFormatter = DateTimeFormatter.ofPattern("MMM d, yyyy")
-    val liveEndDate = endDate ?: LocalDate.now()
-    val liveEndTime = endTime ?: LocalTime.now()
+    // Ticks only while an active entry is shown, so its open end keeps moving and the duration matches the stop.
+    val liveNow by produceState(initialValue = LocalDateTime.now(), isActiveEntry) {
+        while (isActiveEntry) {
+            value = LocalDateTime.now()
+            delay(1_000L)
+        }
+    }
+    val liveEndDate = endDate ?: liveNow.toLocalDate()
+    val liveEndTime = endTime ?: liveNow.toLocalTime()
     val liveDurationMinutes = Duration.between(
         LocalDateTime.of(startDate, startTime),
         LocalDateTime.of(liveEndDate, liveEndTime),
@@ -579,9 +590,9 @@ fun TimeBlockModalDialog(
                         .padding(horizontal = 16.dp, vertical = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(8.dp),
                 ) {
-                    deleteAction?.let { onDelete ->
+                    if (deleteAction != null) {
                         OutlinedButton(
-                            onClick = onDelete,
+                            onClick = { showDeleteConfirm = true },
                             modifier = Modifier.fillMaxWidth(),
                             colors = ButtonDefaults.outlinedButtonColors(
                                 contentColor = MaterialTheme.colorScheme.error,
@@ -624,6 +635,37 @@ fun TimeBlockModalDialog(
                 }
             }
         }
+    }
+    // Delete destroys a stored entry or a whole task, so it is confirmed before the callback runs.
+    if (showDeleteConfirm && deleteAction != null) {
+        PayanamAlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = {
+                Text(
+                    if (onDeleteTask != null) {
+                        strings.locDeleteTask
+                    } else {
+                        strings.locDeleteTimeEntry
+                    },
+                )
+            },
+            text = { Text(strings.locThisActionCannotBeUndone) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        deleteAction?.invoke()
+                    },
+                ) {
+                    Text(strings.locDelete, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text(strings.settingsActionCancel)
+                }
+            },
+        )
     }
     if (showStartDatePicker) {
         DatePickerAlertDialog(

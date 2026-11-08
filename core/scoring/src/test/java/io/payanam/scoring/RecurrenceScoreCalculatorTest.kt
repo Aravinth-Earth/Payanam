@@ -370,4 +370,34 @@ class RecurrenceScoreCalculatorTest {
 
         assertEquals(1.0, stats.completionRate7Days, 0.001)
     }
+
+    @Test
+    fun `calculateFrequencyAwareStats stops the current streak at the first unsatisfied window`() {
+        val anchor = java.time.LocalDate.of(2026, 5, 7)
+        val occurrences = mapOf(
+            anchor to "completed",
+            anchor.plusDays(1) to "missed",
+            anchor.plusDays(2) to "completed",
+            anchor.plusDays(3) to "completed",
+        )
+
+        val stats = RecurrenceScoreCalculator.calculateFrequencyAwareStats(
+            occurrences = occurrences,
+            frequency = DomainFrequency.DAILY,
+            anchorDate = anchor,
+            today = anchor.plusDays(3),
+        )
+
+        assertEquals(2, stats.currentStreak)
+        assertEquals(2, stats.longestStreak)
+    }
+
+    @Test
+    fun `calculateCompletionStats seven day window excludes the eighth day`() {
+        val occurrences = (0..6).map { it to "completed" } + (7 to "missed")
+
+        val stats = RecurrenceScoreCalculator.calculateCompletionStats(occurrences)
+
+        assertEquals(1.0, stats.completionRate7Days, 0.001)
+    }
 }

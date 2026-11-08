@@ -7,14 +7,10 @@ import io.payanam.desktop.DesktopBuildInfo
 import io.payanam.domain.model.Task
 import io.payanam.domain.port.HabitTimeEntryRecorder
 import io.payanam.domain.port.PerformanceTracer
-import io.payanam.domain.port.ScoreChangeStream
-import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.port.TaskReminderScheduler
 import io.payanam.domain.port.TimeTrackingController
 import io.payanam.domain.port.TimeTrackingWidgetRefresher
 import io.payanam.presentation.updates.UpdateChecker
-import io.payanam.scoring.CompletionStats
-import io.payanam.scoring.port.TaskRecurrenceHandler
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.platform.ApkUpdateSource
 import io.payanam.shared.platform.InstallHandoff
@@ -24,9 +20,6 @@ import io.payanam.shared.platform.UpdateAvailability
 import io.payanam.shared.platform.UpdateDownload
 import io.payanam.shared.updates.UpdateCheckResult
 import io.payanam.shared.updates.UpdateOutcome
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.emptyFlow
-import java.time.LocalDate
 import java.time.LocalDateTime
 
 /**
@@ -43,11 +36,10 @@ private const val DESKTOP_UPDATE_RUNNING_TYPE = "release"
  * The desktop's implementations of the shared state layer's platform capabilities that it does not have yet.
  *
  * WHY THEY ARE HERE AND NOT SHARED: each one is a statement about this PLATFORM, not about the capability. The
- * desktop has a reminder channel — the freedesktop `notify-send` delivery hook, which the scheduler arms
- * against from user actions — but no score-cascade writer (Android computes the roll-ups and writes them into
- * the same database the desktop reads) and no habit time-entry recorder. Shipping these as the shared default
- * would let a platform that does have them inherit the absence silently; shipping them here keeps the absence
- * visible at exactly one place, and the contract still forces every platform to answer for every capability.
+ * desktop has no reminder channel — nothing here delivers a reminder the scheduler arms, and the reminder
+ * feature flag is off — and no habit time-entry recorder. Shipping these as the shared default would let a
+ * platform that does have them inherit the absence silently; shipping them here keeps the absence visible at
+ * exactly one place, and the contract still forces every platform to answer for every capability.
  *
  * WHY THEY LOG: a no-op that says nothing is the failure this project forbids - an action that appears to
  * happen and does not. Each method reports what it was asked to do and that this platform did not do it, so a
@@ -82,97 +74,6 @@ internal object DesktopUnsupportedPorts {
                     "DesktopUnsupportedPorts.cancelForTask",
                     "Nothing to cancel: reminders are not scheduled on this platform",
                     mapOf("taskId" to taskId),
-                )
-            }
-        }
-
-    /** A cascade writer this platform does not have: the roll-ups are computed on Android and read back here. */
-    val scoreRollupTrigger: ScoreRollupTrigger =
-        object : ScoreRollupTrigger {
-            override suspend fun recalcForStatusChange(
-                taskId: String,
-                date: LocalDate,
-            ) {
-                logSkipped("recalcForStatusChange", mapOf("taskId" to taskId, "date" to date.toString()))
-            }
-
-            override suspend fun recalcForRuleChange(taskId: String) {
-                logSkipped("recalcForRuleChange", mapOf("taskId" to taskId))
-            }
-
-            override suspend fun recalcDayOnly(changeDate: LocalDate) {
-                logSkipped("recalcDayOnly", mapOf("date" to changeDate.toString()))
-            }
-
-            private fun logSkipped(
-                operation: String,
-                data: Map<String, Any?>,
-            ) {
-                logger.w(
-                    "DesktopUnsupportedPorts.scoreRollupTrigger.$operation",
-                    "Score roll-ups are not recomputed on this platform; the stored rows are unchanged",
-                    data,
-                )
-            }
-        }
-
-    /**
-     * The recurrence model Android advances.
-     *
-     * `isFrequencyHabit` answers `false` rather than refusing, because it is a QUESTION and the honest answer
-     * for a platform that does not maintain the schedule is "not a frequency habit" - the surfaces that branch
-     * on it then render the non-recurring shape instead of claiming a quota this app cannot keep. The two
-     * mutating methods and the stats read report that they did nothing.
-     */
-    val recurrenceHandler: TaskRecurrenceHandler =
-        object : TaskRecurrenceHandler {
-            override fun isFrequencyHabit(task: Task): Boolean {
-                logger.d(
-                    "DesktopUnsupportedPorts.isFrequencyHabit",
-                    "Recurrence is advanced on Android; answering not-a-frequency-habit",
-                    mapOf("taskId" to task.id),
-                )
-                return false
-            }
-
-            override suspend fun onTaskCompleted(
-                task: Task,
-                note: String?,
-                reason: String?,
-                nextDueStrategy: String?,
-            ) = logNotAdvanced("onTaskCompleted", task)
-
-            override suspend fun onTaskSkipped(
-                task: Task,
-                note: String?,
-                reason: String?,
-                nextDueStrategy: String?,
-            ) = logNotAdvanced("onTaskSkipped", task)
-
-            override suspend fun onTaskMissed(
-                task: Task,
-                note: String?,
-                reason: String?,
-                nextDueStrategy: String?,
-            ) = logNotAdvanced("onTaskMissed", task)
-
-            override suspend fun getCompletionStats(task: Task): CompletionStats {
-                logger.w(
-                    "DesktopUnsupportedPorts.getCompletionStats",
-                    "Completion stats are computed on Android; reporting zeros",
-                    mapOf("taskId" to task.id),
-                )
-                return EMPTY_COMPLETION_STATS
-            }
-
-            private fun logNotAdvanced(
-                operation: String,
-                task: Task,
-            ) {
-                logger.w(
-                    "DesktopUnsupportedPorts.$operation",
-                    "The recurrence schedule is not advanced on this platform",
-                    mapOf("taskId" to task.id),
                 )
             }
         }
@@ -243,17 +144,6 @@ internal object DesktopUnsupportedPorts {
                 counts[key] = next
                 return next
             }
-        }
-
-    /**
-     * The score-change stream for a platform that never recomputes a score.
-     *
-     * An empty flow rather than a live bus: the desktop reads the rows Android wrote, so nothing here can
-     * publish a change, and a bus that nobody can emit into would be a promise the platform cannot keep.
-     */
-    val scoreChanges: ScoreChangeStream =
-        object : ScoreChangeStream {
-            override val events: Flow<LocalDate> = emptyFlow()
         }
 
     /**
@@ -401,16 +291,6 @@ internal object DesktopUnsupportedPorts {
                 )
             }
         }
-
-    private val EMPTY_COMPLETION_STATS =
-        CompletionStats(
-            completionRate7Days = 0.0,
-            completionRate30Days = 0.0,
-            completionRate90Days = 0.0,
-            allTimeRate = 0.0,
-            currentStreak = 0,
-            longestStreak = 0,
-        )
 }
 
 /**

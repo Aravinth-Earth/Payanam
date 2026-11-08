@@ -45,7 +45,6 @@ class NotificationScheduler @Inject constructor(
     private val logger = UnifiedLogger.getInstance()
     private val alarmManager = context.getSystemService(Context.ALARM_SERVICE) as AlarmManager
     private val notificationManager = context.getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
-    private val zoneId = ZoneId.systemDefault()
 
     /**
      * Re-arms reminders for every currently eligible task (app start / settings change), returning how many
@@ -245,7 +244,9 @@ class NotificationScheduler @Inject constructor(
             intent,
             PendingIntent.FLAG_UPDATE_CURRENT or PendingIntent.FLAG_IMMUTABLE,
         )
-        val triggerAtMillis = scheduledAt.atZone(zoneId).toInstant().toEpochMilli()
+        // Resolved per call, not cached: a process that outlives a zone change would otherwise arm the
+        // alarm at the wrong wall-clock instant.
+        val triggerAtMillis = scheduledAt.atZone(ZoneId.systemDefault()).toInstant().toEpochMilli()
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             if (alarmManager.canScheduleExactAlarms()) {
                 alarmManager.setExactAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, triggerAtMillis, pendingIntent)

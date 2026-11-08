@@ -39,12 +39,17 @@
             </intent-filter>
         </activity>
 
-        <!-- Boot Receiver for restoring active tracking -->
+        <!-- Boot Receiver for restoring active tracking and re-arming reminders -->
         <receiver
             android:name=".receiver.BootReceiver"
             android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <!-- Package replace clears every armed alarm, so reminders must be re-armed here. -->
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+                <!-- A zone or clock change moves every already-armed wall-clock alarm. -->
+                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
+                <action android:name="android.intent.action.TIME_SET" />
             </intent-filter>
         </receiver>
 

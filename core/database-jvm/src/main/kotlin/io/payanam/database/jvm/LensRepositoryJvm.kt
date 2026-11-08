@@ -704,8 +704,8 @@ class LensRepositoryJvm(
         const val FOCUS_GAP_REFLECTION_THRESHOLD_MINUTES = 60
         const val DIMENSION_GAP_REFLECTION_THRESHOLD_MINUTES = 60
         const val FOCUS_THRESHOLD = 0.7
-        const val HIGH_PRIORITY_SCORE = 80.0
-        const val MEDIUM_PRIORITY_SCORE = 50.0
+        const val HIGH_PRIORITY_SCORE = 0.8
+        const val MEDIUM_PRIORITY_SCORE = 0.5
         const val TIME_ADHERENCE_WEIGHT = 0.5f
         const val TASK_ADHERENCE_WEIGHT = 0.3f
         const val HABIT_ADHERENCE_WEIGHT = 0.2f

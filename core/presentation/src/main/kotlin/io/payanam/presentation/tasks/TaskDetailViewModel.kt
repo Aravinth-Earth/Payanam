@@ -673,7 +673,7 @@ class TaskDetailViewModel(
      * Archives the loaded task and cancels its reminders.
      */
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
-    fun archiveTask() {
+    fun archiveTask(onResult: (Result<Unit>) -> Unit = {}) {
         val taskId = currentTaskId ?: return
         scope.launch {
             // NonCancellable: releasing the screen cancels this scope, and a cancellable tail left the
@@ -684,6 +684,7 @@ class TaskDetailViewModel(
                     cancelReminder(taskId, "TaskDetailViewModel.archiveTask")
                 }
                 logger.i("TaskDetailViewModel.archiveTask", "Task archived", mapOf("taskId" to taskId))
+                onResult(Result.success(Unit))
             } catch (e: CancellationException) {
                 logger.i(
                     "TaskDetailViewModel.archiveTask",
@@ -694,6 +695,8 @@ class TaskDetailViewModel(
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.archiveTask", "Error archiving task", e)
                 _uiState.update { it.copy(error = e.message) }
+                // The screen navigates back only on success, so a failed archive has to reach it.
+                onResult(Result.failure(e))
             }
         }
     }
@@ -786,7 +789,7 @@ class TaskDetailViewModel(
      * Permanently deletes the loaded task (canceling its reminders).
      */
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
-    fun deleteTask() {
+    fun deleteTask(onResult: (Result<Unit>) -> Unit = {}) {
         val taskId = currentTaskId ?: return
         scope.launch {
             // NonCancellable for the same reason as archiveTask: a released screen must not skip the
@@ -797,6 +800,7 @@ class TaskDetailViewModel(
                     taskRepository.deleteTask(taskId)
                 }
                 logger.i("TaskDetailViewModel.deleteTask", "Task deleted", mapOf("taskId" to taskId))
+                onResult(Result.success(Unit))
             } catch (e: CancellationException) {
                 logger.i(
                     "TaskDetailViewModel.deleteTask",
@@ -807,8 +811,17 @@ class TaskDetailViewModel(
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.deleteTask", "Error deleting task", e)
                 _uiState.update { it.copy(error = e.message) }
+                // The screen navigates back only on success, so a failed delete has to reach it.
+                onResult(Result.failure(e))
             }
         }
+    }
+
+    /**
+     * Clears the last error so the screen stops re-reporting it.
+     */
+    fun clearError() {
+        _uiState.update { it.copy(error = null) }
     }
 
     /**

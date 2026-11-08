@@ -374,7 +374,7 @@ class LensRepositoryDailyInsightCacheTest {
             taskId: String,
             newDueDate: LocalDateTime,
             lastOccurrenceDate: LocalDateTime,
-        ) = unused("updateRecurrenceState")
+        ): Int = unused("updateRecurrenceState")
     }
 
     private class FakeTimeEntryRepository : TimeEntryRepository {
@@ -487,6 +487,11 @@ class LensRepositoryDailyInsightCacheTest {
         ): TaskOccurrence = unused("recordOccurrenceLegacy")
 
         override suspend fun deleteOccurrence(id: String) = unused("deleteOccurrenceById")
+
+        override suspend fun clearActualDurationMinutes(
+            taskId: String,
+            date: LocalDate,
+        ) = unused("clearActualDurationMinutes")
     }
 
     private class FakeDayPlanRepository : DayPlanRepository {

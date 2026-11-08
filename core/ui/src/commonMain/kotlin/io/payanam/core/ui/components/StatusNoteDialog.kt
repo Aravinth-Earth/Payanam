@@ -133,6 +133,8 @@ fun StatusNoteDialog(
     var nextDueStrategy by remember { mutableStateOf("planned") } // Default to planned
     PayanamAlertDialog(
         onDismissRequest = onDismiss,
+        // The dialog holds a typed note and a reason choice: an outside tap must not discard them.
+        dismissOnClickOutside = false,
         modifier = Modifier.testTag(TestTags.StatusNote.DIALOG),
         title = {
             Text(
