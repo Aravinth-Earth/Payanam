@@ -219,13 +219,15 @@ class PreUnlockUpdateSectionTest {
     }
 
     /**
-     * The whole claim of an early-return branch: the note renders, and nothing that could be pressed
-     * exists - including the version row, which lives below the return.
+     * The whole claim of an early-return branch: the build label still names the build, the note renders,
+     * and nothing that could be pressed exists - no update button, no hint.
      */
     private fun assertStaticNoteOnly(note: String) {
         composeRule.onAllNodesWithText(note).assertCountEquals(1)
+        composeRule.onAllNodesWithText(strings.settingsAboutVersionLabel).assertCountEquals(1)
+        composeRule.onAllNodesWithText(strings.settingsAboutVersionValue.formatArgs(BUILD_LABEL))
+            .assertCountEquals(1)
         hatchLabels().forEach { label -> composeRule.onAllNodesWithText(label).assertCountEquals(0) }
-        composeRule.onAllNodesWithText(strings.settingsAboutVersionLabel).assertCountEquals(0)
         composeRule.onAllNodesWithText(strings.preUnlockUpdateHint).assertCountEquals(0)
         assertNothingCanBeTapped()
     }

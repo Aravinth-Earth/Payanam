@@ -69,25 +69,26 @@ fun PreUnlockUpdateSection(
     val logger = remember { AppLogger.current }
 
     // What this platform can do about its own updates decides whether there is a button at all, so it
-    // is matched FIRST and returns before any action can be dispatched. `DECLINES` is Android under
-    // F-Droid, which manages updates for its installs; `NOT_APPLICABLE` is a platform with no in-app
-    // updater to act through. Both replace the hatch with a static note — never a dead button.
+    // is matched FIRST. `DECLINES` is Android under F-Droid, which manages updates for its installs;
+    // `NOT_APPLICABLE` is a platform with no in-app updater to act through. Both replace the hatch with a
+    // static note - never a dead button - and both still carry the build label, which is what a user on
+    // those installs quotes when reporting a problem.
     when (uiState.platformSupport) {
         SupportState.SUPPORTED -> Unit
         SupportState.DECLINES -> {
-            Text(
-                text = strings.settingsUpdateFdroidManaged,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.4f),
+            UnsupportedHatch(
+                label = uiState.buildLabel,
+                note = strings.settingsUpdateFdroidManaged,
+                modifier = modifier,
             )
             return
         }
 
         SupportState.NOT_APPLICABLE -> {
-            Text(
-                text = strings.settingsUpdateNotSupportedHere,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.4f),
+            UnsupportedHatch(
+                label = uiState.buildLabel,
+                note = strings.settingsUpdateNotSupportedHere,
+                modifier = modifier,
             )
             return
         }
@@ -97,10 +98,10 @@ fun PreUnlockUpdateSection(
         // silently unrendered answer. Both mean this platform cannot hand an update to the user now, so
         // both render the same note as `NOT_APPLICABLE` - and neither claims an installer it cannot know.
         SupportState.NOT_SURFACED, SupportState.IN_PROCESS_ONLY -> {
-            Text(
-                text = strings.settingsUpdateNotSupportedHere,
-                style = MaterialTheme.typography.labelSmall,
-                color = Color.White.copy(alpha = 0.4f),
+            UnsupportedHatch(
+                label = uiState.buildLabel,
+                note = strings.settingsUpdateNotSupportedHere,
+                modifier = modifier,
             )
             return
         }
@@ -178,26 +179,7 @@ fun PreUnlockUpdateSection(
         modifier = modifier.fillMaxWidth(),
         verticalArrangement = Arrangement.spacedBy(8.dp),
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically,
-        ) {
-            Text(
-                text = strings.settingsAboutVersionLabel,
-                style = MaterialTheme.typography.labelSmall.copy(
-                    fontWeight = FontWeight.Bold,
-                    letterSpacing = 1.sp,
-                ),
-                color = Color.White.copy(alpha = 0.4f),
-            )
-            Text(
-                text = strings.settingsAboutVersionValue.formatArgs(uiState.buildLabel),
-                style = MaterialTheme.typography.labelMedium,
-                color = Color.White.copy(alpha = 0.85f),
-                fontWeight = FontWeight.SemiBold,
-            )
-        }
+        BuildLabelRow(label = uiState.buildLabel)
         Card(
             colors = CardDefaults.cardColors(containerColor = Color.White.copy(alpha = 0.05f)),
             shape = RoundedCornerShape(10.dp),
@@ -284,5 +266,60 @@ fun PreUnlockUpdateSection(
             Spacer(modifier = Modifier.height(4.dp))
         }
         Spacer(modifier = Modifier.width(0.dp))
+    }
+}
+
+/**
+ * The build label row: version, short sha and build time from one shared formatter.
+ *
+ * It is drawn on every state of this section, including the ones that cannot offer an update, because a
+ * user on a packager-managed or platform-less install still needs a build to quote when reporting a
+ * problem - and the label is the only thing on this screen that names one.
+ */
+@Composable
+private fun BuildLabelRow(label: String) {
+    val strings = LocalUiStrings.current
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Text(
+            text = strings.settingsAboutVersionLabel,
+            style = MaterialTheme.typography.labelSmall.copy(
+                fontWeight = FontWeight.Bold,
+                letterSpacing = 1.sp,
+            ),
+            color = Color.White.copy(alpha = 0.4f),
+        )
+        Text(
+            text = strings.settingsAboutVersionValue.formatArgs(label),
+            style = MaterialTheme.typography.labelMedium,
+            color = Color.White.copy(alpha = 0.85f),
+            fontWeight = FontWeight.SemiBold,
+        )
+    }
+}
+
+/**
+ * What this platform's install gets instead of the hatch: the build label it can quote, and one static
+ * note saying why there is no button. Nothing pressable, and no installer claimed.
+ */
+@Composable
+private fun UnsupportedHatch(
+    label: String,
+    note: String,
+    modifier: Modifier = Modifier,
+) {
+    Column(
+        modifier = modifier.fillMaxWidth(),
+        verticalArrangement = Arrangement.spacedBy(8.dp),
+    ) {
+        BuildLabelRow(label = label)
+        Text(
+            text = note,
+            style = MaterialTheme.typography.labelSmall,
+            color = Color.White.copy(alpha = 0.4f),
+        )
     }
 }
