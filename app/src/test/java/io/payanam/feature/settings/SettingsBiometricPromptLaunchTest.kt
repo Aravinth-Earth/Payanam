@@ -41,8 +41,11 @@ class SettingsBiometricPromptLaunchTest {
     @Test
     fun `the prompt is invoked on the supplied dispatcher, not on the calling thread`() {
         val promptThreadName = "settings-biometric-prompt-test"
+        var promptThread: Thread? = null
         val executor: ExecutorService =
-            Executors.newSingleThreadExecutor { runnable -> Thread(runnable, promptThreadName) }
+            Executors.newSingleThreadExecutor { runnable ->
+                Thread(runnable, promptThreadName).also { promptThread = it }
+            }
         try {
             var invokedOn: Thread? = null
             val launched =
@@ -54,7 +57,11 @@ class SettingsBiometricPromptLaunchTest {
 
             assertThat(launched).isTrue()
             assertThat(invokedOn).isNotNull()
-            assertThat(invokedOn?.name).isEqualTo(promptThreadName)
+            // Identity, not the name string: kotlinx-coroutines appends " @coroutine#N" to a thread's name
+            // whenever coroutine debug mode is on, which another test in the same JVM can switch on. The
+            // contract is "ran on the supplied dispatcher", and the thread the factory made is exactly that.
+            assertThat(invokedOn).isSameInstanceAs(promptThread)
+            assertThat(invokedOn?.name).startsWith(promptThreadName)
             assertThat(invokedOn).isNotSameInstanceAs(Thread.currentThread())
         } finally {
             executor.shutdownNow()
