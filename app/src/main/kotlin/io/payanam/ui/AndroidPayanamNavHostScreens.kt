@@ -226,6 +226,7 @@ internal class AndroidPayanamNavHostScreens(
                 PreUnlockUpdateSection(
                     uiState = PreUnlockUpdateUiState(
                         buildNumber = preUnlockUpdateViewModel.currentBuildNumber,
+                        buildLabel = preUnlockUpdateViewModel.currentBuildLabel,
                         platformSupport =
                         if (preUnlockUpdateViewModel.isFDroidBuild) {
                             SupportState.DECLINES

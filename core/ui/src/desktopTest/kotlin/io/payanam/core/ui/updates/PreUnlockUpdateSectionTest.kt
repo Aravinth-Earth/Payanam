@@ -63,7 +63,7 @@ class PreUnlockUpdateSectionTest {
 
         composeRule.onNodeWithText(strings.settingsUpdateCheckButton).assertIsEnabled()
         composeRule.onNodeWithText(strings.settingsAboutVersionLabel).assertExists()
-        composeRule.onNodeWithText(strings.preUnlockUpdateBuildValue.formatArgs(BUILD_NUMBER)).assertExists()
+        composeRule.onNodeWithText(strings.settingsAboutVersionValue.formatArgs(BUILD_LABEL)).assertExists()
         composeRule.onNodeWithText(strings.settingsUpdateCheckButton).performClick()
 
         assertEquals(listOf("check"), recorder.fired)
@@ -219,13 +219,15 @@ class PreUnlockUpdateSectionTest {
     }
 
     /**
-     * The whole claim of an early-return branch: the note renders, and nothing that could be pressed
-     * exists - including the version row, which lives below the return.
+     * The whole claim of an early-return branch: the build label still names the build, the note renders,
+     * and nothing that could be pressed exists - no update button, no hint.
      */
     private fun assertStaticNoteOnly(note: String) {
         composeRule.onAllNodesWithText(note).assertCountEquals(1)
+        composeRule.onAllNodesWithText(strings.settingsAboutVersionLabel).assertCountEquals(1)
+        composeRule.onAllNodesWithText(strings.settingsAboutVersionValue.formatArgs(BUILD_LABEL))
+            .assertCountEquals(1)
         hatchLabels().forEach { label -> composeRule.onAllNodesWithText(label).assertCountEquals(0) }
-        composeRule.onAllNodesWithText(strings.settingsAboutVersionLabel).assertCountEquals(0)
         composeRule.onAllNodesWithText(strings.preUnlockUpdateHint).assertCountEquals(0)
         assertNothingCanBeTapped()
     }
@@ -264,6 +266,7 @@ class PreUnlockUpdateSectionTest {
     ): PreUnlockUpdateUiState =
         PreUnlockUpdateUiState(
             buildNumber = BUILD_NUMBER,
+            buildLabel = BUILD_LABEL,
             platformSupport = platformSupport,
             downloadState = downloadState,
             isChecking = isChecking,
@@ -304,6 +307,9 @@ class PreUnlockUpdateSectionTest {
 
     private companion object {
         const val BUILD_NUMBER = 1568
+
+        /** The hatch prints this instead of the packed number; the assertion uses the same value. */
+        const val BUILD_LABEL = "1.0.0 · 16bd3d1b · 2026-08-12 19:37"
         const val APK_FILE_NAME = "Payanam_Android_1568_debug_20260812_193754.apk"
         const val BYTES_DOWNLOADED = 420L
         const val TOTAL_BYTES = 1000L

@@ -34,6 +34,7 @@ import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.presentation.updates.UpdatePrefKeys
 import io.payanam.presentation.updates.artifactNameMatchesBuildType
 import io.payanam.service.DatabaseBackupCoordinator
+import io.payanam.shared.version.BuildLabel
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.logging.dbExportName
 import io.payanam.shared.settings.BackupInterval
@@ -109,7 +110,14 @@ class SettingsViewModel(
         SettingsUiState(
             currentDatabaseSchemaVersion = DatabaseHealthChecker.CURRENT_VERSION,
             minimumSupportedSchemaVersion = DatabaseHealthChecker.MIN_MIGRATABLE_VERSION,
-            appVersion = BuildConfig.VERSION_NAME,
+            // The version row and the pre-unlock hatch draw the SAME label: version, short sha and build
+            // time from one shared formatter, never the packed version code.
+            appVersion =
+                BuildLabel.of(
+                    BuildConfig.VERSION_NAME,
+                    BuildConfig.BUILD_SHORT_SHA,
+                    BuildConfig.BUILD_TIMESTAMP,
+                ),
             buildNumber = BuildConfig.VERSION_CODE,
         ),
     )

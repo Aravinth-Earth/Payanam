@@ -38,8 +38,17 @@ import io.payanam.shared.platform.SupportState
  * ...)`, the already-landed precedent for a promoted section that takes plain values.
  */
 data class PreUnlockUpdateUiState(
-    /** The version code this install runs, shown beside the "version" label as a `#`-prefixed number. */
+    /**
+     * The packed version code this install runs. It is what the update check COMPARES; it is not what the
+     * hatch prints - the row shows [buildLabel], because `#1000000` is a number a person cannot read.
+     */
     val buildNumber: Int,
+    /**
+     * What the hatch prints beside the version label: `1.0.0 · f75faced · 2026-11-07 16:24`, built by
+     * `BuildLabel.of` from the values this build actually recorded. The same string the settings About row
+     * shows, so one install reads the same on both screens.
+     */
+    val buildLabel: String,
     /**
      * What this platform can do about its own updates, which decides whether the hatch renders as a
      * working control at all.
