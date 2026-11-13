@@ -27,6 +27,7 @@ import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.shared.database.PayanamDatabaseSchema
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
@@ -34,7 +35,12 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.any
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyBlocking
+import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import java.io.File
 
@@ -170,6 +176,37 @@ class SettingsPlaintextImportRefusalTest {
         assertThat(viewModel.uiState.value.awaitingImportPassphrase).isFalse()
     }
 
+    @Test
+    fun `a refused import closes the live session before moving files and reopens it afterwards`() {
+        // The user's database exists; the session is presented as already open on it.
+        SQLiteDatabase.openOrCreateDatabase(databaseFile, null).use { db ->
+            db.version = PayanamDatabaseSchema.VERSION
+            db.execSQL("CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, title TEXT)")
+        }
+        val offered = writePlaintextDatabase("offered-plaintext-session.db")
+
+        val sessionManager = mock<DatabaseSessionManager>()
+        whenever(sessionManager.isDbOpen()).thenReturn(true)
+        whenever(sessionManager.requireOpenPassphrase()).thenReturn("old-passphrase")
+        runBlocking { whenever(sessionManager.openDatabase(any())).thenReturn(Result.success(Unit)) }
+
+        val viewModel = newViewModel(sessionManager)
+        viewModel.importDatabase(
+            Uri.fromFile(offered).toString(),
+            databaseFile,
+            AndroidDatabaseEncryptionProbe(context),
+            uiStringsFor(context),
+            AndroidDocumentSource(context),
+            appDatabaseInitWalConsolidator(context, UnifiedLogger.getInstance()),
+        )
+        awaitSettled(viewModel)
+
+        // The session must be closed before the artifacts are moved, and the rollback must put the user
+        // back on the database they had rather than leaving the app locked after a refused file.
+        verify(sessionManager).closeDatabase()
+        verifyBlocking(sessionManager) { openDatabase(eq("old-passphrase")) }
+    }
+
     /** A real, readable, unencrypted database at a path the picker would accept. */
     private fun writePlaintextDatabase(name: String): File {
         val file = File(context.cacheDir, name)
@@ -219,7 +256,12 @@ class SettingsPlaintextImportRefusalTest {
      * The repositories are mocks because nothing on the import path reads them — only the `init` block
      * does, and it is written to log-and-continue when they fail.
      */
-    private fun newViewModel(): SettingsViewModel {
+    private fun newViewModel(
+        sessionManager: DatabaseSessionManager = DatabaseSessionManager(
+            context,
+            DatabaseEncryptionManager(context),
+        ),
+    ): SettingsViewModel {
         val encryptionManager = DatabaseEncryptionManager(context)
         // The ViewModel reads its repositories from the installed data layer now that it is Hilt-free, so
         // the layer must be installed before it is constructed - its property initialisers run at build
@@ -237,7 +279,7 @@ class SettingsPlaintextImportRefusalTest {
         )
         return SettingsViewModel(
             context = context,
-            sessionManager = DatabaseSessionManager(context, encryptionManager),
+            sessionManager = sessionManager,
             databaseEncryptionManager = encryptionManager,
             databaseBackupCoordinator =
             DatabaseBackupCoordinator(

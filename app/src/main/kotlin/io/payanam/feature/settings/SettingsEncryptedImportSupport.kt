@@ -41,6 +41,28 @@ private fun SettingsViewModel.breadcrumb(stage: String, data: Map<String, Any?>?
 }
 
 /**
+ * Reopens the session with the passphrase it had before an import closed it.
+ *
+ * Runs on the rollback paths only: a successful encrypted import reopens with the imported passphrase
+ * in [resumeImportWithPassphrase], and a paused import stays closed until the user answers the gate.
+ */
+private suspend fun SettingsViewModel.reopenSessionAfterImport(): Boolean {
+    val passphrase = pendingImportOriginalPassphrase ?: return false
+    pendingImportOriginalPassphrase = null
+    return withContext(Dispatchers.IO) {
+        sessionManager
+            .openDatabase(passphrase)
+            .onFailure { error ->
+                logger.e(
+                    "SettingsViewModel.importDatabase",
+                    "Failed to reopen the database session after an import did not complete",
+                    error,
+                )
+            }.isSuccess
+    }
+}
+
+/**
  * Starts an ENCRYPTED database import from [sourceUri]: backs up the current DB + encryption prefs,
  * swaps in the imported file, and if the imported file is encrypted it pauses and surfaces
  * [awaitingImportPassphrase], resuming via [resumeImportWithPassphrase].
@@ -99,7 +121,6 @@ fun SettingsViewModel.importDatabase(
                 val dbFile = databaseFile
                 val existingDatabaseFiles = listDatabaseArtifactFiles(localDatabaseFile)
                     .filter { it.exists() && isActiveArtifact(it.name) }
-                val backupMappings = backupDatabaseArtifactFiles(existingDatabaseFiles)
                 logger.i(
                     "SettingsViewModel.importDatabase",
                     "Import paths resolved",
@@ -110,6 +131,15 @@ fun SettingsViewModel.importDatabase(
                         "existingArtifacts" to existingDatabaseFiles.size,
                     ),
                 )
+                // A live Room handle must not survive the files moving. Close (and fold) before the
+                // snapshot is taken, so the backup is a stable file set and the copy never lands under a
+                // session that is still reading the database being replaced.
+                val originalPassphrase =
+                    if (sessionManager.isDbOpen()) sessionManager.requireOpenPassphrase() else null
+                pendingImportOriginalPassphrase = originalPassphrase
+                sessionManager.checkpoint()
+                sessionManager.closeDatabase()
+                val backupMappings = backupDatabaseArtifactFiles(existingDatabaseFiles)
                 if (backupMappings.isNotEmpty()) {
                     logger.i(
                         "SettingsViewModel.importDatabase",
@@ -357,6 +387,11 @@ fun SettingsViewModel.importDatabase(
                     "errorMessage" to (e.message ?: "unknown"),
                 ),
             )
+            // The import closed the session before it moved the files, so a failure that is not the
+            // passphrase gate must put the user back on the database the rollback just restored.
+            if (!pausedForPassphrase) {
+                reopenSessionAfterImport()
+            }
             val rawMessage = e.message ?: "Import failed"
             val resolvedMessage =
                 if (rawMessage.contains("unable to open database", ignoreCase = true) ||
@@ -427,6 +462,19 @@ fun SettingsViewModel.resumeImportWithPassphrase(
                     )
                 }
                 breadcrumb(stage = "settings_resume_import_passphrase_configured")
+
+                // The import left the session closed before it moved the files. Open the imported
+                // database with the passphrase the user just proved, and only then discard the rollback
+                // material - a failed open still has somewhere to restore from.
+                val openResult = sessionManager.openDatabase(passphrase)
+                if (openResult.isFailure) {
+                    throw IllegalStateException(
+                        "Imported database could not be opened after passphrase verification",
+                        openResult.exceptionOrNull(),
+                    )
+                }
+                pendingImportOriginalPassphrase = null
+                breadcrumb(stage = "settings_resume_import_session_opened")
 
                 // Success: discard encryption prefs backup and artifact backups.
                 databaseEncryptionManager.clearEncryptionPrefsBackup()
@@ -511,6 +559,8 @@ fun SettingsViewModel.resumeImportWithPassphrase(
                     }
                     databaseEncryptionManager.clearEncryptionPrefsBackup()
                 }
+                // The rollback restored the files the session was closed on; reopen them.
+                reopenSessionAfterImport()
                 updateUiState {
                     it.copy(
                         isImporting = false,
@@ -554,6 +604,9 @@ fun SettingsViewModel.cancelImportPassphrase() {
             )
             breadcrumb(stage = "settings_resume_import_cancel_cleanup_done", data = mapOf("deletedRuntimeArtifacts" to deleted))
         }
+        // Cancelling the gate restores the user's own artifacts; reopen them with the passphrase the
+        // session had before the import closed it.
+        reopenSessionAfterImport()
         updateUiState {
             it.copy(
                 awaitingImportPassphrase = false,
