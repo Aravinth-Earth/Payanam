@@ -35,7 +35,7 @@ enum class NotificationActionOutcome {
     /** This action was already applied today; the re-delivered intent wrote nothing. */
     ALREADY_HANDLED,
 
-    /** The attempt threw; the action is kept so the next unlock can retry it. */
+    /** The session was closed or the attempt threw; the action is kept so the next unlock retries it. */
     FAILED,
 }
 
@@ -166,6 +166,14 @@ constructor(
     private suspend fun executeLocked(action: PendingNotificationAction): NotificationActionOutcome {
         if (pendingActions.isHandled(action.taskId, action.notificationId)) {
             return NotificationActionOutcome.ALREADY_HANDLED
+        }
+        if (!sessionManager.isDbOpen()) {
+            logger.w(
+                LOG_SOURCE,
+                "Reminder action not applied; database session closed",
+                mapOf("actionType" to action.actionType, "taskId" to action.taskId),
+            )
+            return NotificationActionOutcome.FAILED
         }
         logger.i(
             LOG_SOURCE,

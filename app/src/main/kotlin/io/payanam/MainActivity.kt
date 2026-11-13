@@ -1035,6 +1035,10 @@ class MainActivity : FragmentActivity() {
             }
             if (outcome == NotificationActionOutcome.APPLIED) {
                 pendingNotificationActions.clear(action.taskId)
+            } else if (outcome == NotificationActionOutcome.FAILED) {
+                // A tap that lost the session mid-operation is kept for the next unlock, which is the same
+                // rule the drain applies to a FAILED record.
+                deferReminderActionUntilUnlock(action)
             }
             logger.i(
                 LOG_SOURCE,
