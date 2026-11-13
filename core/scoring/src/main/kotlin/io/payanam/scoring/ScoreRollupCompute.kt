@@ -168,9 +168,18 @@ object ScoreRollupCompute {
         val occByDate = occurrences
             .filter { it.status == "completed" || it.status == "skipped" }
             .associateBy { it.dueDate.take(10) }
-        // Any occurrence today (any status) — controls whether today
-        // gets a row in cascade mode (includeToday=true).
-        val todayLogged = occurrences.any { it.dueDate.take(10) == LocalDate.now().toString() }
+        // Only a completion scores. A skipped day is neutral: it earns no row, so the running average
+        // is untouched instead of being pushed to 1.0 by a day the user deliberately did not do.
+        val completedDays = occurrences
+            .filter { it.status == "completed" }
+            .mapTo(HashSet()) { it.dueDate.take(10) }
+        val skippedDays = occurrences
+            .filter { it.status == "skipped" }
+            .mapTo(HashSet()) { it.dueDate.take(10) }
+        // An occurrence today that is not a skip — controls whether today gets a row in cascade mode
+        // (includeToday=true). A skip is neutral, so it opens no row and leaves today pending.
+        val todayKey = LocalDate.now().toString()
+        val todayLogged = occurrences.any { it.dueDate.take(10) == todayKey && it.status != "skipped" }
         val firstDue = occurrences
             .mapNotNull { parseLocalDate(it.dueDate) }
             .minOrNull()
@@ -203,8 +212,8 @@ object ScoreRollupCompute {
         var day = if (fromDay.isAfter(firstDueDay)) fromDay else firstDueDay
         val loopEnd = if (includeToday && todayLogged) today.plusDays(1) else today
         while (day.isBefore(loopEnd)) { // today stays pending unless logged (cascade)
-            if (config.isScheduledDay(day)) {
-                val score = if (occByDate[day.toString()] != null) 1.0 else 0.0
+            if (config.isScheduledDay(day) && !skippedDays.contains(day.toString())) {
+                val score = if (completedDays.contains(day.toString())) 1.0 else 0.0
                 sumScores += score
                 count++
                 val runningAvg = sumScores / count

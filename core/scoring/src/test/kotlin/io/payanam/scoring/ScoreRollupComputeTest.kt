@@ -16,9 +16,9 @@ import org.junit.Test
  * symmetric. A negative day resets the positive streak but leaves the positive-continue counter frozen, and zero
  * progress at a running average of 1.0 still advances the positive streak - the ceiling rule, without which a
  * habit held at 100% silently loses its streak on the first flat day. Second, L1 row selection: rows are sparse
- * (due days only), today stays pending unless an occurrence is logged for it, a `skipped` occurrence scores like
- * `completed`, an unparseable due date is dropped rather than crashing the build, and an off-grid completion is
- * not counted at all.
+ * (due days only), today stays pending unless a completion is logged for it, a `skipped` occurrence earns no row
+ * so it cannot move the average, an unparseable due date is dropped rather than crashing the build, and an
+ * off-grid completion is not counted at all.
  *
  * The baseline cases are the other half. A tail build seeded from cumulative rows before the change day has to
  * reproduce the full rebuild's arithmetic exactly - a baseline that seeds `sumScores` without `count`, or that
@@ -430,19 +430,31 @@ class ScoreRollupComputeTest {
     }
 
     @Test
-    fun `a skipped occurrence scores like a completed one and a missed one scores zero`() {
-        val occurrences = listOf(
-            occurrence(dueDate = day(2).toString(), status = "skipped"),
-            occurrence(dueDate = day(1).toString(), status = "missed"),
-        )
+    fun `a skipped day earns no row, so it neither scores nor moves the average`() {
+        val occurrences =
+            listOf(
+                occurrence(dueDate = day(3).toString(), status = "completed"),
+                occurrence(dueDate = day(2).toString(), status = "missed"),
+                occurrence(dueDate = day(1).toString(), status = "skipped"),
+            )
 
         val rows = ScoreRollupCompute.buildHabitMetrics(dailyTask(), occurrences).first
 
-        assertThat(rows.map { it.dayKey })
-            .containsExactly(day(2).toString(), day(1).toString())
-            .inOrder()
-        assertThat(rows[0].score).isEqualTo(1.0)
-        assertThat(rows[1].score).isEqualTo(0.0)
+        assertThat(rows.map { it.dayKey }).containsExactly(day(3).toString(), day(2).toString()).inOrder()
+        assertThat(rows.map { it.score }).containsExactly(1.0, 0.0).inOrder()
+        assertThat(rows.last().runningAvg).isEqualTo(0.5)
+    }
+
+    @Test
+    fun `a week of skips leaves the score where the last completion left it`() {
+        val occurrences =
+            listOf(occurrence(dueDate = day(7).toString(), status = "completed")) +
+                (1..6).map { occurrence(dueDate = day(it).toString(), status = "skipped") }
+
+        val rows = ScoreRollupCompute.buildHabitMetrics(dailyTask(), occurrences).first
+
+        assertThat(rows.map { it.dayKey }).containsExactly(day(7).toString())
+        assertThat(rows.single().runningAvg).isEqualTo(1.0)
     }
 
     @Test

@@ -162,7 +162,9 @@ object RecurrenceScoreCalculator {
             val relevant = occurrences.filter { it.first < days }
             if (relevant.isEmpty()) return 1.0
             val completed = relevant.count { it.second == "completed" }
-            val total = relevant.count { it.second in listOf("completed", "skipped", "missed") }
+            // A skipped day is neutral in the streak loops below, so it must not sit in the rate's
+            // denominator either — otherwise one gesture scores two ways in the same answer.
+            val total = relevant.count { it.second == "completed" || it.second == "missed" }
             return if (total > 0) completed.toDouble() / total else 1.0
         }
         

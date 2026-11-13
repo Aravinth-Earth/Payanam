@@ -92,6 +92,21 @@ class RecurrenceScoreCalculatorTest {
     }
 
     @Test
+    fun `calculateCompletionStats leaves a skipped day out of the rate`() {
+        val occurrences =
+            listOf(
+                0 to "completed",
+                1 to "skipped",
+                2 to "missed",
+            )
+
+        val stats = RecurrenceScoreCalculator.calculateCompletionStats(occurrences)
+
+        // One completion of the two days that were actually asked for: the skip does not dilute it.
+        assertEquals(0.5, stats.completionRate7Days, 0.001)
+    }
+
+    @Test
     fun `calculateCompletionStats tracks streaks`() {
         val occurrences = listOf(
             1 to "completed",
