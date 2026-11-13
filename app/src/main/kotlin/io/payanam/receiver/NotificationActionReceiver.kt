@@ -171,8 +171,8 @@ class NotificationActionReceiver : BroadcastReceiver() {
     /**
      * Runs the action immediately, on the same coordinator path the unlock drain uses.
      *
-     * A stale pending record for the same task is cleared on success, so it cannot be replayed on the
-     * next unlock.
+     * A success clears any pending record for the same task; a failure records this action, so the
+     * next unlock retries it.
      */
     @Suppress("TooGenericExceptionCaught") // Intentional: keeps the broadcast alive to its finish()
     private fun executeNow(action: PendingNotificationAction, pendingResult: BroadcastReceiver.PendingResult) {
@@ -183,8 +183,9 @@ class NotificationActionReceiver : BroadcastReceiver() {
 
                     NotificationActionOutcome.ALREADY_HANDLED,
                     NotificationActionOutcome.NOT_APPLICABLE,
-                    NotificationActionOutcome.FAILED,
                     -> Unit
+
+                    NotificationActionOutcome.FAILED -> pendingActions.record(action)
                 }
             } catch (e: Exception) {
                 logger.e(

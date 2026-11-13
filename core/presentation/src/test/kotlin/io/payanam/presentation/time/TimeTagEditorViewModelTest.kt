@@ -13,6 +13,7 @@ import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.data.PayanamDataLayer
 import io.payanam.presentation.data.UninstalledDataLayer
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -42,6 +43,7 @@ import java.time.LocalDateTime
 class TimeTagEditorViewModelTest {
     private lateinit var tagRepository: FakeTagRepository
     private var viewModelScope: CoroutineScope? = null
+    private val uncaughtFailures = mutableListOf<Throwable>()
 
     @Before
     fun setUp() {
@@ -62,7 +64,11 @@ class TimeTagEditorViewModelTest {
 
     /** A scope for the ViewModel under test, driven by the test scheduler so `advanceUntilIdle` runs it. */
     private fun TestScope.newViewModelScope(): CoroutineScope =
-        CoroutineScope(SupervisorJob() + StandardTestDispatcher(testScheduler)).also { viewModelScope = it }
+        CoroutineScope(
+            SupervisorJob() +
+                StandardTestDispatcher(testScheduler) +
+                CoroutineExceptionHandler { _, failure -> uncaughtFailures += failure },
+        ).also { viewModelScope = it }
 
     private fun TestScope.viewModel(): TimeTagEditorViewModel {
         val scope = newViewModelScope()
@@ -350,6 +356,31 @@ class TimeTagEditorViewModelTest {
         }
 
     // ------------------------------------------------------------------ //
+    //  Closed database session                                            //
+    // ------------------------------------------------------------------ //
+
+    /**
+     * Every tag call throws once the session is closed; each call site must absorb its own failure so
+     * the scope (the process, on Android) survives and the editor keeps its current state.
+     */
+    @Test
+    fun `a closed database session fails single tag calls without failing the scope`() =
+        runTest {
+            tagRepository.closedSessionFailure = IllegalStateException("Database session is closed")
+            val vm = viewModel()
+            advanceUntilIdle()
+
+            vm.saveEntryTags("e1", listOf("work"))
+            vm.saveTaskTags("t1", listOf("urgent"))
+            advanceUntilIdle()
+
+            assertTrue(uncaughtFailures.isEmpty())
+            assertEquals(emptyList<String>(), vm.uiState.value.tagSuggestions)
+            assertTrue(tagRepository.savedEntryTags.isEmpty())
+            assertTrue(tagRepository.savedTaskTags.isEmpty())
+        }
+
+    // ------------------------------------------------------------------ //
     //  dispose                                                             //
     // ------------------------------------------------------------------ //
 
@@ -467,7 +498,13 @@ class TimeTagEditorViewModelTest {
         /** Captured arguments from [replaceTaskTags]. */
         val savedTaskTags = mutableMapOf<String, List<String>>()
 
-        override fun observeAllTags(): Flow<List<Tag>> = allTags
+        /** When set, every tag read and write throws it, as a closed database session does. */
+        var closedSessionFailure: IllegalStateException? = null
+
+        override fun observeAllTags(): Flow<List<Tag>> {
+            closedSessionFailure?.let { throw it }
+            return allTags
+        }
 
         override fun searchTagsByPrefix(
             query: String,
@@ -486,6 +523,7 @@ class TimeTagEditorViewModelTest {
             taskId: String,
             tagNames: List<String>,
         ) {
+            closedSessionFailure?.let { throw it }
             savedTaskTags[taskId] = tagNames
         }
 
@@ -498,6 +536,7 @@ class TimeTagEditorViewModelTest {
             timeEntryId: String,
             tagNames: List<String>,
         ) {
+            closedSessionFailure?.let { throw it }
             savedEntryTags[timeEntryId] = tagNames
         }
     }

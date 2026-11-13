@@ -2,12 +2,19 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.notification
 
+import android.content.Context
+import android.content.Intent
+import android.content.IntentFilter
+import android.os.Looper
+import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.Task
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
+import io.payanam.receiver.NotificationActionReceiver
+import io.payanam.receiver.TaskReminderReceiver
 import io.payanam.scoring.RecurrenceManager
 import kotlinx.coroutines.asCoroutineDispatcher
 import kotlinx.coroutines.launch
@@ -19,9 +26,13 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyBlocking
 import org.mockito.kotlin.whenever
 import org.mockito.kotlin.wheneverBlocking
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows.shadowOf
 import java.time.LocalDateTime
 import java.util.Collections
 import java.util.concurrent.CountDownLatch
@@ -47,6 +58,7 @@ class NotificationActionCoordinatorTest {
         recurrenceManager = mock()
         sessionManager = mock()
         pendingActions = mock()
+        whenever(sessionManager.isDbOpen()).thenReturn(true)
     }
 
     @Test
@@ -118,6 +130,91 @@ class NotificationActionCoordinatorTest {
         )
     }
 
+    @Test
+    fun execute_whenTheSessionDiesMidWrite_returnsFailedAndKeepsTheActionForRetry() {
+        wheneverBlocking { taskRepository.getTaskById(TASK_ID) }
+            .thenThrow(IllegalStateException("DatabaseSessionManager: DB not open"))
+        val coordinator = coordinator()
+
+        assertEquals(NotificationActionOutcome.FAILED, runBlocking { coordinator.execute(action()) })
+        verify(pendingActions, never()).markHandled(any())
+
+        // The drain's own rule: a FAILED outcome leaves the action on disk for the next unlock.
+        whenever(pendingActions.readPending()).thenReturn(listOf(action()))
+        runBlocking { coordinator.applyPendingActions() }
+
+        verify(pendingActions, never()).clear(TASK_ID)
+        verify(pendingActions, never()).markHandled(any())
+    }
+
+    @Test
+    fun execute_whenTheSessionIsClosed_returnsFailedWithoutTouchingARepository() {
+        whenever(sessionManager.isDbOpen()).thenReturn(false)
+        val coordinator = coordinator()
+
+        assertEquals(NotificationActionOutcome.FAILED, runBlocking { coordinator.execute(action()) })
+
+        verifyBlocking(taskRepository, never()) { getTaskById(any()) }
+        verify(pendingActions, never()).markHandled(any())
+    }
+
+    @Test
+    fun liveTap_whenExecuteFails_recordsTheActionForTheNextUnlock() {
+        val context = ApplicationProvider.getApplicationContext<Context>()
+        val store = PendingNotificationActionStore(context)
+        val coordinator = mock<NotificationActionCoordinator>()
+        wheneverBlocking { coordinator.execute(any()) }.thenReturn(NotificationActionOutcome.FAILED)
+        val receiver = NotificationActionReceiver()
+        val filter =
+            IntentFilter().apply {
+                addAction(NEUTRAL_ACTION)
+                addAction(NotificationActionReceiver.ACTION_COMPLETE_TASK)
+            }
+        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
+        // The @AndroidEntryPoint base injects on the first delivery and would replace the mocks, so a
+        // neutral broadcast is delivered first and the mocks are assigned after it.
+        context.sendBroadcast(Intent(NEUTRAL_ACTION))
+        shadowOf(Looper.getMainLooper()).idle()
+        receiver.sessionManager = sessionManager
+        receiver.coordinator = coordinator
+        receiver.pendingActions = store
+        val intent = Intent(NotificationActionReceiver.ACTION_COMPLETE_TASK).apply {
+            putExtra(TaskReminderReceiver.EXTRA_TASK_ID, TASK_ID)
+            putExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_ID_INT, NOTIFICATION_ID)
+        }
+
+        context.sendBroadcast(intent)
+        shadowOf(Looper.getMainLooper()).idle()
+
+        val recorded = awaitRecordedAction(store)
+        verifyBlocking(coordinator) { execute(any()) }
+        assertEquals(1, recorded.size)
+        assertEquals(TASK_ID, recorded.first().taskId)
+        assertEquals(NotificationActionCoordinator.ACTION_TYPE_COMPLETE, recorded.first().actionType)
+        assertEquals(NOTIFICATION_ID, recorded.first().notificationId)
+    }
+
+    private fun coordinator(): NotificationActionCoordinator = NotificationActionCoordinator(
+        context = ApplicationProvider.getApplicationContext(),
+        taskRepository = taskRepository,
+        taskOccurrenceRepository = taskOccurrenceRepository,
+        notificationScheduler = notificationScheduler,
+        recurrenceManager = recurrenceManager,
+        sessionManager = sessionManager,
+        pendingActions = pendingActions,
+    )
+
+    /** The receiver records on a background scope, so the store is polled until it answers or time runs out. */
+    private fun awaitRecordedAction(store: PendingNotificationActionStore): List<PendingNotificationAction> {
+        val deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(TIMEOUT_SECONDS)
+        while (System.nanoTime() < deadline) {
+            val pending = store.readPending()
+            if (pending.isNotEmpty()) return pending
+            Thread.sleep(POLL_MILLIS)
+        }
+        return store.readPending()
+    }
+
     private fun action(): PendingNotificationAction = PendingNotificationAction(
         actionType = NotificationActionCoordinator.ACTION_TYPE_COMPLETE,
         taskId = TASK_ID,
@@ -132,6 +229,8 @@ class NotificationActionCoordinatorTest {
         private const val SECOND_CHECK = 2
         private const val THREADS = 2
         private const val TIMEOUT_SECONDS = 10L
+        private const val POLL_MILLIS = 20L
         private const val NOW_MILLIS = 1_760_000_000_000L
+        private const val NEUTRAL_ACTION = "io.payanam.action.TEST_NEUTRAL"
     }
 }

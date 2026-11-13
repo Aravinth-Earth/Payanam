@@ -7,7 +7,9 @@ package io.payanam
 import android.annotation.SuppressLint
 import android.app.AlarmManager
 import android.app.LocaleManager
+import android.content.Context
 import android.content.Intent
+import android.content.SharedPreferences
 import android.content.res.Configuration
 import android.content.res.Resources
 import android.os.Build
@@ -202,15 +204,19 @@ class MainActivity : FragmentActivity() {
 
         // Invalid boot state (credential present, no DB file): warn that data was lost, then reset
         // the credential so the setup gate can run.
+        val startupNoticePrefs = getSharedPreferences(PREFS_STARTUP_NOTICE, Context.MODE_PRIVATE)
         if (!hasDatabaseArtifacts && hasPassphraseConfigured) {
             logger.e(
                 "MainActivity.onCreate",
                 "Invalid boot state: passphrase configured but no DB artifacts found",
             )
-            showExternalDeletionWarning.value = true
+            // Persisted before the reset: the reset clears the only predicate that raises this notice, so a
+            // process kill between the two would leave the user with no explanation at all.
+            markExternalDeletionNoticePending(startupNoticePrefs)
             encryptionManager.resetEncryptionState()
             hasPassphraseConfigured = false
         }
+        showExternalDeletionWarning.value = isExternalDeletionNoticePending(startupNoticePrefs)
 
         // Unlock screen is needed when passphrase is configured but the DB session is not yet open.
         // (Old design used a SharedPrefs timestamp; new design checks the live Room session state.)
@@ -318,6 +324,15 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         logger.i("MainActivity.onCreate", "Composing UI surface")
         setContent {
+            // A timeout in the foreground closes the session without a lifecycle callback, so the gate has to
+            // follow the session itself, not only onResume — otherwise the next tap meets a dead session.
+            LaunchedEffect(Unit) {
+                var wasOpen = sessionManager.isOpen.value
+                sessionManager.isOpen.collect { open ->
+                    if (wasOpen && !open) showPassphraseUnlock = true
+                    wasOpen = open
+                }
+            }
             val startupGateScreenActive = showDatabaseInit || showPassphraseSetup || showPassphraseUnlock
 
             // External DB deletion warning dialog — shown above any startup gate
@@ -330,6 +345,7 @@ class MainActivity : FragmentActivity() {
                     confirmButton = {
                         TextButton(onClick = {
                             showExternalDeletionWarning.value = false
+                            clearExternalDeletionNotice(getSharedPreferences(PREFS_STARTUP_NOTICE, Context.MODE_PRIVATE))
                             logger.i("MainActivity.onCreate", "User acknowledged external DB deletion warning")
                         }) {
                             Text(stringResource(R.string.loc_continue))
@@ -1026,6 +1042,10 @@ class MainActivity : FragmentActivity() {
             }
             if (outcome == NotificationActionOutcome.APPLIED) {
                 pendingNotificationActions.clear(action.taskId)
+            } else if (outcome == NotificationActionOutcome.FAILED) {
+                // A tap that lost the session mid-operation is kept for the next unlock, which is the same
+                // rule the drain applies to a FAILED record.
+                deferReminderActionUntilUnlock(action)
             }
             logger.i(
                 LOG_SOURCE,
@@ -1260,6 +1280,25 @@ internal fun resolveShouldShowDatabaseInit(
     shouldShowPassphraseUnlock -> false
     !isHealthy -> true
     else -> !databaseInitCompleted
+}
+
+private const val PREFS_STARTUP_NOTICE = "payanam_startup_notice"
+private const val KEY_EXTERNAL_DELETION_PENDING = "external_deletion_pending"
+
+/**
+ * The deletion notice cannot be derived on a later start: the reset that follows it clears the
+ * passphrase-verifier predicate that raises it, so a stored flag is the only surviving evidence.
+ */
+internal fun isExternalDeletionNoticePending(prefs: SharedPreferences): Boolean =
+    prefs.getBoolean(KEY_EXTERNAL_DELETION_PENDING, false)
+
+internal fun markExternalDeletionNoticePending(prefs: SharedPreferences) {
+    // commit(), not apply(): the reset that follows must not outrun the note that explains it.
+    prefs.edit().putBoolean(KEY_EXTERNAL_DELETION_PENDING, true).commit()
+}
+
+internal fun clearExternalDeletionNotice(prefs: SharedPreferences) {
+    prefs.edit().putBoolean(KEY_EXTERNAL_DELETION_PENDING, false).apply()
 }
 
 internal data class StartupHealthLogSummary(
