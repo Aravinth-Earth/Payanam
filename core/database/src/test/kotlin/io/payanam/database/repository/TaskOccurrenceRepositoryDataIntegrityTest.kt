@@ -156,4 +156,96 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
             assertThat(stored?.status).isEqualTo("completed")
             assertThat(stored?.statusReason).isNull()
         }
+
+    @Test
+    /**
+     * Two task-screen writes for one day update the one row instead of appending a second.
+     */
+    fun recordOccurrence_writtenTwiceForTheSameDay_keepsOneRow() =
+        runBlocking {
+            val day = LocalDate.of(2026, 2, 23)
+            val taskId = insertHabitTask(day, "habit_integrity_3")
+
+            repository.recordOccurrence(
+                TaskOccurrence(
+                    id = "occ_first",
+                    taskId = taskId,
+                    occurrenceDate = day.toString(),
+                    status = "completed",
+                    statusNote = "first write",
+                ),
+            )
+            repository.recordOccurrence(
+                TaskOccurrence(
+                    id = "occ_second",
+                    taskId = taskId,
+                    occurrenceDate = day.toString(),
+                    status = "skipped",
+                    statusNote = "second write",
+                ),
+            )
+
+            val rows = database.taskOccurrenceDao().getOccurrencesForTaskForBackfill(taskId)
+            assertThat(rows).hasSize(1)
+            assertThat(rows.single().status).isEqualTo("skipped")
+            assertThat(rows.single().note).isEqualTo("second write")
+        }
+
+    @Test
+    /**
+     * A bare-date write lands on the row the toggle path already wrote in timestamp form.
+     */
+    fun recordOccurrence_bareDate_findsTheTimestampRowForTheSameDay() =
+        runBlocking {
+            val day = LocalDate.of(2026, 2, 24)
+            val taskId = insertHabitTask(day, "habit_integrity_4")
+
+            repository.toggleOccurrence(
+                taskId = taskId,
+                date = day,
+                newStatus = "completed",
+                note = "toggle wrote the row",
+                reason = null,
+                actualCompletedAt = null,
+                actualDurationMinutes = null,
+            )
+            repository.recordOccurrence(
+                TaskOccurrence(
+                    id = "occ_from_task_screen",
+                    taskId = taskId,
+                    occurrenceDate = day.toString(),
+                    status = "skipped",
+                    statusNote = "task screen wrote the day",
+                ),
+            )
+
+            val rows = database.taskOccurrenceDao().getOccurrencesForTaskForBackfill(taskId)
+            assertThat(rows).hasSize(1)
+            assertThat(rows.single().status).isEqualTo("skipped")
+            assertThat(rows.single().note).isEqualTo("task screen wrote the day")
+        }
+
+    /** A recurring task row the occurrence writes can hang off. */
+    private suspend fun insertHabitTask(
+        day: LocalDate,
+        taskId: String,
+    ): String {
+        val now = day.atStartOfDay()
+        database.taskDao().insert(
+            TaskEntity(
+                id = taskId,
+                title = "Hydration",
+                status = "pending",
+                dueDate = day.atTime(9, 0).toString(),
+                createdAt = now.toString(),
+                updatedAt = now.toString(),
+                recurrenceEnabled = 1,
+                durationMinutes = 10,
+                lifeIntentionCategory = "Health & Wellness",
+                dimensionId = null,
+                dayKey = day.toString(),
+            ),
+        )
+        return taskId
+    }
 }

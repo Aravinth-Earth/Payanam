@@ -327,15 +327,47 @@ class TaskOccurrenceRepositoryImpl
         }
 
         /**
-         * Persists a domain [TaskOccurrence] directly (insert-only, caller owns id).
-         * Marks the day insight-dirty.
+         * Persists a domain [TaskOccurrence] directly (caller owns the id).
+         *
+         * The day is stored in the same start-of-day form the toggle path writes, and an existing row
+         * for that (task, day) is updated instead of a second one being appended: a bare `yyyy-MM-dd`
+         * from the task screen and the timestamp the toggle writes are two strings for one day, which
+         * the unique index alone cannot see.
          */
         override suspend fun recordOccurrence(occurrence: TaskOccurrence) {
+            val day = normalizeOccurrenceDay(occurrence.occurrenceDate)
+            val dao = sessionManager.requireDatabase().taskOccurrenceDao()
+            // date(dueDate) = date(:date) matches a legacy bare-date row as well as a timestamp one.
+            val existing = dao.getOccurrenceForTaskOnDate(occurrence.taskId, day)
+            if (existing != null) {
+                dao.updateRecordedOccurrence(
+                    id = existing.id,
+                    status = occurrence.status,
+                    statusReason = occurrence.statusReason,
+                    note = occurrence.statusNote ?: occurrence.note,
+                    completedAt = occurrence.completedAt,
+                    actualCompletedAt = occurrence.actualCompletedAt?.format(dateTimeFormatter),
+                    actualDurationMinutes = occurrence.actualDurationMinutes,
+                    completionRate = occurrence.completionRate,
+                )
+                runCatching { markDirtyForDay(LocalDate.parse(day.take(10)), "habit_occurrence_recorded") }
+                logger.i(
+                    "TaskOccurrenceRepositoryImpl.recordOccurrence",
+                    "Updated existing occurrence for the day instead of adding a second row",
+                    mapOf(
+                        "id" to existing.id,
+                        "taskId" to occurrence.taskId,
+                        "status" to occurrence.status,
+                        "day" to day,
+                    ),
+                )
+                return
+            }
             val entity =
                 TaskOccurrenceEntity(
                     id = occurrence.id,
                     taskId = occurrence.taskId,
-                    dueDate = occurrence.occurrenceDate,
+                    dueDate = day,
                     completedAt = occurrence.completedAt,
                     actualCompletedAt = occurrence.actualCompletedAt?.format(dateTimeFormatter),
                     actualDurationMinutes = occurrence.actualDurationMinutes,
@@ -346,8 +378,8 @@ class TaskOccurrenceRepositoryImpl
                     note = occurrence.statusNote ?: occurrence.note,
                 )
 
-            sessionManager.requireDatabase().taskOccurrenceDao().insert(entity)
-            runCatching { markDirtyForDay(LocalDate.parse(occurrence.occurrenceDate.take(10)), "habit_occurrence_recorded") }
+            dao.insert(entity)
+            runCatching { markDirtyForDay(LocalDate.parse(day.take(10)), "habit_occurrence_recorded") }
 
             logger.i(
                 "TaskOccurrenceRepositoryImpl.recordOccurrence",
@@ -362,6 +394,12 @@ class TaskOccurrenceRepositoryImpl
                 ),
             )
         }
+
+        /** A day key is stored as a start-of-day timestamp, whatever shape the caller supplied. */
+        private fun normalizeOccurrenceDay(value: String): String =
+            runCatching { LocalDate.parse(value.take(10)) }
+                .map { it.atStartOfDay().format(dateTimeFormatter) }
+                .getOrElse { value }
 
         /**
          * Upserts an occurrence for [taskId] on [dueDate] with the given [status] /
