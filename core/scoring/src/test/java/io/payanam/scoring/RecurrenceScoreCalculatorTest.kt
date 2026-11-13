@@ -107,6 +107,16 @@ class RecurrenceScoreCalculatorTest {
     }
 
     @Test
+    fun `a history that holds only skips rates no higher than an empty one`() {
+        val skipOnly = RecurrenceScoreCalculator.calculateCompletionStats(listOf(0 to "skipped"))
+        val empty = RecurrenceScoreCalculator.calculateCompletionStats(emptyList())
+
+        assertEquals(empty.completionRate7Days, skipOnly.completionRate7Days, 0.001)
+        assertEquals(0.0, skipOnly.completionRate30Days, 0.001)
+        assertEquals(0.0, skipOnly.completionRate90Days, 0.001)
+    }
+
+    @Test
     fun `calculateCompletionStats tracks streaks`() {
         val occurrences = listOf(
             1 to "completed",

@@ -156,16 +156,16 @@ object RecurrenceScoreCalculator {
         
         /**
          * Completion rate over the trailing [days]-day window (dayIndex 0 = today).
-         * Days with no actionable occurrences count as satisfied (1.0).
+         * A day the user skipped is not asked for, so it is not in the denominator; with nothing to ask
+         * the rate is 0.0, the same answer an empty history returns.
          */
         fun calculateRate(days: Int): Double {
             val relevant = occurrences.filter { it.first < days }
-            if (relevant.isEmpty()) return 1.0
             val completed = relevant.count { it.second == "completed" }
             // A skipped day is neutral in the streak loops below, so it must not sit in the rate's
             // denominator either — otherwise one gesture scores two ways in the same answer.
             val total = relevant.count { it.second == "completed" || it.second == "missed" }
-            return if (total > 0) completed.toDouble() / total else 1.0
+            return if (total > 0) completed.toDouble() / total else 0.0
         }
         
         // Calculate streaks
