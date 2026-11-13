@@ -73,7 +73,7 @@ internal class FrequencyHabitSync(
             today = today,
         )
         val nextReminderDate =
-            if (windowState.isSatisfied) {
+            if (windowState.isSatisfied || windowState.isNeutral) {
                 windowState.end.plusDays(1)
             } else {
                 val todayReminderDateTime = today.atTime(task.dueDate?.toLocalTime() ?: LocalTime.of(9, 0))
@@ -245,4 +245,6 @@ internal data class FrequencyWindowState(
     val effectiveTargetCount: Int,
 ) {
     val isSatisfied: Boolean get() = effectiveTargetCount > 0 && completedCount >= effectiveTargetCount
+    /** True when skips removed the whole target: the window asks for nothing, so it neither counts nor blocks. */
+    val isNeutral: Boolean get() = effectiveTargetCount <= 0
 }

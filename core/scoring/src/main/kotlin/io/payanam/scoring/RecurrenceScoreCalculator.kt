@@ -54,6 +54,8 @@ data class FrequencyWindowSummary(
 ) {
     /** True when completed count meets or exceeds the effective target. */
     val isSatisfied: Boolean get() = completedCount >= effectiveTargetCount
+    /** True when skips removed the whole target: the window asks for nothing, so it neither counts nor blocks. */
+    val isNeutral: Boolean get() = effectiveTargetCount <= 0
     /** Completed-to-effective-target ratio, or 1.0 when there is no target. */
     val completionRatio: Double
         get() = if (effectiveTargetCount <= 0) 1.0 else completedCount.toDouble() / effectiveTargetCount
@@ -390,15 +392,20 @@ object RecurrenceScoreCalculator {
         val closedWindows = allWindows.dropLastWhile { !it.isSatisfied && !it.end.isBefore(today) }
 
         closedWindows.forEach { window ->
-            if (window.isSatisfied) {
-                tempStreak++
-                longestStreak = max(longestStreak, tempStreak)
-            } else {
-                tempStreak = 0
+            // A neutral window (every required day skipped) is neither earned nor missed: it must not
+            // extend the streak, and it must not break one the user did earn.
+            when {
+                window.isNeutral -> Unit
+                window.isSatisfied -> {
+                    tempStreak++
+                    longestStreak = max(longestStreak, tempStreak)
+                }
+                else -> tempStreak = 0
             }
         }
 
         for (window in closedWindows.asReversed()) {
+            if (window.isNeutral) continue
             if (!window.isSatisfied) break
             currentStreak++
         }
