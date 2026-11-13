@@ -106,10 +106,28 @@ class DatabaseSessionManager
                 )
                 var built: PayanamDatabase? = null
                 return runCatching {
-                    if (_db != null) {
+                    // Register before the health check: a close that lands while the file is being examined
+                    // has nowhere else to record itself, and the open would otherwise publish over it.
+                    synchronized(stateLock) {
+                        openInFlight = true
+                        closeRequested = false
+                    }
+                    val replaced =
+                        synchronized(stateLock) {
+                            // The replaced session's timer must die with its handle, or a timeout armed by
+                            // the old session can close the handle this attempt is about to publish.
+                            sessionGeneration.incrementAndGet()
+                            inactivityJob?.cancel()
+                            inactivityJob = null
+                            periodicCheckpointJob?.cancel()
+                            periodicCheckpointJob = null
+                            val handle = _db
+                            _db = null
+                            handle
+                        }
+                    if (replaced != null) {
                         logger.w("DatabaseSessionManager.openDatabase", "DB already open; closing before re-open")
-                        _db?.close()
-                        _db = null
+                        replaced.close()
                     }
                     if (DatabaseHealthChecker.hasDatabaseArtifacts(context)) {
                         val health =
@@ -130,10 +148,6 @@ class DatabaseSessionManager
                                 ),
                             )
                         }
-                    }
-                    synchronized(stateLock) {
-                        openInFlight = true
-                        closeRequested = false
                     }
                     System.loadLibrary("sqlcipher")
                     val db =
@@ -162,6 +176,11 @@ class DatabaseSessionManager
                             closeRequested = false
                             error("DatabaseSessionManager: session closed while opening")
                         }
+                        // Belt and braces: a timer armed before this publish holds the pre-re-open
+                        // generation and must not be able to close the handle installed here.
+                        sessionGeneration.incrementAndGet()
+                        inactivityJob?.cancel()
+                        inactivityJob = null
                         _db = db
                         _openPassphrase = passphrase
                         _isOpen.value = true
@@ -179,6 +198,7 @@ class DatabaseSessionManager
                     // session would report closed while a handle still lives.
                     synchronized(stateLock) {
                         openInFlight = false
+                        closeRequested = false
                         _db = null
                         _openPassphrase = null
                         _isOpen.value = false
