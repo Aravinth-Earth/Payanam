@@ -7,8 +7,10 @@ import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.presentation.preferences.AppPreferenceKeys
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
@@ -70,11 +72,15 @@ class TasksViewModelLoadPipelineTest {
         if (::viewModel.isInitialized) viewModel.dispose()
     }
 
-    private fun createViewModel(settings: Map<String, String> = emptyMap()): TasksViewModel {
+    private fun createViewModel(
+        settings: Map<String, String> = emptyMap(),
+        repository: TaskRepository = taskRepository,
+        scope: CoroutineScope = CoroutineScope(testDispatcher),
+    ): TasksViewModel {
         if (::viewModel.isInitialized) viewModel.dispose()
         appSettingsRepository = FakeAppSettingsRepository(settings)
         return TasksViewModel(
-            taskRepository = taskRepository,
+            taskRepository = repository,
             taskOccurrenceRepository = taskOccurrenceRepository,
             notificationScheduler = notificationScheduler,
             appSettingsRepository = appSettingsRepository,
@@ -85,7 +91,7 @@ class TasksViewModelLoadPipelineTest {
             scoreWindowRepository = scoreWindowRepository,
             scoreChangeStream = scoreChangeStream,
             tracer = tracer,
-            scope = CoroutineScope(testDispatcher),
+            scope = scope,
         ).also {
             it.shapingDispatcher = testDispatcher
             viewModel = it
@@ -414,6 +420,25 @@ class TasksViewModelLoadPipelineTest {
             assertThat(state.error).isNotNull()
             assertThat(state.error).contains("DB gone")
             assertThat(state.isLoading).isFalse()
+        }
+
+    /**
+     * A closed database session makes `getAllTasks()` throw before a Flow exists, so `.catch` is never
+     * reached: the failure must land in `state.error`, not in the scope's uncaught handler.
+     */
+    @Test
+    fun `loadTasks reports a synchronous getAllTasks failure instead of failing the scope`() =
+        runTest(testDispatcher) {
+            val uncaught = mutableListOf<Throwable>()
+            val handler = CoroutineExceptionHandler { _, failure -> uncaught += failure }
+            createViewModel(
+                repository = ClosedSessionTaskRepository(),
+                scope = CoroutineScope(SupervisorJob() + testDispatcher + handler),
+            )
+            advanceUntilIdle()
+            assertThat(uncaught).isEmpty()
+            assertThat(viewModel.uiState.value.error).contains("session is closed")
+            assertThat(viewModel.uiState.value.isLoading).isFalse()
         }
 
     // ── Load pipeline: score-change stream reaction ───────────────────
@@ -968,4 +993,13 @@ class TasksViewModelLoadPipelineTest {
                 AppPreferenceKeys.KEY_HABIT_SORT_OPTION to HabitSortOption.BY_NAME.key,
             )
         }
+}
+
+/**
+ * [TaskRepository] whose `getAllTasks()` throws synchronously, as a closed database session does:
+ * the exception is raised before any Flow exists, so an upstream `.catch` cannot see it.
+ */
+private class ClosedSessionTaskRepository :
+    TaskRepository by FakeTaskRepository() {
+    override fun getAllTasks(): Flow<List<Task>> = throw IllegalStateException("Database session is closed")
 }

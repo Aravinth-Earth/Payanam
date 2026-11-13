@@ -4,11 +4,10 @@ package io.payanam.presentation.time
 
 import io.payanam.domain.repository.TagRepository
 import io.payanam.presentation.data.LocalDataLayer
+import io.payanam.shared.concurrent.appCoroutineScope
 import io.payanam.shared.logging.AppLogger
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -34,7 +33,7 @@ data class TimeTagEditorUiState(
  */
 class TimeTagEditorViewModel(
     private val tagRepository: TagRepository,
-    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
+    private val scope: CoroutineScope = appCoroutineScope("TimeTagEditorViewModel"),
 ) {
     private val logger = AppLogger.current
     private val _uiState = MutableStateFlow(TimeTagEditorUiState())
@@ -49,12 +48,19 @@ class TimeTagEditorViewModel(
 
     private fun observeTagSuggestions() {
         scope.launch {
-            tagRepository
-                .observeAllTags()
-                .map { tags -> tags.map { it.name } }
-                .collect { names ->
-                    _uiState.update { it.copy(tagSuggestions = names) }
-                }
+            try {
+                tagRepository
+                    .observeAllTags()
+                    .map { tags -> tags.map { it.name } }
+                    .collect { names ->
+                        _uiState.update { it.copy(tagSuggestions = names) }
+                    }
+            } catch (e: IllegalStateException) {
+                logger.w(
+                    "TimeTagEditorViewModel.observeTagSuggestions",
+                    "Failed to observe tag suggestions: ${e.message}",
+                )
+            }
         }
     }
 
@@ -83,15 +89,22 @@ class TimeTagEditorViewModel(
         tags: List<String>,
     ) {
         scope.launch {
-            tagRepository.replaceTimeEntryTags(entryId, tags)
-            logger.i(
-                "TimeTagEditorViewModel.saveEntryTags",
-                "Updated time entry tags",
-                mapOf(
-                    "entryId" to entryId,
-                    "tagCount" to tags.size,
-                ),
-            )
+            try {
+                tagRepository.replaceTimeEntryTags(entryId, tags)
+                logger.i(
+                    "TimeTagEditorViewModel.saveEntryTags",
+                    "Updated time entry tags",
+                    mapOf(
+                        "entryId" to entryId,
+                        "tagCount" to tags.size,
+                    ),
+                )
+            } catch (e: IllegalStateException) {
+                logger.w(
+                    "TimeTagEditorViewModel.saveEntryTags",
+                    "Failed to save time entry tags: ${e.message}",
+                )
+            }
         }
     }
 
@@ -120,15 +133,22 @@ class TimeTagEditorViewModel(
         tags: List<String>,
     ) {
         scope.launch {
-            tagRepository.replaceTaskTags(taskId, tags)
-            logger.i(
-                "TimeTagEditorViewModel.saveTaskTags",
-                "Updated task tags",
-                mapOf(
-                    "taskId" to taskId,
-                    "tagCount" to tags.size,
-                ),
-            )
+            try {
+                tagRepository.replaceTaskTags(taskId, tags)
+                logger.i(
+                    "TimeTagEditorViewModel.saveTaskTags",
+                    "Updated task tags",
+                    mapOf(
+                        "taskId" to taskId,
+                        "tagCount" to tags.size,
+                    ),
+                )
+            } catch (e: IllegalStateException) {
+                logger.w(
+                    "TimeTagEditorViewModel.saveTaskTags",
+                    "Failed to save task tags: ${e.message}",
+                )
+            }
         }
     }
 
@@ -151,7 +171,7 @@ class TimeTagEditorViewModel(
  * The repositories come from [LocalDataLayer], which the platform installed at startup with its own
  * implementation. Call sites on both platforms are therefore identical and contain no wiring.
  */
-fun timeTagEditorViewModel(scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)): TimeTagEditorViewModel =
+fun timeTagEditorViewModel(scope: CoroutineScope = appCoroutineScope("TimeTagEditorViewModel")): TimeTagEditorViewModel =
     TimeTagEditorViewModel(
         tagRepository = LocalDataLayer.current.tags,
         scope = scope,
