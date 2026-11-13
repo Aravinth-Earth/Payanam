@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.os.Looper
+import androidx.core.content.ContextCompat
 import androidx.test.core.app.ApplicationProvider
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.session.DatabaseSessionManager
@@ -169,7 +170,7 @@ class NotificationActionCoordinatorTest {
                 addAction(NEUTRAL_ACTION)
                 addAction(NotificationActionReceiver.ACTION_COMPLETE_TASK)
             }
-        context.registerReceiver(receiver, filter)
+        ContextCompat.registerReceiver(context, receiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
         // The @AndroidEntryPoint base injects on the first delivery and would replace the mocks, so a
         // neutral broadcast is delivered first and the mocks are assigned after it.
         context.sendBroadcast(Intent(NEUTRAL_ACTION))
