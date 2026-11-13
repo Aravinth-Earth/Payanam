@@ -92,6 +92,31 @@ class RecurrenceScoreCalculatorTest {
     }
 
     @Test
+    fun `calculateCompletionStats leaves a skipped day out of the rate`() {
+        val occurrences =
+            listOf(
+                0 to "completed",
+                1 to "skipped",
+                2 to "missed",
+            )
+
+        val stats = RecurrenceScoreCalculator.calculateCompletionStats(occurrences)
+
+        // One completion of the two days that were actually asked for: the skip does not dilute it.
+        assertEquals(0.5, stats.completionRate7Days, 0.001)
+    }
+
+    @Test
+    fun `a history that holds only skips rates no higher than an empty one`() {
+        val skipOnly = RecurrenceScoreCalculator.calculateCompletionStats(listOf(0 to "skipped"))
+        val empty = RecurrenceScoreCalculator.calculateCompletionStats(emptyList())
+
+        assertEquals(empty.completionRate7Days, skipOnly.completionRate7Days, 0.001)
+        assertEquals(0.0, skipOnly.completionRate30Days, 0.001)
+        assertEquals(0.0, skipOnly.completionRate90Days, 0.001)
+    }
+
+    @Test
     fun `calculateCompletionStats tracks streaks`() {
         val occurrences = listOf(
             1 to "completed",
@@ -369,6 +394,28 @@ class RecurrenceScoreCalculatorTest {
         )
 
         assertEquals(1.0, stats.completionRate7Days, 0.001)
+    }
+
+    @Test
+    fun `a window whose whole target was skipped neither extends nor breaks the streak`() {
+        val anchor = java.time.LocalDate.of(2026, 4, 1)
+        val frequency = DomainFrequency(1, 7, anchor)
+        val occurrences =
+            mapOf(
+                anchor.plusDays(1) to "completed",
+                anchor.plusDays(8) to "skipped",
+            )
+
+        val stats =
+            RecurrenceScoreCalculator.calculateFrequencyAwareStats(
+                occurrences = occurrences,
+                frequency = frequency,
+                anchorDate = anchor,
+                today = java.time.LocalDate.of(2026, 4, 14),
+            )
+
+        assertEquals(1, stats.currentStreak)
+        assertEquals(1, stats.longestStreak)
     }
 
     @Test

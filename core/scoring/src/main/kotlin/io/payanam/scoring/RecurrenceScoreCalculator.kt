@@ -54,6 +54,8 @@ data class FrequencyWindowSummary(
 ) {
     /** True when completed count meets or exceeds the effective target. */
     val isSatisfied: Boolean get() = completedCount >= effectiveTargetCount
+    /** True when skips removed the whole target: the window asks for nothing, so it neither counts nor blocks. */
+    val isNeutral: Boolean get() = effectiveTargetCount <= 0
     /** Completed-to-effective-target ratio, or 1.0 when there is no target. */
     val completionRatio: Double
         get() = if (effectiveTargetCount <= 0) 1.0 else completedCount.toDouble() / effectiveTargetCount
@@ -154,14 +156,16 @@ object RecurrenceScoreCalculator {
         
         /**
          * Completion rate over the trailing [days]-day window (dayIndex 0 = today).
-         * Days with no actionable occurrences count as satisfied (1.0).
+         * A day the user skipped is not asked for, so it is not in the denominator; with nothing to ask
+         * the rate is 0.0, the same answer an empty history returns.
          */
         fun calculateRate(days: Int): Double {
             val relevant = occurrences.filter { it.first < days }
-            if (relevant.isEmpty()) return 1.0
             val completed = relevant.count { it.second == "completed" }
-            val total = relevant.count { it.second in listOf("completed", "skipped", "missed") }
-            return if (total > 0) completed.toDouble() / total else 1.0
+            // A skipped day is neutral in the streak loops below, so it must not sit in the rate's
+            // denominator either — otherwise one gesture scores two ways in the same answer.
+            val total = relevant.count { it.second == "completed" || it.second == "missed" }
+            return if (total > 0) completed.toDouble() / total else 0.0
         }
         
         // Calculate streaks
@@ -390,15 +394,20 @@ object RecurrenceScoreCalculator {
         val closedWindows = allWindows.dropLastWhile { !it.isSatisfied && !it.end.isBefore(today) }
 
         closedWindows.forEach { window ->
-            if (window.isSatisfied) {
-                tempStreak++
-                longestStreak = max(longestStreak, tempStreak)
-            } else {
-                tempStreak = 0
+            // A neutral window (every required day skipped) is neither earned nor missed: it must not
+            // extend the streak, and it must not break one the user did earn.
+            when {
+                window.isNeutral -> Unit
+                window.isSatisfied -> {
+                    tempStreak++
+                    longestStreak = max(longestStreak, tempStreak)
+                }
+                else -> tempStreak = 0
             }
         }
 
         for (window in closedWindows.asReversed()) {
+            if (window.isNeutral) continue
             if (!window.isSatisfied) break
             currentStreak++
         }
