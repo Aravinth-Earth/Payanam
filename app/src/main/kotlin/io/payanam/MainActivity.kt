@@ -318,6 +318,15 @@ class MainActivity : FragmentActivity() {
         enableEdgeToEdge()
         logger.i("MainActivity.onCreate", "Composing UI surface")
         setContent {
+            // A timeout in the foreground closes the session without a lifecycle callback, so the gate has to
+            // follow the session itself, not only onResume — otherwise the next tap meets a dead session.
+            LaunchedEffect(Unit) {
+                var wasOpen = sessionManager.isOpen.value
+                sessionManager.isOpen.collect { open ->
+                    if (wasOpen && !open) showPassphraseUnlock = true
+                    wasOpen = open
+                }
+            }
             val startupGateScreenActive = showDatabaseInit || showPassphraseSetup || showPassphraseUnlock
 
             // External DB deletion warning dialog — shown above any startup gate
