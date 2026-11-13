@@ -863,8 +863,12 @@ class TimeViewModel(
     }
 
     /**
-     * Re-opens a specific finished [entryId] as the active tracking entry and
-     * hands off to the foreground tracking service.
+     * Starts a NEW active entry from the finished [entryId]'s dimension and task, and hands off to the
+     * foreground tracking service.
+     *
+     * The finished entry is left exactly as it ended. Rewriting it with its original `startedAt` and no
+     * end counted the idle gap since it stopped as tracked time and re-counted it on every day the
+     * reopened span crossed.
      */
     @Suppress("TooGenericExceptionCaught") // Intentional: multi-operation try block; any repo call can throw
     fun continueEntry(entryId: String) {
@@ -884,20 +888,17 @@ class TimeViewModel(
                     }
                     // DB bookkeeping only: do NOT stop the tracking service before restarting it.
                     // See startTracking() above - stopTracking() leads to stopSelf(), which races this
-                    // foreground start; startTracking() below replaces the session in place.
+                    // foreground start; the start below replaces the session in place.
                     timeEntryRepository.stopActiveTimeEntry()
+                    val startedAt = LocalDateTime.now()
                     val input =
                         TimeEntryInput(
                             lifeIntentionCategory = entry.lifeIntentionCategory,
-                            dimensionId = entry.dimensionId,
+                            dimensionId = entry.dimensionId ?: "dim_unassigned",
                             taskId = entry.taskId,
-                            startedAt = entry.startedAt,
-                            endedAt = null,
-                            focusRating = entry.focusRating,
-                            focusNote = entry.focusNote,
-                            focusRatedAt = entry.focusRatedAt,
+                            startedAt = startedAt,
                         )
-                    timeEntryRepository.updateTimeEntry(entryId, input)
+                    val continued = timeEntryRepository.startTimeEntry(input)
                     val taskTitle =
                         entry.taskId?.let { id ->
                             _uiState.value.tasks
@@ -905,20 +906,21 @@ class TimeViewModel(
                                 ?.title
                         }
                     val dimensionLabel = entry.lifeIntentionCategory
-                    val dimensionId = entry.dimensionId ?: "dim_unassigned"
                     timeTrackingController.startTracking(
                         taskId = entry.taskId,
                         taskTitle = taskTitle ?: dimensionLabel,
                         dimension = dimensionLabel,
-                        startTime = entry.startedAt,
+                        startTime = startedAt,
                     )
                     logger.i(
                         "TimeViewModel.continueEntry",
-                        "Entry continued successfully",
+                        "Entry continued as a new session",
                         mapOf(
                             "entryId" to entryId,
-                            "dimensionId" to dimensionId,
+                            "continuedEntryId" to continued.id,
+                            "dimensionId" to input.dimensionId,
                             "originalStartTime" to entry.startedAt.toString(),
+                            "newStartTime" to startedAt.toString(),
                         ),
                     )
                     loadEntriesForDate(_uiState.value.selectedDate)

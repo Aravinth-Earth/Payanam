@@ -1804,10 +1804,30 @@ class TimeViewModelTest {
             viewModel.continueLastSession()
             advanceUntilIdle()
 
-            val update = timeEntryRepository.updated.single()
-            assertEquals("last", update.first)
-            assertNull(update.second.endedAt)
+            assertTrue(timeEntryRepository.updated.isEmpty())
+            val start = timeEntryRepository.started.single()
+            assertNull(start.endedAt)
             assertEquals(1, timeTrackingController.started.size)
+        }
+
+    /**
+     * The idle gap is not credited: the finished row keeps its own start and end, and the continued
+     * session starts at the moment Continue was tapped.
+     */
+    @Test
+    fun `continuing does not rewrite the finished entry or reuse its start time`() =
+        runTest {
+            val finished = entry("last", startedAt = TASKS_TEST_TIME, endedAt = TASKS_TEST_TIME.plusHours(1))
+            timeEntryRepository.allEntries = listOf(finished)
+            val viewModel = viewModel()
+            advanceUntilIdle()
+
+            viewModel.continueLastSession()
+            advanceUntilIdle()
+
+            assertTrue(timeEntryRepository.updated.isEmpty())
+            val start = timeEntryRepository.started.single()
+            assertTrue(start.startedAt.isAfter(finished.endedAt!!))
         }
 
     /** An entry outside the selected day can still be continued by id. */
@@ -1821,7 +1841,8 @@ class TimeViewModelTest {
             viewModel.continueEntry("elsewhere")
             advanceUntilIdle()
 
-            assertEquals("elsewhere", timeEntryRepository.updated.single().first)
+            assertEquals(1, timeEntryRepository.started.size)
+            assertTrue(timeEntryRepository.updated.isEmpty())
         }
 
     /** Continuing names the session after its task when it has one. */
@@ -1881,19 +1902,19 @@ class TimeViewModelTest {
             assertEquals(0, timeTrackingController.stopCalls)
         }
 
-    /** A store that refuses the re-open is reported. */
+    /** A store that refuses the new session is reported. */
     @Test
     fun `a failing continue surfaces the error`() =
         runTest {
             timeEntryRepository.allEntries = listOf(entry("last", endedAt = TASKS_TEST_TIME))
-            timeEntryRepository.failUpdate = true
+            timeEntryRepository.failStart = true
             val viewModel = viewModel()
             advanceUntilIdle()
 
             viewModel.continueLastSession()
             advanceUntilIdle()
 
-            assertEquals("update failed", viewModel.uiState.value.error)
+            assertEquals("start failed", viewModel.uiState.value.error)
         }
 
     // ────────────────────────────────────────────────────────────────
