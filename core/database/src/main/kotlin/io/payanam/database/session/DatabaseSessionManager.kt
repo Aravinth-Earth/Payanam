@@ -301,9 +301,18 @@ class DatabaseSessionManager
          * are triggered by direct user interaction. Do NOT call from background services.
          */
         fun touch() {
-            if (_db != null) {
-                startInactivityTimer()
-            } else {
+            val sessionOpen =
+                synchronized(stateLock) {
+                    // The check and the arm happen under the same lock as the timeout's teardown, so a touch
+                    // either re-arms a live session or is ignored; it cannot arm a timer on a closed one.
+                    if (_db != null) {
+                        startInactivityTimer()
+                        true
+                    } else {
+                        false
+                    }
+                }
+            if (!sessionOpen) {
                 logger.d("DatabaseSessionManager.touch", "Session touch ignored because DB is closed")
             }
         }
