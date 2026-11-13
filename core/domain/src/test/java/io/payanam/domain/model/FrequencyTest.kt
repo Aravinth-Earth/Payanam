@@ -16,10 +16,18 @@ class FrequencyTest {
     }
 
     @Test
-    fun legacyParse_convertsConfigFrequencyToCanonicalValues() {
+    fun `legacyParse reads the start of a CONFIG rule as its anchor`() {
         val frequency = Frequency.legacyParse("CONFIG:type=FREQUENCY|freq=5/7|start=2026-04-01")
         assertThat(frequency.numerator).isEqualTo(5)
         assertThat(frequency.denominator).isEqualTo(7)
+        assertThat(frequency.anchorDate).isEqualTo(LocalDate.of(2026, 4, 1))
+    }
+
+    @Test
+    fun `legacyParse keeps a CONFIG rule whose start cannot be read`() {
+        val frequency = Frequency.legacyParse("CONFIG:type=FREQUENCY|freq=2/7|start=not-a-date")
+        assertThat(frequency.numerator).isEqualTo(2)
+        assertThat(frequency.anchorDate).isNull()
     }
 
     @Test
