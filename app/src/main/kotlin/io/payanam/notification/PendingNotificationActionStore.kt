@@ -6,6 +6,7 @@ import android.content.Context
 import android.content.SharedPreferences
 import dagger.hilt.android.qualifiers.ApplicationContext
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.common.util.PersistedDateTime
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -18,9 +19,24 @@ data class PendingNotificationAction(
     val taskId: String,
     val notificationId: Int,
     val recordedAtMillis: Long,
+    /**
+     * The local date-time the reminder was due, as carried by the notification intent.
+     *
+     * Null for a record written before this field existed, or for an action whose intent had no
+     * due time; callers fall back to the tap day in that case.
+     */
+    val dueAt: String? = null,
 ) {
     /** The device-local calendar day this action was recorded on. */
     fun recordedDay(): LocalDate = Instant.ofEpochMilli(recordedAtMillis).atZone(ZoneId.systemDefault()).toLocalDate()
+
+    /**
+     * The local calendar day the reminder was due, when the notification carried one.
+     *
+     * The occurrence the action records belongs to this day, not to [recordedDay]: a reminder due
+     * just before midnight and tapped just after it still completes the day it was shown for.
+     */
+    fun dueDay(): LocalDate? = runCatching { PersistedDateTime.parseOrDateStart(dueAt)?.toLocalDate() }.getOrNull()
 }
 
 /** What [PendingNotificationActionStore.record] did with the action it was given. */
@@ -301,13 +317,18 @@ constructor(
         day: LocalDate,
     ): Boolean = Instant.ofEpochMilli(handledAtMillis).atZone(ZoneId.systemDefault()).toLocalDate() == day
 
-    private fun renderValue(action: PendingNotificationAction): String = listOf(action.actionType, action.notificationId.toString(), action.recordedAtMillis.toString())
-        .joinToString(VALUE_SEPARATOR.toString())
+    private fun renderValue(action: PendingNotificationAction): String = listOf(
+        action.actionType,
+        action.notificationId.toString(),
+        action.recordedAtMillis.toString(),
+        action.dueAt.orEmpty(),
+    ).joinToString(VALUE_SEPARATOR.toString())
 
     private fun parseValue(raw: String?, taskId: String): PendingNotificationAction? {
         if (raw.isNullOrBlank()) return null
         val parts = raw.split(VALUE_SEPARATOR, limit = VALUE_FIELD_COUNT)
-        if (parts.size != VALUE_FIELD_COUNT) return null
+        // Three fields is the shape written before dueAt existed; it stays readable.
+        if (parts.size !in LEGACY_VALUE_FIELD_COUNT..VALUE_FIELD_COUNT) return null
         val notificationId = parts[1].toIntOrNull() ?: return null
         val recordedAtMillis = parts[2].toLongOrNull() ?: return null
         return PendingNotificationAction(
@@ -315,6 +336,7 @@ constructor(
             taskId = taskId,
             notificationId = notificationId,
             recordedAtMillis = recordedAtMillis,
+            dueAt = parts.getOrNull(DUE_AT_FIELD_INDEX)?.takeIf { it.isNotEmpty() },
         )
     }
 
@@ -325,7 +347,9 @@ constructor(
         private const val HANDLED_KEY_SEPARATOR = ':'
         private const val MSG_ALREADY_HANDLED = "Ignoring reminder action; already handled"
         private const val VALUE_SEPARATOR = '|'
-        private const val VALUE_FIELD_COUNT = 3
+        private const val LEGACY_VALUE_FIELD_COUNT = 3
+        private const val VALUE_FIELD_COUNT = 4
+        private const val DUE_AT_FIELD_INDEX = 3
         private const val LOG_SOURCE = "PendingNotificationActionStore"
     }
 }

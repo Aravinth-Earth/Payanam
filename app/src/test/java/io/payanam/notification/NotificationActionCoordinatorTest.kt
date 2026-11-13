@@ -25,6 +25,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
+import org.mockito.kotlin.anyOrNull
+import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
 import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
@@ -194,6 +196,61 @@ class NotificationActionCoordinatorTest {
         assertEquals(NOTIFICATION_ID, recorded.first().notificationId)
     }
 
+    @Test
+    fun execute_complete_recordsTheOccurrenceOnTheRemindersDueDay() {
+        val dueAt = LocalDateTime.of(2026, 11, 6, 9, 0)
+        val task =
+            Task(
+                id = TASK_ID,
+                title = "Reminder",
+                createdAt = dueAt,
+                updatedAt = dueAt,
+                recurrenceEnabled = true,
+                dueDate = dueAt,
+            )
+        wheneverBlocking { taskRepository.getTaskById(TASK_ID) }.thenReturn(task)
+        whenever(recurrenceManager.isFrequencyHabit(task)).thenReturn(false)
+        wheneverBlocking { taskRepository.completeTask(TASK_ID, null) }.thenReturn(task)
+        wheneverBlocking { recurrenceManager.onTaskCompleted(task, null, "notification_action", null) }.thenReturn(Unit)
+        wheneverBlocking { notificationScheduler.scheduleForTask(any(), anyOrNull(), anyOrNull(), any()) }.thenReturn(Unit)
+
+        val outcome = runBlocking { coordinator().execute(action(dueAt = dueAt)) }
+
+        assertEquals(NotificationActionOutcome.APPLIED, outcome)
+        verifyBlocking(taskOccurrenceRepository) {
+            toggleOccurrence(
+                taskId = eq(TASK_ID),
+                date = eq(dueAt.toLocalDate()),
+                newStatus = eq("completed"),
+                note = anyOrNull(),
+                reason = eq("notification_action"),
+                actualCompletedAt = anyOrNull(),
+                actualDurationMinutes = anyOrNull(),
+            )
+        }
+    }
+
+    @Test
+    fun store_roundTripsTheDueDayForADeferredAction() {
+        val store = PendingNotificationActionStore(ApplicationProvider.getApplicationContext())
+        store.clear(TASK_ID)
+        val dueAt = LocalDateTime.of(2026, 11, 6, 9, 0)
+        val outcome =
+            store.record(
+                PendingNotificationAction(
+                    actionType = NotificationActionCoordinator.ACTION_TYPE_COMPLETE,
+                    taskId = TASK_ID,
+                    notificationId = NOTIFICATION_ID,
+                    recordedAtMillis = System.currentTimeMillis(),
+                    dueAt = dueAt.toString(),
+                ),
+            )
+
+        assertEquals(PendingActionRecordOutcome.RECORDED, outcome)
+        assertEquals(dueAt.toLocalDate(), store.readPending().single().dueDay())
+        store.clear(TASK_ID)
+    }
+
     private fun coordinator(): NotificationActionCoordinator = NotificationActionCoordinator(
         context = ApplicationProvider.getApplicationContext(),
         taskRepository = taskRepository,
@@ -215,11 +272,12 @@ class NotificationActionCoordinatorTest {
         return store.readPending()
     }
 
-    private fun action(): PendingNotificationAction = PendingNotificationAction(
+    private fun action(dueAt: LocalDateTime? = null): PendingNotificationAction = PendingNotificationAction(
         actionType = NotificationActionCoordinator.ACTION_TYPE_COMPLETE,
         taskId = TASK_ID,
         notificationId = NOTIFICATION_ID,
         recordedAtMillis = NOW_MILLIS,
+        dueAt = dueAt?.toString(),
     )
 
     private companion object {
