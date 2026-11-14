@@ -69,7 +69,19 @@ ACTION_MISS=$(label loc_miss)
 ACTION_MORE=$(label task_notification_action_more)
 ALL_HABITS_DONE=$(label loc_all_habits_completed_today)
 
-for v in STATUS_COMPLETED STATUS_SKIPPED STATUS_MISSED ACTION_COMPLETE ACTION_MISS ACTION_MORE ALL_HABITS_DONE; do
+# Time-entry lifecycle (10) and the notification-permission flows (11-13). These are
+# resolved from the same strings file so the flows run unchanged under en and ta.
+LOC_START=$(label loc_start)
+LOC_END=$(label loc_end)
+LOC_CONTINUE=$(label loc_continue)
+TRACKING_SUBTEXT=$(label tracking_notification_subtext)
+NOTIF_TITLE=$(label loc_notification_permission_title)
+NOTIF_TIMER_BODY=$(label loc_notification_permission_timer_body)
+NOTIF_REMINDER_BODY=$(label loc_notification_permission_reminder_body)
+NOTIF_NOT_NOW=$(label loc_notification_permission_not_now)
+
+for v in STATUS_COMPLETED STATUS_SKIPPED STATUS_MISSED ACTION_COMPLETE ACTION_MISS ACTION_MORE ALL_HABITS_DONE \
+    LOC_START LOC_END LOC_CONTINUE TRACKING_SUBTEXT NOTIF_TITLE NOTIF_TIMER_BODY NOTIF_REMINDER_BODY NOTIF_NOT_NOW; do
   [ -n "${!v}" ] || { echo "could not resolve $v from $strings_xml"; exit 7; }
 done
 
@@ -306,6 +318,123 @@ if [ "${SUITE:-}" = "archive" ]; then
   exit 0
 fi
 
+# ---- time-entry lifecycle sequence -------------------------------------------
+# Ending a continued entry is a UI action; whether the foreground service actually stopped is a
+# service read Maestro cannot make, so the flow ends the entries and this suite asserts the service.
+if [ "${SUITE:-}" = "time" ]; then
+  say "time sequence (start, end, continue, end; then read the tracking service)"
+
+  if ! maestro --device "$DEVICE" test "$FLOWS_DIR/10-time-entry-lifecycle.yaml" \
+      -e PASS="$PASS" \
+      -e LOC_START="$LOC_START" -e LOC_END="$LOC_END" -e LOC_CONTINUE="$LOC_CONTINUE" \
+      -e TRACKING_SUBTEXT="$TRACKING_SUBTEXT" \
+      --test-output-dir "$OUT_DIR"; then
+    echo "FAIL 10-time-entry-lifecycle.yaml"; exit 30
+  fi
+
+  # stopSelf() runs asynchronously, so the read is polled to a bounded deadline.
+  stop_wait_s="${TRACKING_STOP_WAIT_S:-60}"
+  case "$stop_wait_s" in ''|*[!0-9]*) echo "TRACKING_STOP_WAIT_S must be whole seconds"; exit 33 ;; esac
+  deadline=$(( $(date +%s) + stop_wait_s ))
+  while :; do
+    services=$(adb -s "$DEVICE" shell dumpsys activity services "$APP_ID" 2>/dev/null | tr -d '\r')
+    adb_status=$?
+    if [ "$adb_status" -ne 0 ]; then
+      echo "ABORT: dumpsys activity services failed; the service state is unknown, not stopped"
+      exit 34
+    fi
+    case "$services" in
+      *TrackingService*) ;;
+      *) break ;;
+    esac
+    [ "$(date +%s)" -lt "$deadline" ] || break
+    sleep 2
+  done
+  case "$services" in
+    *TrackingService*)
+      echo "FAIL the end of the continued entry left TrackingService running (after ${stop_wait_s}s)"
+      exit 35
+      ;;
+  esac
+
+  say "summary: 1 passed, 0 failed (time sequence); TrackingService gone after End"
+  exit 0
+fi
+
+# ---- notification-permission sequence ---------------------------------------
+# 11 needs notifications blocked and 12 needs them granted, and only adb can flip that; the pair is
+# opt-in so neither runs against a state it cannot prove.
+notifications_set() {
+  case "$1" in
+    allow) adb -s "$DEVICE" shell cmd appops set "$APP_ID" POST_NOTIFICATION allow >/dev/null 2>&1 ;;
+    ignore) adb -s "$DEVICE" shell cmd appops set "$APP_ID" POST_NOTIFICATION ignore >/dev/null 2>&1 ;;
+  esac
+  adb -s "$DEVICE" shell pm "$([ "$1" = "allow" ] && echo grant || echo revoke)" \
+    "$APP_ID" android.permission.POST_NOTIFICATIONS >/dev/null 2>&1 || true
+}
+
+if [ "${SUITE:-}" = "notification-permission" ]; then
+  say "notification-permission sequence (deny, offer visible, grant, offer withdrawn)"
+
+  notifications_set ignore
+  if ! maestro --device "$DEVICE" test "$FLOWS_DIR/11-notification-offer-timer.yaml" \
+      -e PASS="$PASS" \
+      -e LOC_START="$LOC_START" -e NOTIF_TITLE="$NOTIF_TITLE" \
+      -e NOTIF_TIMER_BODY="$NOTIF_TIMER_BODY" \
+      --test-output-dir "$OUT_DIR"; then
+    notifications_set allow
+    echo "FAIL 11-notification-offer-timer.yaml (notifications left allowed)"
+    exit 40
+  fi
+
+  notifications_set allow
+  if ! maestro --device "$DEVICE" test "$FLOWS_DIR/12-notification-offer-withdrawn.yaml" \
+      -e PASS="$PASS" \
+      -e LOC_END="$LOC_END" -e NOTIF_TITLE="$NOTIF_TITLE" \
+      --test-output-dir "$OUT_DIR"; then
+    echo "FAIL 12-notification-offer-withdrawn.yaml"; exit 41
+  fi
+
+  say "summary: 2 passed, 0 failed (notification-permission sequence)"
+  exit 0
+fi
+
+# ---- reminder-warning sequence ----------------------------------------------
+# 13 needs notifications blocked so the warning dialog can appear at all, and a due time inside
+# the 15-minute default so Auto arms nothing while Custom 1 still does.
+if [ "${SUITE:-}" = "reminder-warning" ]; then
+  say "reminder-warning sequence (notifications denied; Auto / 0 / 1 minute leads)"
+
+  notifications_set ignore
+  habit="warn-$(date +%H%M%S)"
+  # 12 minutes ahead: Auto's 15-minute default is already past, Custom 1 is 11 minutes ahead.
+  if ! due=$(device_due 12); then
+    notifications_set allow
+    echo "13 not started: the device clock cannot place the due time inside today"
+    exit 44
+  fi
+  read -r due_hour due_minute _ <<<"$due"
+
+  if ! maestro --device "$DEVICE" test "$FLOWS_DIR/13-short-lead-reminder-warning.yaml" \
+      -e PASS="$PASS" \
+      -e HABIT_NAME="$habit" \
+      -e DUE_HOUR="$due_hour" -e DUE_MINUTE="$due_minute" \
+      -e NOTIF_TITLE="$NOTIF_TITLE" \
+      -e NOTIF_REMINDER_BODY="$NOTIF_REMINDER_BODY" \
+      -e NOTIF_NOT_NOW="$NOTIF_NOT_NOW" \
+      --test-output-dir "$OUT_DIR"; then
+    :
+  else
+    notifications_set allow
+    echo "FAIL 13-short-lead-reminder-warning.yaml (notifications left allowed)"
+    exit 42
+  fi
+
+  notifications_set allow
+  say "summary: 1 passed, 0 failed (reminder-warning sequence); notifications restored"
+  exit 0
+fi
+
 pass_count=0
 fail_count=0
 failed_names=()
@@ -346,6 +475,10 @@ for flow in "${FLOWS[@]}"; do
       -e ACTION_MISS="$ACTION_MISS" \
       -e ACTION_MORE="$ACTION_MORE" \
       -e ALL_HABITS_DONE="$ALL_HABITS_DONE" \
+      -e LOC_START="$LOC_START" -e LOC_END="$LOC_END" -e LOC_CONTINUE="$LOC_CONTINUE" \
+      -e TRACKING_SUBTEXT="$TRACKING_SUBTEXT" \
+      -e NOTIF_TITLE="$NOTIF_TITLE" -e NOTIF_TIMER_BODY="$NOTIF_TIMER_BODY" \
+      -e NOTIF_REMINDER_BODY="$NOTIF_REMINDER_BODY" -e NOTIF_NOT_NOW="$NOTIF_NOT_NOW" \
       --test-output-dir "$OUT_DIR"; then
     pass_count=$((pass_count + 1))
     echo "PASS $flow"
@@ -366,5 +499,18 @@ esac
 case " ${FLOWS[*]} " in
   *" 08-"*|*" 09-"*) ;;
   *) echo "archive flows 08/09 skipped: run SUITE=archive (reads the pending alarm count between the flows)" ;;
+esac
+# 10 needs a service read after the flow; 11-13 need the notification appop flipped between steps.
+case " ${FLOWS[*]} " in
+  *" 10-"*) ;;
+  *) echo "time-entry flow 10 skipped: run SUITE=time (reads TrackingService after End)" ;;
+esac
+case " ${FLOWS[*]} " in
+  *" 11-"*|*" 12-"*) ;;
+  *) echo "notification-permission flows 11/12 skipped: run SUITE=notification-permission" ;;
+esac
+case " ${FLOWS[*]} " in
+  *" 13-"*) ;;
+  *) echo "reminder-warning flow 13 skipped: run SUITE=reminder-warning (needs notifications denied)" ;;
 esac
 [ "$fail_count" -eq 0 ] || { printf 'failed: %s\n' "${failed_names[*]}"; exit 1; }

@@ -41,6 +41,10 @@ class DatabaseDeleteOperationTest {
         encryptionManager = DatabaseEncryptionManager(context)
         sessionManager = DatabaseSessionManager(context, encryptionManager)
 
+        // Each test starts from the state its name describes: no verifier, no file.
+        encryptionManager.resetEncryptionState()
+        deleteDatabase(PayanamDatabaseSchema.DATABASE_NAME)
+
         logger.d(
             "DatabaseDeleteOperationTest.setUp",
             "Test setup complete",
@@ -107,6 +111,8 @@ class DatabaseDeleteOperationTest {
 
             // Act: Close database and reset encryption state
             sessionManager.closeDatabase()
+            // A reset clears the metadata, not the file: delete the database the name promises.
+            deleteDatabase(PayanamDatabaseSchema.DATABASE_NAME)
             val resetResult = encryptionManager.resetEncryptionState()
 
             // Assert: Encryption state is cleared

@@ -180,10 +180,6 @@ internal fun AboutSettingsContent(
                 uiState.appVersion,
             ),
         )
-        StatRow(
-            label = stringResource(id = R.string.settings_about_codename_label),
-            value = stringResource(id = R.string.settings_about_codename_value),
-        )
         Spacer(modifier = Modifier.height(12.dp))
         Text(
             text = stringResource(id = R.string.app_name),

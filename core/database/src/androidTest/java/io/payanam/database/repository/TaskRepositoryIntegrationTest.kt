@@ -68,7 +68,7 @@ class TaskRepositoryIntegrationTest {
      * Creates the create task creates and returns task with generated id.
      */
     fun createTask_createsAndReturnsTaskWithGeneratedId() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val input = createTestTaskInput("Test Task")
 
@@ -87,7 +87,7 @@ class TaskRepositoryIntegrationTest {
      * Returns the all tasks returns all created tasks.
      */
     fun getAllTasks_returnsAllCreatedTasks() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val task1 = repository.createTask(createTestTaskInput("Task 1"))
             val task2 = repository.createTask(createTestTaskInput("Task 2"))
@@ -105,7 +105,7 @@ class TaskRepositoryIntegrationTest {
      * Returns the task by id returns correct task when exists.
      */
     fun getTaskById_returnsCorrectTaskWhenExists() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val createdTask = repository.createTask(createTestTaskInput("Find Me"))
 
@@ -123,7 +123,7 @@ class TaskRepositoryIntegrationTest {
      * Returns the task by id returns null when task does not exist.
      */
     fun getTaskById_returnsNullWhenTaskDoesNotExist() =
-        runBlocking {
+        runBlocking<Unit> {
             // When
             val foundTask = repository.getTaskById("nonexistent-id")
 
@@ -136,7 +136,7 @@ class TaskRepositoryIntegrationTest {
      * Updates the update task modifies existing task.
      */
     fun updateTask_modifiesExistingTask() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val createdTask = repository.createTask(createTestTaskInput("Original Title"))
             val updateInput = createTestTaskInput("Updated Title")
@@ -155,7 +155,7 @@ class TaskRepositoryIntegrationTest {
      * Performs the complete task marks task as completed with note.
      */
     fun completeTask_marksTaskAsCompletedWithNote() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val task = repository.createTask(createTestTaskInput("Complete Me"))
 
@@ -172,7 +172,7 @@ class TaskRepositoryIntegrationTest {
      * Removes the delete task removes task from database.
      */
     fun deleteTask_removesTaskFromDatabase() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val task = repository.createTask(createTestTaskInput("Delete Me"))
             val taskId = task.id
@@ -192,7 +192,7 @@ class TaskRepositoryIntegrationTest {
      * Returns the todays tasks returns tasks for today.
      */
     fun getTodaysTasks_returnsTasksForToday() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val todayInput = createTestTaskInput("Today Task").copy(dueDate = LocalDateTime.now())
             val tomorrowInput = createTestTaskInput("Tomorrow Task").copy(dueDate = LocalDateTime.now().plusDays(1))

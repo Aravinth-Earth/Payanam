@@ -1,0 +1,31 @@
+appId: io.payanam
+name: The timer notification offer is withdrawn once notifications are enabled outside the app
+---
+# Covers #64, second half. The runner grants POST_NOTIFICATION between this flow and 11.
+# The permission is re-read on resume, and an offer already on screen is withdrawn.
+- pressKey: Home
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: "time.stop_tracking_button"
+    timeout: 60000
+# The regression: a stale "declined" answer kept this dialog up after the grant.
+- extendedWaitUntil:
+    notVisible: "${NOTIF_TITLE}"
+    timeout: 20000
+- takeScreenshot: 151-timer-offer-withdrawn
+
+# Leave the device idle for the next suite.
+- tapOn:
+    id: "time.stop_tracking_button"
+- extendedWaitUntil:
+    visible:
+      id: "edit_time_entry_confirm_button"
+    timeout: 20000
+- tapOn:
+    id: "edit_time_entry_confirm_button"
+- extendedWaitUntil:
+    visible:
+      id: "time.start_tracking_fab"
+    timeout: 30000

@@ -1,0 +1,109 @@
+appId: io.payanam
+name: Ending a tracking entry stops its notification, and Continue starts a new one
+---
+# Covers #63: the tracking notification outlived a continued entry that was ended.
+# The flow launches the app itself, so it does not depend on what the previous suite left in front.
+- launchApp:
+    stopApp: false
+- runFlow:
+    when:
+      visible:
+        id: "passphrase_unlock.passphrase_field"
+    commands:
+      - tapOn:
+          id: "passphrase_unlock.passphrase_field"
+      - inputText: "${PASS}"
+      - hideKeyboard
+      - tapOn:
+          id: "passphrase_unlock.unlock_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.time"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.time"
+
+# Normalise: a session left running by an earlier flow would make "start" a no-op.
+- runFlow:
+    when:
+      visible:
+        id: "time.stop_tracking_button"
+    commands:
+      - tapOn:
+          id: "time.stop_tracking_button"
+      - extendedWaitUntil:
+          visible:
+            id: "edit_time_entry_confirm_button"
+          timeout: 20000
+      - tapOn:
+          id: "edit_time_entry_confirm_button"
+      - extendedWaitUntil:
+          visible:
+            id: "time.start_tracking_fab"
+          timeout: 30000
+
+- tapOn:
+    id: "time.start_tracking_fab"
+- extendedWaitUntil:
+    visible: "^${LOC_START}$"
+    timeout: 20000
+# The start dialog's dimension picker is preselected, so Start is the whole interaction.
+- tapOn: "^${LOC_START}$"
+- extendedWaitUntil:
+    visible:
+      id: "time.stop_tracking_button"
+    timeout: 30000
+- takeScreenshot: 140-timer-running
+
+# Stop Tracking opens the entry modal; End is its primary action.
+- tapOn:
+    id: "time.stop_tracking_button"
+- extendedWaitUntil:
+    visible:
+      id: "edit_time_entry_confirm_button"
+    timeout: 20000
+- tapOn:
+    id: "edit_time_entry_confirm_button"
+- extendedWaitUntil:
+    visible:
+      id: "time.start_tracking_fab"
+    timeout: 30000
+- takeScreenshot: 141-entry-ended
+
+# Continue the finished entry: it must produce a NEW entry, and ending that one must
+# leave nothing running. The runner then asserts no TrackingService remains.
+- tapOn:
+    id: "time.entry_block"
+- extendedWaitUntil:
+    visible: "^${LOC_CONTINUE}$"
+    timeout: 20000
+- takeScreenshot: 142-continue-offered
+- tapOn: "^${LOC_CONTINUE}$"
+- extendedWaitUntil:
+    visible:
+      id: "time.stop_tracking_button"
+    timeout: 30000
+- tapOn:
+    id: "time.stop_tracking_button"
+- extendedWaitUntil:
+    visible:
+      id: "edit_time_entry_confirm_button"
+    timeout: 20000
+- tapOn:
+    id: "edit_time_entry_confirm_button"
+- extendedWaitUntil:
+    visible:
+      id: "time.start_tracking_fab"
+    timeout: 30000
+- takeScreenshot: 143-continued-entry-ended
+
+# Visual evidence in the shade. The authoritative assertion is the runner's service check;
+# this wait is here so a still-counting notification is captured in the screenshot.
+- swipe:
+    start: 50%, 0%
+    end: 50%, 70%
+- extendedWaitUntil:
+    notVisible: "${TRACKING_SUBTEXT}"
+    timeout: 15000
+- takeScreenshot: 144-shade-after-end
+- pressKey: Back

@@ -7,10 +7,13 @@ import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.session.DatabaseSessionManager
+import io.payanam.shared.database.PayanamDatabaseSchema
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
+import java.io.File
 
 /**
  * Tests for passphrase lifecycle: set initial passphrase, verify, change passphrase,
@@ -37,8 +40,16 @@ class PassphraseChangeFlowTest {
         logger = UnifiedLogger.getInstance()
 
         encryptionManager = DatabaseEncryptionManager(context)
-        // Reset encryption state before each test
+        // Reset encryption state before each test: the verifier and the file must both be gone,
+        // or a test that reconfigures a *different* passphrase reuses a file keyed by the old one.
         encryptionManager.resetEncryptionState()
+        val databaseFile = context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME)
+        listOf(
+            databaseFile,
+            File("${databaseFile.path}-wal"),
+            File("${databaseFile.path}-shm"),
+            File("${databaseFile.path}-journal"),
+        ).forEach { it.delete() }
 
         sessionManager = DatabaseSessionManager(context, encryptionManager)
 
@@ -67,11 +78,13 @@ class PassphraseChangeFlowTest {
      * Configure passphrase sets initial passphrase for new database.
      */
     fun configurePassphrase_setsInitialPassphraseForNewDatabase() {
-        // Act: Configure initial passphrase
+        // Act: Configure initial passphrase and open the database it protects
         val result = encryptionManager.configurePassphrase(initialPassphrase)
+        val openResult = runBlocking { sessionManager.openDatabase(initialPassphrase) }
 
-        // Assert: Passphrase is configured and can be verified
+        // Assert: Passphrase is configured, the file is encrypted, and the key opens it
         assertThat(result).isTrue()
+        assertThat(openResult.isSuccess).isTrue()
         assertThat(encryptionManager.hasPassphraseConfigured()).isTrue()
         assertThat(encryptionManager.isEncryptionEnabled()).isTrue()
 
@@ -201,7 +214,14 @@ class PassphraseChangeFlowTest {
             sessionManager.closeDatabase()
             assertThat(sessionManager.isOpen.value).isFalse()
 
-            // Step 4: Change passphrase
+            // Step 4: Change the key on the file, then move the verifier metadata
+            DatabaseEncryptionMigrationSupport.rekeyEncryptedDatabase(
+                context,
+                context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME),
+                initialPassphrase,
+                newPassphrase,
+                "PassphraseChangeFlowTest",
+            )
             val updateResult = encryptionManager.updatePassphrase(initialPassphrase, newPassphrase)
             assertThat(updateResult).isTrue()
 

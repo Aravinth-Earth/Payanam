@@ -9,6 +9,7 @@ import androidx.test.ext.junit.runners.AndroidJUnit4
 import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.PayanamDatabase
+import io.payanam.database.entity.TaskEntity
 import io.payanam.database.security.DatabaseEncryptionManager
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.TimeEntryInput
@@ -53,6 +54,22 @@ class TimeEntryRepositoryIntegrationTest {
         sessionManager = DatabaseSessionManager(context, encryptionManager)
         sessionManager.openWithTestDatabase(database)
         repository = TimeEntryRepositoryImpl(sessionManager)
+
+        // Seed the task rows the entries reference: foreign keys are enforced on the production
+        // open path, so an entry naming a task that does not exist is rejected (SQLITE_CONSTRAINT).
+        runBlocking {
+            listOf("task-1", "task-2", "task-overnight").forEach { taskId ->
+                val now = LocalDateTime.now().toString()
+                database.taskDao().insert(
+                    TaskEntity(
+                        id = taskId,
+                        title = "Seed $taskId",
+                        createdAt = now,
+                        updatedAt = now,
+                    ),
+                )
+            }
+        }
     }
 
     @After
@@ -69,7 +86,7 @@ class TimeEntryRepositoryIntegrationTest {
      * Performs the start time entry creates new time entry and returns it.
      */
     fun startTimeEntry_createsNewTimeEntryAndReturnsIt() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val input = createTestTimeEntryInput("task-1")
 
@@ -88,7 +105,7 @@ class TimeEntryRepositoryIntegrationTest {
      * Returns the active time entry returns currently active entry.
      */
     fun getActiveTimeEntry_returnsCurrentlyActiveEntry() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val activeEntry = repository.startTimeEntry(createTestTimeEntryInput("task-1"))
             repository.startTimeEntry(createTestTimeEntryInput("task-2")) // This should become active
@@ -107,7 +124,7 @@ class TimeEntryRepositoryIntegrationTest {
      * Returns the active time entry returns null when no active entry.
      */
     fun getActiveTimeEntry_returnsNullWhenNoActiveEntry() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given - no entries
 
             // When
@@ -122,7 +139,7 @@ class TimeEntryRepositoryIntegrationTest {
      * Performs the stop active time entry stops current active entry.
      */
     fun stopActiveTimeEntry_stopsCurrentActiveEntry() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val activeEntry = repository.startTimeEntry(createTestTimeEntryInput("task-1"))
 
@@ -143,7 +160,7 @@ class TimeEntryRepositoryIntegrationTest {
      * Performs the stop active time entry returns null when no active entry.
      */
     fun stopActiveTimeEntry_returnsNullWhenNoActiveEntry() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given - no active entry
 
             // When
@@ -158,7 +175,7 @@ class TimeEntryRepositoryIntegrationTest {
      * Get time entries for date returns entries for specific date.
      */
     fun getTimeEntriesForDate_returnsEntriesForSpecificDate() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val today = LocalDate.now()
             val yesterday = today.minusDays(1)
@@ -188,7 +205,7 @@ class TimeEntryRepositoryIntegrationTest {
      * Get time entries for date includes entry spanning midnight on both days.
      */
     fun getTimeEntriesForDate_includesEntrySpanningMidnightOnBothDays() =
-        runBlocking {
+        runBlocking<Unit> {
             val today = LocalDate.now()
             val yesterday = today.minusDays(1)
             repository.createTimeEntry(
@@ -208,7 +225,7 @@ class TimeEntryRepositoryIntegrationTest {
      * Returns the all time entries returns all entries.
      */
     fun getAllTimeEntries_returnsAllEntries() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             repository.startTimeEntry(createTestTimeEntryInput("task-1"))
             repository.stopActiveTimeEntry()
@@ -228,7 +245,7 @@ class TimeEntryRepositoryIntegrationTest {
      * Returns the active time entries returns only active entries.
      */
     fun getActiveTimeEntries_returnsOnlyActiveEntries() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             repository.startTimeEntry(createTestTimeEntryInput("task-1"))
             repository.stopActiveTimeEntry() // Stop first entry
@@ -248,7 +265,7 @@ class TimeEntryRepositoryIntegrationTest {
      * Updates the update time entry modifies existing entry.
      */
     fun updateTimeEntry_modifiesExistingEntry() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val createdEntry = repository.startTimeEntry(createTestTimeEntryInput("task-1"))
             val updateInput = createTestTimeEntryInput("task-2")
@@ -266,7 +283,7 @@ class TimeEntryRepositoryIntegrationTest {
      * Removes the delete time entry removes entry from database.
      */
     fun deleteTimeEntry_removesEntryFromDatabase() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val entry = repository.startTimeEntry(createTestTimeEntryInput("task-1"))
             val entryId = entry.id

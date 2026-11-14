@@ -118,24 +118,25 @@ class DatabaseStateRecoveryTest {
         // Arrange: Configure encryption with some state
         val configResult = encryptionManager.configurePassphrase(testPassphrase)
         assertThat(configResult).isTrue()
-        encryptionManager.setSessionTimeoutMinutes(20)
 
         // Act: Backup encryption preferences
         val backupResult = encryptionManager.backupEncryptionPrefs()
         assertThat(backupResult).isTrue()
 
-        // Act: Reset encryption state
-        encryptionManager.resetEncryptionState()
-        assertThat(encryptionManager.hasPassphraseConfigured()).isFalse()
+        // Act: overwrite the live verifier, as a passphrase change does before its rollback
+        val otherPassphrase = "OtherPass456!"
+        assertThat(encryptionManager.configurePassphrase(otherPassphrase)).isTrue()
+        assertThat(encryptionManager.verifyPassphrase(testPassphrase)).isFalse()
+        assertThat(encryptionManager.verifyPassphrase(otherPassphrase)).isTrue()
 
         // Act: Restore encryption preferences
         val restoreResult = encryptionManager.restoreEncryptionPrefs()
         assertThat(restoreResult).isTrue()
 
-        // Assert: Encryption state is restored
+        // Assert: the original verifier is back and the overwritten one no longer verifies
         assertThat(encryptionManager.hasPassphraseConfigured()).isTrue()
         assertThat(encryptionManager.verifyPassphrase(testPassphrase)).isTrue()
-        assertThat(encryptionManager.getSessionTimeoutMinutes()).isEqualTo(20)
+        assertThat(encryptionManager.verifyPassphrase(otherPassphrase)).isFalse()
 
         logger.i(
             "DatabaseStateRecoveryTest.encryptionPrefs_backupAndRestore",

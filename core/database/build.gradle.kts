@@ -19,7 +19,7 @@ android {
 
     defaultConfig {
         minSdk = 28
-        testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        testInstrumentationRunner = "io.payanam.database.test.PayanamDatabaseTestRunner"
         
         // Room schema export
         ksp {
