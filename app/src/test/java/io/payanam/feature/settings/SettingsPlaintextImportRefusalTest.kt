@@ -27,7 +27,6 @@ import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.shared.database.PayanamDatabaseSchema
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.resetMain
 import kotlinx.coroutines.test.setMain
 import kotlinx.coroutines.withTimeout
@@ -36,8 +35,8 @@ import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.mockito.kotlin.any
-import org.mockito.kotlin.eq
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
 import org.mockito.kotlin.verify
 import org.mockito.kotlin.verifyBlocking
 import org.mockito.kotlin.whenever
@@ -177,18 +176,17 @@ class SettingsPlaintextImportRefusalTest {
     }
 
     @Test
-    fun `a refused import closes the live session before moving files and reopens it afterwards`() {
-        // The user's database exists; the session is presented as already open on it.
+    fun `a refused import never closes the live session or moves the live files`() {
         SQLiteDatabase.openOrCreateDatabase(databaseFile, null).use { db ->
             db.version = PayanamDatabaseSchema.VERSION
             db.execSQL("CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, title TEXT)")
+            db.execSQL("INSERT INTO tasks (id, title) VALUES ('task-1', 'the one that matters')")
         }
+        val before = databaseFile.readBytes()
         val offered = writePlaintextDatabase("offered-plaintext-session.db")
 
         val sessionManager = mock<DatabaseSessionManager>()
         whenever(sessionManager.isDbOpen()).thenReturn(true)
-        whenever(sessionManager.requireOpenPassphrase()).thenReturn("old-passphrase")
-        runBlocking { whenever(sessionManager.openDatabase(any())).thenReturn(Result.success(Unit)) }
 
         val viewModel = newViewModel(sessionManager)
         viewModel.importDatabase(
@@ -201,10 +199,42 @@ class SettingsPlaintextImportRefusalTest {
         )
         awaitSettled(viewModel)
 
-        // The session must be closed before the artifacts are moved, and the rollback must put the user
-        // back on the database they had rather than leaving the app locked after a refused file.
-        verify(sessionManager).closeDatabase()
-        verifyBlocking(sessionManager) { openDatabase(eq("old-passphrase")) }
+        // Validation happens on the staged file. The live session and its files are not touched at all,
+        // so a refusal cannot depend on a rollback having restored them correctly.
+        verify(sessionManager, never()).closeDatabase()
+        verify(sessionManager, never()).requireOpenPassphrase()
+        verifyBlocking(sessionManager, never()) { openDatabase(any()) }
+        assertThat(databaseFile.readBytes().toList()).isEqualTo(before.toList())
+        val strays = databaseFile.parentFile!!.listFiles()!!.filter { it.name.contains(IMPORT_STAGING_MARKER) }
+        assertThat(strays).isEmpty()
+    }
+
+    @Test
+    fun `the staged artifact family moves over the live names`() {
+        val dir = context.cacheDir
+        val live = File(dir, "swap-live.db")
+        val staging = stagingDatabaseFile(live)
+        val liveWal = File(dir, live.name + "-wal")
+        val liveShm = File(dir, live.name + "-shm")
+        val stagingWal = File(dir, staging.name + "-wal")
+        val stagingShm = File(dir, staging.name + "-shm")
+        try {
+            live.writeText("old-main")
+            liveWal.writeText("old-wal")
+            staging.writeText("new-main")
+            stagingWal.writeText("new-wal")
+            stagingShm.writeText("new-shm")
+
+            moveStagingArtifactsIntoPlace(staging, live)
+
+            assertThat(live.readText()).isEqualTo("new-main")
+            assertThat(liveWal.readText()).isEqualTo("new-wal")
+            assertThat(liveShm.readText()).isEqualTo("new-shm")
+            assertThat(staging.exists()).isFalse()
+            assertThat(stagingWal.exists()).isFalse()
+        } finally {
+            listOf(live, liveWal, liveShm, staging, stagingWal, stagingShm).forEach { it.delete() }
+        }
     }
 
     /** A real, readable, unencrypted database at a path the picker would accept. */
@@ -293,5 +323,6 @@ class SettingsPlaintextImportRefusalTest {
     private companion object {
         const val AWAIT_TIMEOUT_MILLIS = 20_000L
         const val POLL_INTERVAL_MILLIS = 20L
+        const val IMPORT_STAGING_MARKER = ".import_staging"
     }
 }

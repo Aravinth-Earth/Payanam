@@ -4,6 +4,7 @@
 
 package io.payanam.feature.settings
 
+import androidx.annotation.VisibleForTesting
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.presentation.database.DatabaseImportIntegritySupport
 import io.payanam.presentation.database.DatabaseImportSupport
@@ -17,14 +18,17 @@ import io.payanam.presentation.settings.cleanupDatabaseArtifactBackups
 import io.payanam.presentation.settings.deleteRuntimeDatabaseArtifacts
 import io.payanam.presentation.settings.listDatabaseArtifactFiles
 import io.payanam.presentation.settings.restoreDatabaseArtifactFiles
+import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.DatabaseEncryptionProbe
-import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.database.isActiveArtifact
 import io.payanam.shared.logging.CrashBreadcrumbs
 import io.payanam.shared.platform.DocumentSource
+import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.NonCancellable
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.io.File
 
 /**
  * Extension functions for SettingsViewModel handling encrypted database imports.
@@ -41,36 +45,100 @@ private fun SettingsViewModel.breadcrumb(stage: String, data: Map<String, Any?>?
 }
 
 /**
- * Reopens the session with the passphrase it had before an import closed it.
+ * The import copies into a sibling staging file and only swaps it over the live database once the
+ * imported passphrase has been verified.
  *
- * Runs on the rollback paths only: a successful encrypted import reopens with the imported passphrase
- * in [resumeImportWithPassphrase], and a paused import stays closed until the user answers the gate.
+ * WHY A SIBLING AND NOT THE LIVE PATH: the file must be inspected (header probe, WAL fold, passphrase
+ * verification) before anything is replaced. Writing it over the live path first is what forced the
+ * session closed while a passphrase was still unknown, and it also made a refusal depend on a backup
+ * restore rather than on never having touched the user's database.
  */
-private suspend fun SettingsViewModel.reopenSessionAfterImport(): Boolean {
-    val passphrase = pendingImportOriginalPassphrase ?: return false
-    pendingImportOriginalPassphrase = null
-    return withContext(Dispatchers.IO) {
-        sessionManager
-            .openDatabase(passphrase)
-            .onFailure { error ->
-                logger.e(
-                    "SettingsViewModel.importDatabase",
-                    "Failed to reopen the database session after an import did not complete",
-                    error,
-                )
-            }.isSuccess
+@VisibleForTesting
+internal fun stagingDatabaseFile(liveFile: File): File = File(liveFile.parentFile, liveFile.name + ".import_staging")
+
+/** Deletes the staged import and every companion the copy may have written beside it. */
+@VisibleForTesting
+internal fun deleteStagingArtifacts(staging: File) {
+    DatabaseArtifacts.artifactSuffixes.forEach { suffix ->
+        val file = File(staging.parentFile, staging.name + suffix)
+        runCatching { if (file.exists()) file.delete() }
     }
 }
 
 /**
- * Starts an ENCRYPTED database import from [sourceUri]: backs up the current DB + encryption prefs,
- * swaps in the imported file, and if the imported file is encrypted it pauses and surfaces
+ * Moves the staged artifact family over the live one.
+ *
+ * The live artifacts are deleted under the closed session a moment earlier, so each target is free. A
+ * rename keeps the bytes where they already are; the copy fallback covers a filesystem that refuses it.
+ */
+@VisibleForTesting
+internal fun moveStagingArtifactsIntoPlace(
+    staging: File,
+    liveFile: File,
+) {
+    DatabaseArtifacts.artifactSuffixes.forEach { suffix ->
+        val from = File(staging.parentFile, staging.name + suffix)
+        if (!from.exists()) return@forEach
+        val to = File(liveFile.parentFile, liveFile.name + suffix)
+        if (to.exists()) to.delete()
+        if (!from.renameTo(to)) {
+            from.copyTo(to, overwrite = true)
+            from.delete()
+        }
+    }
+}
+
+/**
+ * Puts the live database back after a swap that did not finish, then reopens the session the import
+ * started from.
+ *
+ * Runs under [NonCancellable]: a cancelled import must not leave the files half-moved. If reopening the
+ * original fails, the caller's `endInProcessSwap(false)` publishes the closed state and the normal
+ * unlock gate appears.
+ */
+private suspend fun SettingsViewModel.rollbackImportSwap() {
+    withContext(NonCancellable + Dispatchers.IO) {
+        sessionManager.closeDatabase()
+        databaseEncryptionManager.restoreEncryptionPrefs()
+        val backupMappings = pendingEncryptedImportBackupMappings
+        if (backupMappings.isNotEmpty()) {
+            val restored = restoreDatabaseArtifactFiles(backupMappings)
+            logger.i(
+                "SettingsViewModel.importDatabase",
+                "Restored the live database after a failed import swap",
+                mapOf("restoredFiles" to restored, "backupFiles" to backupMappings.size),
+            )
+        }
+        cleanupDatabaseArtifactBackups(backupMappings)
+        pendingEncryptedImportBackupMappings = emptyList()
+        pendingEncryptedImportDbFile?.let { deleteStagingArtifacts(it) }
+        pendingEncryptedImportDbFile = null
+        val originalPassphrase = pendingImportOriginalPassphrase
+        if (originalPassphrase != null) {
+            sessionManager
+                .openDatabase(originalPassphrase)
+                .onFailure { error ->
+                    logger.e(
+                        "SettingsViewModel.importDatabase",
+                        "Failed to reopen the pre-import database session after a rollback",
+                        error,
+                    )
+                }
+        }
+        pendingImportOriginalPassphrase = null
+    }
+}
+
+/**
+ * Starts an ENCRYPTED database import from [sourceUri]: copies the selected file to a staging path,
+ * backs up the encryption preferences, and if the file is encrypted it pauses and surfaces
  * [awaitingImportPassphrase], resuming via [resumeImportWithPassphrase].
  *
- * A PLAINTEXT database is REFUSED, not converted (the encrypted-only import rule): Payanam's export IS
- * the encrypted file, so an unencrypted database is not a weaker export to accept but a file no
- * version of Payanam can produce. On any failure - including that refusal - the pre-import backup is
- * restored, so the user's own database survives byte-for-byte.
+ * The live database, its artifacts and the open session are untouched until the imported passphrase
+ * has been verified. A PLAINTEXT database is REFUSED, not converted (the encrypted-only import rule):
+ * Payanam's export IS the encrypted file, so an unencrypted database is not a weaker export to accept
+ * but a file no version of Payanam can produce. On any failure - including that refusal - the staged
+ * file is deleted and the user's database is left byte-for-byte as it was.
  */
 @Suppress("TooGenericExceptionCaught") // Intentional: settings pipeline; multiple failure modes
 fun SettingsViewModel.importDatabase(
@@ -113,271 +181,131 @@ fun SettingsViewModel.importDatabase(
     scope.launch {
         updateUiState { it.copy(isImporting = true, importResult = null) }
 
-        // Flag to prevent backup cleanup when paused at passphrase gate
+        val stagingFile = stagingDatabaseFile(databaseFile)
+        // Flag to prevent staging cleanup when paused at the passphrase gate.
         var pausedForPassphrase = false
 
         try {
             withContext(Dispatchers.IO) {
-                val dbFile = databaseFile
-                val existingDatabaseFiles = listDatabaseArtifactFiles(localDatabaseFile)
-                    .filter { it.exists() && isActiveArtifact(it.name) }
+                // A previous attempt that died before it could clean up leaves this behind.
+                deleteStagingArtifacts(stagingFile)
+                databaseEncryptionManager.backupEncryptionPrefs()
+                breadcrumb(stage = "settings_import_encryption_prefs_backed_up")
                 logger.i(
                     "SettingsViewModel.importDatabase",
                     "Import paths resolved",
                     mapOf(
                         "sourceUri" to sourceToken,
-                        "targetPath" to dbFile.absolutePath,
-                        "targetExists" to dbFile.exists(),
-                        "existingArtifacts" to existingDatabaseFiles.size,
+                        "targetPath" to databaseFile.absolutePath,
+                        "stagingPath" to stagingFile.absolutePath,
+                        "targetExists" to databaseFile.exists(),
                     ),
                 )
-                // A live Room handle must not survive the files moving. Close (and fold) before the
-                // snapshot is taken, so the backup is a stable file set and the copy never lands under a
-                // session that is still reading the database being replaced.
-                val originalPassphrase =
-                    if (sessionManager.isDbOpen()) sessionManager.requireOpenPassphrase() else null
-                pendingImportOriginalPassphrase = originalPassphrase
-                sessionManager.checkpoint()
-                sessionManager.closeDatabase()
-                val backupMappings = backupDatabaseArtifactFiles(existingDatabaseFiles)
-                if (backupMappings.isNotEmpty()) {
-                    logger.i(
-                        "SettingsViewModel.importDatabase",
-                        "Created pre-import database backup snapshot",
-                        mapOf(
-                            "backupFiles" to backupMappings.size,
-                        ),
-                    )
-                    breadcrumb(stage = "settings_import_backup_created", data = mapOf("backupFiles" to backupMappings.size))
-                } else {
-                    logger.d("SettingsViewModel.importDatabase", "No existing database artifacts to back up")
-                }
-                val deletedFiles = deleteRuntimeDatabaseArtifacts(localDatabaseFile)
-                logger.i(
-                    "SettingsViewModel.importDatabase",
-                    "Cleared existing database artifacts before import",
-                    mapOf(
-                        "filesDeleted" to deletedFiles,
-                    ),
-                )
-                breadcrumb(stage = "settings_import_runtime_artifacts_deleted", data = mapOf("filesDeleted" to deletedFiles))
-                databaseEncryptionManager.backupEncryptionPrefs()
-                breadcrumb(stage = "settings_import_encryption_prefs_backed_up")
-                try {
-                    val copyResult = DatabaseImportSupport.copyDatabaseArtifacts(
+
+                val copyResult =
+                    DatabaseImportSupport.copyDatabaseArtifacts(
                         documentSource = documentSource,
                         sourceToken = sourceToken,
-                        targetDatabaseFile = dbFile,
+                        targetDatabaseFile = stagingFile,
                         strings = strings,
                     )
-                    val finalSizeKB = dbFile.length() / 1024
-                    logger.i(
-                        "SettingsViewModel.importDatabase",
-                        "Database file copied successfully",
-                        mapOf(
-                            "bytesCopiedKB" to (copyResult.bytesCopied / 1024),
-                            "finalFileSizeKB" to finalSizeKB,
-                            "filePath" to dbFile.absolutePath,
-                            "sourceKind" to copyResult.sourceKind,
-                            "primaryFileName" to copyResult.primaryFileName,
-                            "companionFilesCopied" to copyResult.companionFilesCopied,
-                        ),
-                    )
-                    if (!dbFile.exists()) {
-                        logger.e("SettingsViewModel.importDatabase", "Validation failed: File does not exist after copy")
-                        throw Exception("Database file not created after copy")
-                    }
-                    if (dbFile.length() == 0L) {
-                        logger.e("SettingsViewModel.importDatabase", "Validation failed: File size is 0 bytes")
-                        throw Exception("Copied database file is empty (0 bytes)")
-                    }
-                    logger.i(
-                        "SettingsViewModel.importDatabase",
-                        "File validation passed",
-                        mapOf(
-                            "exists" to true,
-                            "sizeKB" to finalSizeKB,
-                        ),
-                    )
-                    breadcrumb(stage = "settings_import_copy_validated", data = mapOf("sizeKB" to finalSizeKB))
+                val stagedSizeKB = stagingFile.length() / 1024
+                logger.i(
+                    "SettingsViewModel.importDatabase",
+                    "Database file copied to staging",
+                    mapOf(
+                        "bytesCopiedKB" to (copyResult.bytesCopied / 1024),
+                        "stagedSizeKB" to stagedSizeKB,
+                        "filePath" to stagingFile.absolutePath,
+                        "sourceKind" to copyResult.sourceKind,
+                        "primaryFileName" to copyResult.primaryFileName,
+                        "companionFilesCopied" to copyResult.companionFilesCopied,
+                    ),
+                )
+                if (!stagingFile.exists()) {
+                    logger.e("SettingsViewModel.importDatabase", "Validation failed: staged file does not exist after copy")
+                    throw Exception("Database file not created after copy")
+                }
+                if (stagingFile.length() == 0L) {
+                    logger.e("SettingsViewModel.importDatabase", "Validation failed: staged file size is 0 bytes")
+                    throw Exception("Copied database file is empty (0 bytes)")
+                }
+                breadcrumb(stage = "settings_import_copy_validated", data = mapOf("sizeKB" to stagedSizeKB))
 
-                    DatabaseImportSupport.consolidateWalAfterImport(
-                        dbFile = dbFile,
-                        logTag = "SettingsViewModel.importDatabase",
-                        walConsolidator = walConsolidator,
-                    )
+                DatabaseImportSupport.consolidateWalAfterImport(
+                    dbFile = stagingFile,
+                    logTag = "SettingsViewModel.importDatabase",
+                    walConsolidator = walConsolidator,
+                )
 
-                    // Detect encrypted imports; pause and ask user for passphrase if needed.
-                    val importedDbIsStandardSqlite = DatabaseImportSupport.isStandardSqliteFile(
-                        databaseFile = dbFile,
+                // Detect encrypted imports; pause and ask user for passphrase if needed.
+                val stagedIsStandardSqlite =
+                    DatabaseImportSupport.isStandardSqliteFile(
+                        databaseFile = stagingFile,
                         logTag = "SettingsViewModel.importDatabase",
                     )
-                    if (!importedDbIsStandardSqlite) {
-                        val isEncrypted = probe.isDetectablyEncrypted(
-                            databaseFile = dbFile,
+                if (!stagedIsStandardSqlite) {
+                    val isEncrypted =
+                        probe.isDetectablyEncrypted(
+                            databaseFile = stagingFile,
                             logTag = "SettingsViewModel.importDatabase",
                         )
-                        if (isEncrypted) {
-                            logger.i(
-                                "SettingsViewModel.importDatabase",
-                                "Encrypted import detected; pausing and awaiting user passphrase",
-                            )
-                            pausedForPassphrase = true
-                            breadcrumb(stage = "settings_import_awaiting_passphrase")
-                            pendingEncryptedImportDbFile = dbFile
-                            pendingEncryptedImportBackupMappings = backupMappings
-                            updateUiState {
-                                it.copy(
-                                    isImporting = false,
-                                    awaitingImportPassphrase = true,
-                                    importPassphraseError = null,
-                                )
-                            }
-                            logger.i(
-                                "SettingsViewModel.importDatabase",
-                                "Import state updated to await passphrase",
-                                mapOf("awaitingImportPassphrase" to true),
-                            )
-                            return@withContext
-                        } else {
-                            throw IllegalStateException(
-                                strings.settingsImportErrorUnreadableDb,
+                    if (isEncrypted) {
+                        logger.i(
+                            "SettingsViewModel.importDatabase",
+                            "Encrypted import detected; pausing and awaiting user passphrase",
+                        )
+                        pausedForPassphrase = true
+                        breadcrumb(stage = "settings_import_awaiting_passphrase")
+                        pendingEncryptedImportDbFile = stagingFile
+                        updateUiState {
+                            it.copy(
+                                isImporting = false,
+                                awaitingImportPassphrase = true,
+                                importPassphraseError = null,
                             )
                         }
+                        logger.i(
+                            "SettingsViewModel.importDatabase",
+                            "Import state updated to await passphrase",
+                            mapOf("awaitingImportPassphrase" to true),
+                        )
+                        return@withContext
                     }
-
-                    // The file carries the SQLite plaintext magic, so it is an UNENCRYPTED database, and
-                    // Payanam exports IS the encrypted file - no version of Payanam can produce this one.
-                    // It is refused, not converted: converting it would make the import path the only
-                    // route by which unencrypted data entered the app. The throw leaves through the
-                    // catch below, which restores the pre-import backup, so the user's own database is
-                    // left byte-identical rather than replaced by a file we just declined to accept.
-                    logger.w(
-                        "SettingsViewModel.importDatabase",
-                        "Refusing an unencrypted database: Payanam imports encrypted databases only",
-                        mapOf("file" to dbFile.name, "sizeBytes" to dbFile.length()),
-                    )
-                    breadcrumb(stage = "settings_import_refused_plaintext", data = mapOf("file" to dbFile.name))
                     throw IllegalStateException(
-                        strings.settingsImportErrorPlaintextDb,
+                        strings.settingsImportErrorUnreadableDb,
                     )
-                } catch (e: Exception) {
-                    logger.e(
-                        "SettingsViewModel.importDatabase",
-                        "IMPORT_PROBE_CATCH_FILE_STATE",
-                        e,
-                        mapOf(
-                            "file" to dbFile.name,
-                            "exists" to dbFile.exists(),
-                            "sizeBytes" to dbFile.length(),
-                        ),
-                    )
-                    if (!pausedForPassphrase) {
-                        logger.e(
-                            "SettingsViewModel.importDatabase",
-                            "Copy/conversion failed, restoring backup",
-                            e,
-                            mapOf(
-                                "error" to (e.message ?: "Unknown error"),
-                                "backupFiles" to backupMappings.size,
-                            ),
-                        )
-                        databaseEncryptionManager.restoreEncryptionPrefs()
-                        breadcrumb(stage = "settings_import_failure_encryption_prefs_restored")
-                        if (backupMappings.isNotEmpty()) {
-                            val restoredFiles = restoreDatabaseArtifactFiles(backupMappings)
-                            logger.i(
-                                "SettingsViewModel.importDatabase",
-                                "Backup restored after failure",
-                                mapOf(
-                                    "restoredFiles" to restoredFiles,
-                                ),
-                            )
-                            breadcrumb(stage = "settings_import_failure_backup_restored", data = mapOf("restoredFiles" to restoredFiles))
-                        }
-                    }
-                    throw e
-                } finally {
-                    // Do NOT clean up backup when paused for passphrase: it is stored in
-                    // pendingEncryptedImportBackupMappings and cleaned up by
-                    // resumeImportWithPassphrase or cancelImportPassphrase.
-                    if (!pausedForPassphrase) {
-                        databaseEncryptionManager.clearEncryptionPrefsBackup()
-                        cleanupDatabaseArtifactBackups(backupMappings)
-                        logger.i(
-                            "SettingsViewModel.importDatabase",
-                            "Import cleanup complete",
-                            mapOf("pausedForPassphrase" to false, "backupFiles" to backupMappings.size),
-                        )
-                        breadcrumb(stage = "settings_import_cleanup_completed", data = mapOf("backupFiles" to backupMappings.size))
-                    } else {
-                        logger.i(
-                            "SettingsViewModel.importDatabase",
-                            "Import paused for passphrase; backups retained",
-                            mapOf("backupFiles" to backupMappings.size),
-                        )
-                    }
                 }
+
+                // The file carries the SQLite plaintext magic, so it is an UNENCRYPTED database, and
+                // Payanam exports IS the encrypted file - no version of Payanam can produce this one.
+                // It is refused, not converted: converting it would make the import path the only
+                // route by which unencrypted data entered the app.
+                logger.w(
+                    "SettingsViewModel.importDatabase",
+                    "Refusing an unencrypted database: Payanam imports encrypted databases only",
+                    mapOf("file" to stagingFile.name, "sizeBytes" to stagingFile.length()),
+                )
+                breadcrumb(stage = "settings_import_refused_plaintext", data = mapOf("file" to stagingFile.name))
+                throw IllegalStateException(
+                    strings.settingsImportErrorPlaintextDb,
+                )
             }
             if (pausedForPassphrase) {
                 logger.i("SettingsViewModel.importDatabase", "Import coroutine paused awaiting passphrase")
                 return@launch
             }
-
-            logger.i("SettingsViewModel.importDatabase", "Database file operations complete, loading stats")
-            val dbFile = databaseFile
-            val (tasksCount, timeEntriesCount, notesCount) = withContext(Dispatchers.IO) {
-                // The FILE decides whether a passphrase is needed to read it, not the local mode: an
-                // imported file that is detectably encrypted needs the open passphrase to count its rows,
-                // and one that is not needs none - whatever mode this device happens to be in.
-                val passphrase =
-                    if (probe.isDetectablyEncrypted(dbFile, "SettingsViewModel.importDatabase")) {
-                        sessionManager.requireOpenPassphrase()
-                    } else {
-                        null
-                    }
-                val counts =
-                    DatabaseImportIntegritySupport.readCoreCounts(
-                        databaseFile = dbFile,
-                        passphrase = passphrase,
-                        encryptionProbe = probe,
-                    )
-                Triple(counts["tasks"] ?: 0, counts["time_entries"] ?: 0, counts["notes"] ?: 0)
-            }
-            val dbSizeKB = dbFile.length() / 1024
-            logger.i(
-                "SettingsViewModel.importDatabase",
-                "Import completed successfully",
-                mapOf(
-                    "tasksImported" to tasksCount,
-                    "timeEntriesImported" to timeEntriesCount,
-                    "notesImported" to notesCount,
-                    "databaseSizeKB" to dbSizeKB,
-                ),
-            )
-            breadcrumb(stage = "settings_import_completed", data = mapOf("dbSizeKB" to dbSizeKB))
-            updateUiState {
-                it.copy(
-                    taskCount = tasksCount,
-                    timeEntryCount = timeEntriesCount,
-                    noteCount = notesCount,
-                    databaseSizeKb = dbSizeKB,
-                    isImporting = false,
-                    importResult = ImportResult.Success(
-                        tasksImported = tasksCount,
-                        timeEntriesImported = timeEntriesCount,
-                        notesImported = notesCount,
-                    ),
-                )
-            }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e(
                 "SettingsViewModel.importDatabase",
-                "Import failed with exception",
+                "Import failed before the live database was touched",
                 e,
                 mapOf(
                     "errorMessage" to (e.message ?: "Unknown error"),
                     "errorType" to e.javaClass.simpleName,
+                    "pausedForPassphrase" to pausedForPassphrase,
                 ),
             )
             breadcrumb(
@@ -387,10 +315,12 @@ fun SettingsViewModel.importDatabase(
                     "errorMessage" to (e.message ?: "unknown"),
                 ),
             )
-            // The import closed the session before it moved the files, so a failure that is not the
-            // passphrase gate must put the user back on the database the rollback just restored.
             if (!pausedForPassphrase) {
-                reopenSessionAfterImport()
+                withContext(Dispatchers.IO) {
+                    deleteStagingArtifacts(stagingFile)
+                    pendingEncryptedImportDbFile = null
+                    databaseEncryptionManager.clearEncryptionPrefsBackup()
+                }
             }
             val rawMessage = e.message ?: "Import failed"
             val resolvedMessage =
@@ -413,10 +343,10 @@ fun SettingsViewModel.importDatabase(
 }
 
 /**
- * Resumes a paused encrypted import: verifies [passphrase] can unlock the
- * imported DB, adopts it as the new local passphrase, then discards the prefs
- * + artifact backups and reports the imported counts. On a wrong passphrase it
- * stays on the gate; on any other failure it restores the backups.
+ * Resumes a paused encrypted import: verifies [passphrase] can unlock the staged database, reads its
+ * counts, then swaps it over the live database and opens it. On a wrong passphrase it stays on the
+ * gate with the live session untouched; on any other failure it restores the pre-import files and
+ * session.
  */
 @Suppress("TooGenericExceptionCaught") // Intentional: settings pipeline; multiple failure modes
 fun SettingsViewModel.resumeImportWithPassphrase(
@@ -434,38 +364,75 @@ fun SettingsViewModel.resumeImportWithPassphrase(
     )
     scope.launch {
         updateUiState { it.copy(isImporting = true, importPassphraseError = null) }
-        try {
-            withContext(Dispatchers.IO) {
-                val dbFile = pendingEncryptedImportDbFile
-                    ?: throw IllegalStateException("No pending encrypted import DB to resume")
-                val canUnlock = probe.canOpen(
-                    databaseFile = dbFile,
-                    passphrase = passphrase,
-                    logTag = "SettingsViewModel.resumeImportWithPassphrase",
-                )
-                if (!canUnlock) {
-                    logger.w(
-                        "SettingsViewModel.resumeImportWithPassphrase",
-                        "Encrypted import passphrase verification failed",
-                    )
-                    throw IllegalStateException(
-                        strings.dbImportPassphraseWrong,
-                    )
+        val stagingFile =
+            pendingEncryptedImportDbFile
+                ?: run {
+                    updateUiState { it.copy(isImporting = false, importResult = ImportResult.Error("No staged import to resume")) }
+                    return@launch
                 }
-                breadcrumb(stage = "settings_resume_import_passphrase_verified")
+        var swapStarted = false
+        try {
+            // Verify and count on the staged file while the live database is still open and untouched.
+            val (tasksCount, timeEntriesCount, notesCount) =
+                withContext(Dispatchers.IO) {
+                    val canUnlock =
+                        probe.canOpen(
+                            databaseFile = stagingFile,
+                            passphrase = passphrase,
+                            logTag = "SettingsViewModel.resumeImportWithPassphrase",
+                        )
+                    if (!canUnlock) {
+                        logger.w(
+                            "SettingsViewModel.resumeImportWithPassphrase",
+                            "Encrypted import passphrase verification failed",
+                        )
+                        throw IllegalStateException(strings.dbImportPassphraseWrong)
+                    }
+                    breadcrumb(stage = "settings_resume_import_passphrase_verified")
+                    val counts =
+                        DatabaseImportIntegritySupport.readCoreCounts(
+                            databaseFile = stagingFile,
+                            passphrase = passphrase,
+                            encryptionProbe = probe,
+                        )
+                    Triple(counts["tasks"] ?: 0, counts["time_entries"] ?: 0, counts["notes"] ?: 0)
+                }
 
-                // Adopt the imported DB's passphrase as the new local passphrase.
+            // From here the files change. The close is withheld from the UI as a maintenance window so
+            // the Settings screen (and this prompt) is not replaced by the unlock gate mid-swap.
+            sessionManager.beginInProcessSwap()
+            swapStarted = true
+            withContext(Dispatchers.IO) {
+                val originalPassphrase =
+                    if (sessionManager.isDbOpen()) sessionManager.requireOpenPassphrase() else null
+                pendingImportOriginalPassphrase = originalPassphrase
                 val configured = databaseEncryptionManager.configurePassphrase(passphrase)
                 if (!configured) {
-                    throw IllegalStateException(
-                        strings.settingsImportErrorEncryptionConvertFailed,
-                    )
+                    throw IllegalStateException(strings.settingsImportErrorEncryptionConvertFailed)
                 }
                 breadcrumb(stage = "settings_resume_import_passphrase_configured")
 
-                // The import left the session closed before it moved the files. Open the imported
-                // database with the passphrase the user just proved, and only then discard the rollback
-                // material - a failed open still has somewhere to restore from.
+                sessionManager.checkpoint()
+                sessionManager.closeDatabase()
+                // The list is built AFTER the close: closing the last connection can remove the -wal and
+                // -shm files, and a pre-close list would ask the backup to copy paths that no longer exist.
+                val liveArtifacts =
+                    listDatabaseArtifactFiles(databaseFile)
+                        .filter { it.exists() && isActiveArtifact(it.name) }
+                val backupMappings = backupDatabaseArtifactFiles(liveArtifacts)
+                pendingEncryptedImportBackupMappings = backupMappings
+                if (backupMappings.isNotEmpty()) {
+                    logger.i(
+                        "SettingsViewModel.resumeImportWithPassphrase",
+                        "Created pre-import database backup snapshot",
+                        mapOf("backupFiles" to backupMappings.size),
+                    )
+                    breadcrumb(stage = "settings_import_backup_created", data = mapOf("backupFiles" to backupMappings.size))
+                }
+                val deletedFiles = deleteRuntimeDatabaseArtifacts(databaseFile)
+                breadcrumb(stage = "settings_import_runtime_artifacts_deleted", data = mapOf("filesDeleted" to deletedFiles))
+                moveStagingArtifactsIntoPlace(stagingFile, databaseFile)
+
                 val openResult = sessionManager.openDatabase(passphrase)
                 if (openResult.isFailure) {
                     throw IllegalStateException(
@@ -476,30 +443,20 @@ fun SettingsViewModel.resumeImportWithPassphrase(
                 pendingImportOriginalPassphrase = null
                 breadcrumb(stage = "settings_resume_import_session_opened")
 
-                // Success: discard encryption prefs backup and artifact backups.
+                // Success: the rollback material is no longer needed.
                 databaseEncryptionManager.clearEncryptionPrefsBackup()
-                val backupMappings = pendingEncryptedImportBackupMappings
+                cleanupDatabaseArtifactBackups(backupMappings)
                 pendingEncryptedImportDbFile = null
                 pendingEncryptedImportBackupMappings = emptyList()
-                cleanupDatabaseArtifactBackups(backupMappings)
+                deleteStagingArtifacts(stagingFile)
                 logger.i(
                     "SettingsViewModel.resumeImportWithPassphrase",
-                    "Finalized encrypted import resume cleanup",
+                    "Finalized encrypted import swap",
                     mapOf("backupFiles" to backupMappings.size),
                 )
-                breadcrumb(stage = "settings_resume_import_cleanup_done", data = mapOf("backupFiles" to backupMappings.size))
             }
-            val dbFile = databaseFile
-            val (tasksCount, timeEntriesCount, notesCount) = withContext(Dispatchers.IO) {
-                val counts =
-                    DatabaseImportIntegritySupport.readCoreCounts(
-                        databaseFile = dbFile,
-                        passphrase = passphrase,
-                        encryptionProbe = probe,
-                    )
-                Triple(counts["tasks"] ?: 0, counts["time_entries"] ?: 0, counts["notes"] ?: 0)
-            }
-            val dbSizeKB = dbFile.length() / 1024
+
+            val dbSizeKB = databaseFile.length() / 1024
             logger.i(
                 "SettingsViewModel.resumeImportWithPassphrase",
                 "Encrypted import completed",
@@ -526,6 +483,8 @@ fun SettingsViewModel.resumeImportWithPassphrase(
                     ),
                 )
             }
+        } catch (e: CancellationException) {
+            throw e
         } catch (e: Exception) {
             logger.e("SettingsViewModel.resumeImportWithPassphrase", "Failed to resume import with passphrase", e)
             breadcrumb(
@@ -535,32 +494,23 @@ fun SettingsViewModel.resumeImportWithPassphrase(
                     "errorMessage" to (e.message ?: "unknown"),
                 ),
             )
-            val isWrongPassphrase = e.message == strings.dbImportPassphraseWrong
-            if (isWrongPassphrase) {
+            if (e.message == strings.dbImportPassphraseWrong) {
                 logger.w(
                     "SettingsViewModel.resumeImportWithPassphrase",
                     "Wrong import passphrase entered; staying on passphrase gate",
                 )
                 updateUiState { it.copy(isImporting = false, importPassphraseError = e.message) }
             } else {
-                withContext(Dispatchers.IO) {
-                    databaseEncryptionManager.restoreEncryptionPrefs()
-                    val backupMappings = pendingEncryptedImportBackupMappings
-                    pendingEncryptedImportDbFile = null
-                    pendingEncryptedImportBackupMappings = emptyList()
-                    if (backupMappings.isNotEmpty()) {
-                        val restored = restoreDatabaseArtifactFiles(backupMappings)
-                        logger.i(
-                            "SettingsViewModel.resumeImportWithPassphrase",
-                            "Restored backups after resume failure",
-                            mapOf("restoredFiles" to restored, "backupFiles" to backupMappings.size),
-                        )
-                        breadcrumb(stage = "settings_resume_import_restore_done", data = mapOf("restoredFiles" to restored))
+                if (swapStarted) {
+                    rollbackImportSwap()
+                } else {
+                    withContext(Dispatchers.IO) {
+                        deleteStagingArtifacts(stagingFile)
+                        pendingEncryptedImportDbFile = null
+                        databaseEncryptionManager.restoreEncryptionPrefs()
+                        databaseEncryptionManager.clearEncryptionPrefsBackup()
                     }
-                    databaseEncryptionManager.clearEncryptionPrefsBackup()
                 }
-                // The rollback restored the files the session was closed on; reopen them.
-                reopenSessionAfterImport()
                 updateUiState {
                     it.copy(
                         isImporting = false,
@@ -569,44 +519,40 @@ fun SettingsViewModel.resumeImportWithPassphrase(
                     )
                 }
             }
+        } finally {
+            if (swapStarted) {
+                sessionManager.endInProcessSwap(sessionManager.isDbOpen())
+            }
         }
     }
 }
 
 /**
- * Aborts a paused encrypted-import passphrase gate: restores the original
- * encryption prefs, deletes the staged imported DB, restores any pre-import
- * artifact backup, and clears the passphrase UI state.
+ * Aborts a paused encrypted-import passphrase gate: deletes the staged import, restores the original
+ * encryption prefs, and clears the passphrase UI state.
+ *
+ * The live database, its artifacts and the open session were never touched while the gate was up, so
+ * there is nothing to restore and no session to reopen.
  */
 fun SettingsViewModel.cancelImportPassphrase() {
     logger.i("SettingsViewModel.cancelImportPassphrase", "User cancelled encrypted import passphrase prompt")
     breadcrumb(stage = "settings_resume_import_cancelled")
     scope.launch {
         withContext(Dispatchers.IO) {
-            databaseEncryptionManager.restoreEncryptionPrefs()
-            val deleted = deleteRuntimeDatabaseArtifacts(localDatabaseFile)
-            val backupMappings = pendingEncryptedImportBackupMappings
+            val stagingFile = pendingEncryptedImportDbFile
+            if (stagingFile != null) deleteStagingArtifacts(stagingFile)
             pendingEncryptedImportDbFile = null
             pendingEncryptedImportBackupMappings = emptyList()
-            if (backupMappings.isNotEmpty()) {
-                val restored = restoreDatabaseArtifactFiles(backupMappings)
-                logger.i(
-                    "SettingsViewModel.cancelImportPassphrase",
-                    "Restored backups while cancelling import passphrase gate",
-                    mapOf("restoredFiles" to restored, "backupFiles" to backupMappings.size),
-                )
-            }
+            pendingImportOriginalPassphrase = null
+            databaseEncryptionManager.restoreEncryptionPrefs()
             databaseEncryptionManager.clearEncryptionPrefsBackup()
             logger.i(
                 "SettingsViewModel.cancelImportPassphrase",
                 "Cancelled import passphrase gate cleanup complete",
-                mapOf("deletedRuntimeArtifacts" to deleted),
+                mapOf("deletedStagedImport" to (stagingFile != null)),
             )
-            breadcrumb(stage = "settings_resume_import_cancel_cleanup_done", data = mapOf("deletedRuntimeArtifacts" to deleted))
+            breadcrumb(stage = "settings_resume_import_cancel_cleanup_done")
         }
-        // Cancelling the gate restores the user's own artifacts; reopen them with the passphrase the
-        // session had before the import closed it.
-        reopenSessionAfterImport()
         updateUiState {
             it.copy(
                 awaitingImportPassphrase = false,

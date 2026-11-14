@@ -73,4 +73,28 @@ class DatabaseSessionCloseTest {
         assertThat(second.isSuccess).isTrue()
         assertThat(manager.isDbOpen()).isFalse()
     }
+
+    @Test
+    fun `an in-process swap withholds the closed state until it reopens`() {
+        manager.beginInProcessSwap()
+        manager.closeDatabase()
+
+        // The handle is gone, but the UI signal stays open: the screen that owns the import prompt must
+        // not be replaced by the unlock gate mid-swap.
+        assertThat(manager.isDbOpen()).isFalse()
+        assertThat(manager.isOpen.value).isTrue()
+
+        manager.endInProcessSwap(sessionOpen = true)
+
+        assertThat(manager.isOpen.value).isTrue()
+    }
+
+    @Test
+    fun `a failed in-process swap publishes the closed state`() {
+        manager.beginInProcessSwap()
+        manager.closeDatabase()
+        manager.endInProcessSwap(sessionOpen = false)
+
+        assertThat(manager.isOpen.value).isFalse()
+    }
 }
