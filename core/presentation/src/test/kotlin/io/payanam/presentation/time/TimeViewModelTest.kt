@@ -1817,7 +1817,10 @@ class TimeViewModelTest {
     @Test
     fun `continuing does not rewrite the finished entry or reuse its start time`() =
         runTest {
-            val finished = entry("last", startedAt = TASKS_TEST_TIME, endedAt = TASKS_TEST_TIME.plusHours(1))
+            // Relative to now, not to midnight: the assertion compares against the tap time, and a
+            // fixed time-of-day would fail in a timezone where CI runs before that hour.
+            val finishedEnd = LocalDateTime.now().minusHours(1)
+            val finished = entry("last", startedAt = finishedEnd.minusHours(1), endedAt = finishedEnd)
             timeEntryRepository.allEntries = listOf(finished)
             val viewModel = viewModel()
             advanceUntilIdle()
@@ -1827,7 +1830,7 @@ class TimeViewModelTest {
 
             assertTrue(timeEntryRepository.updated.isEmpty())
             val start = timeEntryRepository.started.single()
-            assertTrue(start.startedAt.isAfter(finished.endedAt!!))
+            assertTrue(start.startedAt.isAfter(finishedEnd))
         }
 
     /** An entry outside the selected day can still be continued by id. */
