@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.annotation.VisibleForTesting
 import androidx.core.app.NotificationCompat
 import dagger.hilt.android.AndroidEntryPoint
 import io.payanam.FeatureFlags
@@ -208,6 +209,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
             actionType = NotificationActionCoordinator.ACTION_TYPE_COMPLETE,
             notificationIdInt = notificationIdInt,
             taskId = taskId,
+            dueAt = dueAt,
         )
         val missIntent = reminderActionIntent(
             context = context,
@@ -215,6 +217,7 @@ class TaskReminderReceiver : BroadcastReceiver() {
             actionType = NotificationActionCoordinator.ACTION_TYPE_MISS,
             notificationIdInt = notificationIdInt,
             taskId = taskId,
+            dueAt = dueAt,
         )
         val completePendingIntent = PendingIntent.getActivity(
             context,
@@ -307,18 +310,23 @@ class TaskReminderReceiver : BroadcastReceiver() {
      * [MainActivity.onNewIntent] instead of stacking a second activity. Carries ids only: the
      * activity path needs no task title.
      */
-    private fun reminderActionIntent(
+    @VisibleForTesting
+    internal fun reminderActionIntent(
         context: Context,
         intentAction: String,
         actionType: String,
         notificationIdInt: Int,
         taskId: String,
+        dueAt: LocalDateTime?,
     ): Intent = Intent(context, MainActivity::class.java).apply {
         action = intentAction
         flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
         putExtra(EXTRA_REMINDER_ACTION_TYPE, actionType)
         putExtra(EXTRA_NOTIFICATION_ID_INT, notificationIdInt)
         putExtra(EXTRA_TASK_ID, taskId)
+        // The occurrence belongs to the reminder's day, not the tap's. Carried through the activity
+        // intent because the tap path opens MainActivity rather than the broadcast receiver.
+        dueAt?.let { putExtra(EXTRA_DUE_AT, it.toString()) }
     }
 
     private fun notificationIdToInt(notificationId: String): Int {

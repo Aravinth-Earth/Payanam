@@ -89,6 +89,13 @@ class DatabaseSessionManager
         private var openInFlight = false
         private var closeRequested = false
 
+        // True between an in-process maintenance close and its reopen. An import closes the session to
+        // replace the files and immediately reopens the imported database; publishing the closed state
+        // mid-swap would tear the Settings screen (and its import prompt) out of composition and raise the
+        // unlock gate for a session that is about to exist again. If the reopen fails, endInProcessSwap
+        // publishes the closed state, so the normal gate appears.
+        private var maintenanceClose = false
+
         /**
          * Opens Room with SQLCipher using [passphrase]. Idempotent if already open with the
          * same passphrase; callers should not call this redundantly.
@@ -201,7 +208,7 @@ class DatabaseSessionManager
                         closeRequested = false
                         _db = null
                         _openPassphrase = null
-                        _isOpen.value = false
+                        if (!maintenanceClose) _isOpen.value = false
                     }
                     runCatching { built?.close() }
                     logger.e("DatabaseSessionManager.openDatabase", "Failed to open DB session", error)
@@ -224,7 +231,7 @@ class DatabaseSessionManager
                     val handle = _db
                     _db = null
                     _openPassphrase = null
-                    _isOpen.value = false
+                    if (!maintenanceClose) _isOpen.value = false
                     handle
                 }
             val wasOpen = db != null
@@ -234,6 +241,31 @@ class DatabaseSessionManager
                 "DB session closed explicitly",
                 mapOf("wasOpen" to wasOpen),
             )
+        }
+
+        /**
+         * Marks the start of an in-process close/reopen that must not surface as a locked session.
+         *
+         * The import closes the session only to replace the files, then immediately opens the imported
+         * database. The owner of the import prompt lives on a screen the unlock gate would otherwise
+         * replace, so the closed state is withheld for that window. The caller must pair this with
+         * [endInProcessSwap] on every path.
+         */
+        fun beginInProcessSwap() {
+            synchronized(stateLock) { maintenanceClose = true }
+        }
+
+        /**
+         * Ends the window started by [beginInProcessSwap].
+         *
+         * A reopen that succeeded leaves the UI signal untouched; one that failed publishes the closed
+         * state so the normal unlock gate appears instead of leaving a dead screen.
+         */
+        fun endInProcessSwap(sessionOpen: Boolean) {
+            synchronized(stateLock) {
+                maintenanceClose = false
+                if (!sessionOpen) _isOpen.value = false
+            }
         }
 
         /**
@@ -552,6 +584,9 @@ class DatabaseSessionManager
         @Suppress("TooGenericExceptionCaught", "SwallowedException")
         private fun closeDatabaseForTimeout(generation: Int) {
             if (generation != sessionGeneration.get()) return
+            // An in-process swap owns the session for its short window; the timer it cancelled must not
+            // close the database the swap is about to replace.
+            if (synchronized(stateLock) { maintenanceClose }) return
             logger.i("DatabaseSessionManager.closeDatabaseForTimeout", "Closing DB session after inactivity timeout")
             CrashBreadcrumbs.record(
                 source = "DatabaseSessionManager.closeDatabaseForTimeout",
@@ -574,6 +609,7 @@ class DatabaseSessionManager
                     // Re-checked inside the lock: a touch that armed a new timer while the sentinel was being
                     // written still owns the session and this close must not take it.
                     if (generation != sessionGeneration.get()) return
+                    if (maintenanceClose) return
                     sessionGeneration.incrementAndGet()
                     inactivityJob = null
                     periodicCheckpointJob?.cancel()

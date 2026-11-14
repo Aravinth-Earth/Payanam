@@ -67,6 +67,7 @@ import io.payanam.notification.NotificationActionOutcome
 import io.payanam.notification.NotificationScheduler
 import io.payanam.notification.PendingNotificationAction
 import io.payanam.notification.PendingNotificationActionStore
+import io.payanam.notification.pendingNotificationActionFrom
 import io.payanam.platform.AndroidStartupRecovery
 import io.payanam.presentation.flags.FeatureFlagsState
 import io.payanam.receiver.NotificationActionReceiver
@@ -947,30 +948,31 @@ class MainActivity : FragmentActivity() {
     // replay it; only an intent carrying one of our own notification action strings is applied.
     private fun handleReminderActionIntent(intent: Intent?) {
         if (intent == null) return
-        val actionType = intent.getStringExtra(TaskReminderReceiver.EXTRA_REMINDER_ACTION_TYPE)
-        val taskId = intent.getStringExtra(TaskReminderReceiver.EXTRA_TASK_ID)
-        if (actionType == null && taskId == null) return
-        val notificationId = intent.getIntExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_ID_INT, -1)
-        consumeReminderActionExtras(intent)
-        if (actionType.isNullOrBlank() || taskId.isNullOrBlank()) {
-            logger.w(
-                LOG_SOURCE,
-                "Missing action type or taskId for reminder action",
-                mapOf(
-                    "actionTypePresent" to !actionType.isNullOrBlank(),
-                    "taskIdPresent" to !taskId.isNullOrBlank(),
-                    "notificationId" to notificationId,
-                ),
-            )
+        val action = pendingNotificationActionFrom(intent)
+        if (action == null) {
+            val actionTypePresent = intent.getStringExtra(TaskReminderReceiver.EXTRA_REMINDER_ACTION_TYPE) != null
+            val taskIdPresent = intent.getStringExtra(TaskReminderReceiver.EXTRA_TASK_ID) != null
+            if (actionTypePresent || taskIdPresent) {
+                logger.w(
+                    LOG_SOURCE,
+                    "Missing action type or taskId for reminder action",
+                    mapOf(
+                        "actionTypePresent" to actionTypePresent,
+                        "taskIdPresent" to taskIdPresent,
+                        "notificationId" to intent.getIntExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_ID_INT, -1),
+                    ),
+                )
+            }
             return
         }
-        if (expectedActionTypeFor(intent.action) != actionType) {
+        consumeReminderActionExtras(intent)
+        if (expectedActionTypeFor(intent.action) != action.actionType) {
             logger.w(
                 LOG_SOURCE,
                 "Ignoring reminder action intent that did not come from our notification",
                 mapOf(
                     "action" to (intent.action ?: "none"),
-                    "actionType" to actionType,
+                    "actionType" to action.actionType,
                     "callingPackage" to (callingPackage ?: "none"),
                 ),
             )
@@ -980,24 +982,18 @@ class MainActivity : FragmentActivity() {
             logger.i(
                 LOG_SOURCE,
                 "Ignoring reminder action because reminders are disabled",
-                mapOf("actionType" to actionType, "taskId" to taskId),
+                mapOf("actionType" to action.actionType, "taskId" to action.taskId),
             )
             return
         }
-        val action = PendingNotificationAction(
-            actionType = actionType,
-            taskId = taskId,
-            notificationId = notificationId,
-            recordedAtMillis = System.currentTimeMillis(),
-        )
         val sessionOpen = sessionManager.isDbOpen()
         logger.i(
             LOG_SOURCE,
             "Reminder action received",
             mapOf(
-                "actionType" to actionType,
-                "taskId" to taskId,
-                "notificationId" to notificationId,
+                "actionType" to action.actionType,
+                "taskId" to action.taskId,
+                "notificationId" to action.notificationId,
                 "sessionOpen" to sessionOpen,
             ),
         )
@@ -1022,6 +1018,7 @@ class MainActivity : FragmentActivity() {
         intent.removeExtra(TaskReminderReceiver.EXTRA_REMINDER_ACTION_TYPE)
         intent.removeExtra(TaskReminderReceiver.EXTRA_TASK_ID)
         intent.removeExtra(TaskReminderReceiver.EXTRA_NOTIFICATION_ID_INT)
+        intent.removeExtra(TaskReminderReceiver.EXTRA_DUE_AT)
         setIntent(intent)
     }
 

@@ -140,6 +140,7 @@ class NotificationActionReceiver : BroadcastReceiver() {
                     taskId = taskId,
                     notificationId = notificationIdInt,
                     recordedAtMillis = System.currentTimeMillis(),
+                    dueAt = intent.getStringExtra(TaskReminderReceiver.EXTRA_DUE_AT),
                 )
             val sessionOpen = sessionManager.isDbOpen()
             logger.i(

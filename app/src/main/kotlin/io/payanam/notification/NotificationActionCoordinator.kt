@@ -234,7 +234,9 @@ constructor(
             }
         }
         if (task.recurrenceEnabled) {
-            recordOccurrenceForDay(taskId, status)
+            // The occurrence belongs to the day the reminder was due, not the day the tap is processed:
+            // a reminder due before midnight and tapped after it still completes its own day.
+            recordOccurrenceForDay(taskId, status, action.dueDay() ?: LocalDate.now())
             if (FeatureFlags.minimalModeEnabled) {
                 logger.i(
                     LOG_SOURCE,
@@ -293,30 +295,32 @@ constructor(
     }
 
     /**
-     * Sets today's occurrence status for [taskId] on the (task, day) row, never appending a second
+     * Sets [day]'s occurrence status for [taskId] on the (task, day) row, never appending a second
      * row for the same day.
      *
-     * A day already carrying [status] is left untouched, so re-applying "completed" cannot move
-     * that row's `completedAt`. The row's tracked actual-completion fields and note are carried
-     * over unchanged.
+     * The day comes from the reminder that raised the action (falling back to today when the intent
+     * carried no due time), so a completion recorded from a notification lands on the day the user was
+     * reminded about. A day already carrying [status] is left untouched, so re-applying "completed"
+     * cannot move that row's `completedAt`. The row's tracked actual-completion fields and note are
+     * carried over unchanged.
      */
     private suspend fun recordOccurrenceForDay(
         taskId: String,
         status: String,
+        day: LocalDate,
     ) {
-        val today = LocalDate.now()
-        val existing = taskOccurrenceRepository.getOccurrenceForDate(taskId, today)
+        val existing = taskOccurrenceRepository.getOccurrenceForDate(taskId, day)
         if (existing?.status == status) {
             logger.i(
                 LOG_SOURCE,
                 "Occurrence already has this status; nothing written",
-                mapOf("taskId" to taskId, "status" to status, "date" to today.toString()),
+                mapOf("taskId" to taskId, "status" to status, "date" to day.toString()),
             )
             return
         }
         taskOccurrenceRepository.toggleOccurrence(
             taskId = taskId,
-            date = today,
+            date = day,
             newStatus = status,
             note = existing?.note,
             reason = "notification_action",
@@ -337,7 +341,8 @@ constructor(
                     )
                     return NotificationActionOutcome.NOT_APPLICABLE
                 }
-        // A recorded action carries no due time, so the scheduler's own default window applies.
+        // The action may carry the original due time, which is in the past; a snooze starts from now, so
+        // the scheduler's own default window applies.
         notificationScheduler.scheduleSnooze(task, dueAt = null)
         cancelDisplayedNotification(action.notificationId)
         logger.i(

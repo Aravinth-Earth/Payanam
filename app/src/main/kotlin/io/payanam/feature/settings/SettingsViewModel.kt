@@ -134,6 +134,15 @@ class SettingsViewModel(
     internal var pendingEncryptedImportDbFile: File? = null
     internal var pendingEncryptedImportBackupMappings: List<Pair<File, File>> = emptyList()
 
+    /**
+     * The passphrase the session was opened with when an import closed it.
+     *
+     * The import replaces the database files while the session is closed, so a cancelled or failed
+     * import must be able to put the user back on the database they already had. Cleared once the
+     * session is open again - with this passphrase on rollback, or the imported one on success.
+     */
+    internal var pendingImportOriginalPassphrase: String? = null
+
     // Auto-download state
     private var activeDownloadId: Long? = null
 
