@@ -88,9 +88,17 @@ object TestTags {
         fun tab(route: String): String = TAB_PREFIX + route
     }
 
+    /** The Time screen's controls: the start action, the stop action, and a tracked block on the timeline. */
+    object Time {
+        const val START_TRACKING_FAB = "time.start_tracking_fab"
+
+        const val STOP_TRACKING_BUTTON = "time.stop_tracking_button"
+
+        const val ENTRY_BLOCK = "time.entry_block"
+    }
+
     /** The tasks list, also drawn in `HABITS_ONLY` mode by the Habits tab, so the add action is one id. */
-    object Tasks {
-        const val ADD_BUTTON = "tasks.add_button"
+    object Tasks {        const val ADD_BUTTON = "tasks.add_button"
 
         const val ROW_PREFIX = "tasks.row."
 

@@ -1,0 +1,170 @@
+appId: io.payanam
+name: The permission warning follows whether a reminder will actually be armed
+---
+# Covers #66. The runner denies POST_NOTIFICATION before this flow and computes a due time
+# 12 minutes ahead, so:
+#   Auto (15-minute default)  -> fire time already past -> no alarm -> no warning
+#   Custom 0                  -> falls back to 15 minutes -> no alarm -> no warning
+#   Custom 1                  -> fire time 11 minutes ahead -> alarm -> warning
+- runFlow:
+    when:
+      visible:
+        id: "passphrase_unlock.passphrase_field"
+    commands:
+      - tapOn:
+          id: "passphrase_unlock.passphrase_field"
+      - inputText: "${PASS}"
+      - hideKeyboard
+      - tapOn:
+          id: "passphrase_unlock.unlock_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.tasks"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.tasks"
+
+# ---- Task 1: reminder mode Auto, due inside the 15-minute lead ----
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 30000
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${HABIT_NAME}-auto"
+- hideKeyboard
+- tapOn:
+    id: "task_add.due_time_button"
+- extendedWaitUntil:
+    visible:
+      id: "task_add.due_time_input_toggle"
+    timeout: 15000
+- tapOn:
+    id: "task_add.due_time_input_toggle"
+- tapOn:
+    id: "task_add.due_time_hour_field"
+- eraseText
+- inputText: "${DUE_HOUR}"
+- tapOn:
+    id: "task_add.due_time_minute_field"
+- eraseText
+- inputText: "${DUE_MINUTE}"
+- hideKeyboard
+- tapOn:
+    id: "task_add.due_time_confirm_button"
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 60000
+# No alarm was armed, so no warning may be attributed to the missing permission.
+- assertNotVisible: "${NOTIF_TITLE}"
+- takeScreenshot: 160-auto-no-warning
+
+# ---- Task 2: reminder mode Custom, 0 minutes ----
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${HABIT_NAME}-zero"
+- hideKeyboard
+- tapOn:
+    id: "task_add.due_time_button"
+- extendedWaitUntil:
+    visible:
+      id: "task_add.due_time_input_toggle"
+    timeout: 15000
+- tapOn:
+    id: "task_add.due_time_input_toggle"
+- tapOn:
+    id: "task_add.due_time_hour_field"
+- eraseText
+- inputText: "${DUE_HOUR}"
+- tapOn:
+    id: "task_add.due_time_minute_field"
+- eraseText
+- inputText: "${DUE_MINUTE}"
+- hideKeyboard
+- tapOn:
+    id: "task_add.due_time_confirm_button"
+- tapOn:
+    id: "task_add.reminder_mode.custom"
+- tapOn:
+    id: "task_add.reminder_custom_minutes_field"
+- eraseText
+- inputText: "0"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 60000
+- assertNotVisible: "${NOTIF_TITLE}"
+- takeScreenshot: 161-zero-no-warning
+
+# ---- Task 3: reminder mode Custom, 1 minute ----
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${HABIT_NAME}-one"
+- hideKeyboard
+- tapOn:
+    id: "task_add.due_time_button"
+- extendedWaitUntil:
+    visible:
+      id: "task_add.due_time_input_toggle"
+    timeout: 15000
+- tapOn:
+    id: "task_add.due_time_input_toggle"
+- tapOn:
+    id: "task_add.due_time_hour_field"
+- eraseText
+- inputText: "${DUE_HOUR}"
+- tapOn:
+    id: "task_add.due_time_minute_field"
+- eraseText
+- inputText: "${DUE_MINUTE}"
+- hideKeyboard
+- tapOn:
+    id: "task_add.due_time_confirm_button"
+- tapOn:
+    id: "task_add.reminder_mode.custom"
+- tapOn:
+    id: "task_add.reminder_custom_minutes_field"
+- eraseText
+- inputText: "1"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+
+# This save arms an alarm, so the dialog naming the loss must appear.
+- extendedWaitUntil:
+    visible: "${NOTIF_TITLE}"
+    timeout: 30000
+- assertVisible: "${NOTIF_REMINDER_BODY}"
+- takeScreenshot: 162-one-warns
+- tapOn: "${NOTIF_NOT_NOW}"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 30000

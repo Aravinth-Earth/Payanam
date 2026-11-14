@@ -1,0 +1,62 @@
+appId: io.payanam
+name: The timer notification offer appears while notifications are blocked
+---
+# Covers #64, first half. The runner denies POST_NOTIFICATION before this flow.
+# A cold start makes the flow idempotent: an offer left up by an earlier failed run would
+# otherwise sit over the Time screen and hide both the start and stop controls.
+# The launch pins notifications to denied: a bare launchApp grants every declared runtime
+# permission, which would undo the runner's revoke before the app ever reads it.
+- launchApp:
+    stopApp: true
+    permissions:
+      notifications: deny
+- runFlow:
+    when:
+      visible:
+        id: "passphrase_unlock.passphrase_field"
+    commands:
+      - tapOn:
+          id: "passphrase_unlock.passphrase_field"
+      - inputText: "${PASS}"
+      - hideKeyboard
+      - tapOn:
+          id: "passphrase_unlock.unlock_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.time"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.time"
+
+# A session left running would hide the start action and skip the transition.
+- runFlow:
+    when:
+      visible:
+        id: "time.stop_tracking_button"
+    commands:
+      - tapOn:
+          id: "time.stop_tracking_button"
+      - extendedWaitUntil:
+          visible:
+            id: "edit_time_entry_confirm_button"
+          timeout: 20000
+      - tapOn:
+          id: "edit_time_entry_confirm_button"
+      - extendedWaitUntil:
+          visible:
+            id: "time.start_tracking_fab"
+          timeout: 30000
+
+- tapOn:
+    id: "time.start_tracking_fab"
+- extendedWaitUntil:
+    visible: "^${LOC_START}$"
+    timeout: 20000
+- tapOn: "^${LOC_START}$"
+# The offer is raised on the transition into tracking, so it is on screen before the stop
+# control is reachable (a modal dialog hides the content behind it). Assert the offer first.
+- extendedWaitUntil:
+    visible: "${NOTIF_TITLE}"
+    timeout: 30000
+- assertVisible: "${NOTIF_TIMER_BODY}"
+- takeScreenshot: 150-timer-offer-visible

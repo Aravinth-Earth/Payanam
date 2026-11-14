@@ -45,10 +45,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.repeatOnLifecycle
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.day.DayPlanTemplateScreen
 import io.payanam.core.ui.preferences.DimensionOption
 import io.payanam.core.ui.preferences.LocalAppPreferences
@@ -460,6 +462,7 @@ fun TimeScreen(
                                 logger.d("TimeScreen.stopTrackingTapped", "Stop tracking button tapped")
                                 activeModalTarget = TimeBlockModalTarget.ExistingEntry(active)
                             },
+                            modifier = Modifier.testTag(TestTags.Time.STOP_TRACKING_BUTTON),
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.error,
                             ),
@@ -506,6 +509,7 @@ fun TimeScreen(
                             logger.d("TimeScreen.startTrackingFabTapped", "Start tracking FAB tapped")
                             showStartTrackingDialog = true
                         },
+                        modifier = Modifier.testTag(TestTags.Time.START_TRACKING_FAB),
                     ) {
                         Icon(Icons.Default.PlayArrow, strings.locStartTracking)
                     }
