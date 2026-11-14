@@ -1825,12 +1825,16 @@ class TimeViewModelTest {
             val viewModel = viewModel()
             advanceUntilIdle()
 
+            val tapTime = LocalDateTime.now()
             viewModel.continueLastSession()
             advanceUntilIdle()
+            val afterTap = LocalDateTime.now()
 
             assertTrue(timeEntryRepository.updated.isEmpty())
             val start = timeEntryRepository.started.single()
-            assertTrue(start.startedAt.isAfter(finishedEnd))
+            // Between the tap and the assertion: a start earlier than the tap would still credit idle time.
+            assertTrue(!start.startedAt.isBefore(tapTime))
+            assertTrue(!start.startedAt.isAfter(afterTap))
         }
 
     /** An entry outside the selected day can still be continued by id. */

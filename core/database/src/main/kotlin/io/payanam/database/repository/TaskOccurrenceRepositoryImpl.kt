@@ -346,8 +346,11 @@ class TaskOccurrenceRepositoryImpl
                     statusReason = occurrence.statusReason,
                     note = occurrence.statusNote ?: occurrence.note,
                     completedAt = occurrence.completedAt,
-                    actualCompletedAt = occurrence.actualCompletedAt?.format(dateTimeFormatter),
-                    actualDurationMinutes = occurrence.actualDurationMinutes,
+                    // A status-only write (the task screen) carries no tracked actuals. Keep the ones the
+                    // existing row already has, the same rule the sibling overload applies; an explicit
+                    // clear goes through the method that owns it.
+                    actualCompletedAt = occurrence.actualCompletedAt?.format(dateTimeFormatter) ?: existing.actualCompletedAt,
+                    actualDurationMinutes = occurrence.actualDurationMinutes ?: existing.actualDurationMinutes,
                     completionRate = occurrence.completionRate,
                 )
                 runCatching { markDirtyForDay(LocalDate.parse(day.take(10)), "habit_occurrence_recorded") }

@@ -225,6 +225,46 @@ class TaskOccurrenceRepositoryDataIntegrityTest {
             assertThat(rows.single().note).isEqualTo("task screen wrote the day")
         }
 
+    @Test
+    /**
+     * A status-only write (the task screen) keeps the actual tracking values the row already has.
+     */
+    fun recordOccurrence_statusOnlyWrite_keepsStoredActuals() =
+        runBlocking {
+            val day = LocalDate.of(2026, 2, 25)
+            val taskId = insertHabitTask(day, "habit_integrity_5")
+            database.taskOccurrenceDao().insert(
+                io.payanam.database.entity.TaskOccurrenceEntity(
+                    id = "occ_with_actuals",
+                    taskId = taskId,
+                    dueDate = day.toString(),
+                    completedAt = null,
+                    actualCompletedAt = "2026-02-25T09:12:00",
+                    actualDurationMinutes = 7,
+                    status = "completed",
+                    statusReason = null,
+                    createdAt = day.atStartOfDay().toString(),
+                    completionRate = null,
+                    note = null,
+                ),
+            )
+
+            repository.recordOccurrence(
+                TaskOccurrence(
+                    id = "occ_status_only",
+                    taskId = taskId,
+                    occurrenceDate = day.toString(),
+                    status = "skipped",
+                    statusNote = "changed on the task screen",
+                ),
+            )
+
+            val stored = database.taskOccurrenceDao().getOccurrenceForTaskOnDate(taskId, day.toString())
+            assertThat(stored).isNotNull()
+            assertThat(stored?.actualCompletedAt).isEqualTo("2026-02-25T09:12:00")
+            assertThat(stored?.actualDurationMinutes).isEqualTo(7)
+        }
+
     /** A recurring task row the occurrence writes can hang off. */
     private suspend fun insertHabitTask(
         day: LocalDate,
