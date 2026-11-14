@@ -8,6 +8,7 @@ import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
 import android.os.Build
+import androidx.annotation.VisibleForTesting
 import androidx.core.app.NotificationCompat
 import dagger.hilt.android.AndroidEntryPoint
 import io.payanam.FeatureFlags
@@ -309,7 +310,8 @@ class TaskReminderReceiver : BroadcastReceiver() {
      * [MainActivity.onNewIntent] instead of stacking a second activity. Carries ids only: the
      * activity path needs no task title.
      */
-    private fun reminderActionIntent(
+    @VisibleForTesting
+    internal fun reminderActionIntent(
         context: Context,
         intentAction: String,
         actionType: String,
