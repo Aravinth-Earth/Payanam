@@ -161,7 +161,8 @@ class FrequencyHabitSyncTest {
             // 00:00, not 09:00: the window maths compares an INSTANT, so a 09:00 anchor passes or
             // fails depending on the hour the suite runs. The start of the day is the one value no
             // comparison can straddle.
-            val task = frequencyTask(dueDate = today.atStartOfDay())
+            val anchor = today.minusDays(2)
+            val task = frequencyTask(dueDate = today.atStartOfDay(), rule = "3/7!start=$anchor")
             val occurrences =
                 FakeOccurrences(
                     listOf(
@@ -175,7 +176,36 @@ class FrequencyHabitSyncTest {
             sync(tasks, occurrences).refresh(task.id)
 
             val update = tasks.updated.single()
-            assertTrue(update.newDueDate.toLocalDate().isAfter(today))
+            // window is [anchor, anchor + 6] = [today - 2, today + 4], so the next reminder is its end + 1.
+            assertEquals(today.plusDays(5), update.newDueDate.toLocalDate())
+        }
+
+    @Test
+    fun `the window follows the history, not the due date the sync rewrites`() =
+        runBlocking {
+            // The due date is moved to the next reminder on every sync, so an anchor taken from it slides
+            // the grid under completions already recorded. Two habits with identical history and different
+            // due dates must therefore land on the same window.
+            val createdAt = today.minusDays(9).atStartOfDay()
+            val moved = frequencyTask(id = "f1", dueDate = today.atStartOfDay(), createdAt = createdAt)
+            val stale = frequencyTask(id = "f2", dueDate = today.plusDays(3).atStartOfDay(), createdAt = createdAt)
+            val history = listOf(today.minusDays(2), today.minusDays(1), today)
+            val occurrences =
+                FakeOccurrences(
+                    history.flatMap { date ->
+                        listOf(occurrence(moved, date, "completed"), occurrence(stale, date, "completed"))
+                    },
+                )
+            val tasks = FakeTasks(listOf(moved, stale))
+            val sync = sync(tasks, occurrences)
+
+            sync.refresh(moved.id)
+            sync.refresh(stale.id)
+
+            // Three completions in the 7-day window that starts at the first of them: that window ends
+            // today + 4 whichever due date the habit carries, so the reminder is its end + 1 for both.
+            val dates = tasks.updated.map { it.newDueDate.toLocalDate() }
+            assertEquals(listOf(today.plusDays(5), today.plusDays(5)), dates)
         }
 
     @Test
@@ -263,10 +293,26 @@ class FrequencyHabitSyncTest {
                 tasks.updated.single().newDueDate.toLocalDate() <= today.plusDays(1),
             )
         }
+
+    @Test
+    fun `a write that matched no row leaves the sync without a success path`() =
+        runBlocking {
+            // Archived between the read and the write: the reminder was never moved, so the sync must not
+            // carry on as if it had been.
+            val task = frequencyTask(dueDate = today.atStartOfDay())
+            val tasks = FakeTasks(listOf(task), writesMatchNothing = true)
+
+            sync(tasks, FakeOccurrences(emptyList())).refresh(task.id)
+
+            assertEquals(1, tasks.updated.size)
+        }
+
     // ---- fakes -------------------------------------------------------------------------------------
 
     private class FakeTasks(
         initial: List<Task>,
+        /** Behaves like the store when the row went away between the read and the write. */
+        private val writesMatchNothing: Boolean = false,
     ) : TaskRepository {
         private val all = initial.toMutableList()
         val updated = mutableListOf<Update>()
@@ -280,10 +326,13 @@ class FrequencyHabitSyncTest {
             taskId: String,
             newDueDate: LocalDateTime,
             lastOccurrenceDate: LocalDateTime,
-        ) {
+        ): Int {
             updated += Update(taskId, newDueDate, lastOccurrenceDate)
+            if (writesMatchNothing) return 0
             val index = all.indexOfFirst { it.id == taskId }
-            if (index >= 0) all[index] = all[index].copy(dueDate = newDueDate)
+            if (index < 0) return 0
+            all[index] = all[index].copy(dueDate = newDueDate)
+            return 1
         }
 
         override fun getAllTasks(): Flow<List<Task>> = flowOf(all.toList())
@@ -341,6 +390,7 @@ class FrequencyHabitSyncTest {
 
         override suspend fun deleteOccurrence(taskId: String, date: LocalDate): Unit = unused()
         override suspend fun deleteOccurrence(id: String): Unit = unused()
+        override suspend fun clearActualDurationMinutes(taskId: String, date: LocalDate): Unit = unused()
 
         override suspend fun recordOccurrence(occurrence: TaskOccurrence) {
             recorded += occurrence

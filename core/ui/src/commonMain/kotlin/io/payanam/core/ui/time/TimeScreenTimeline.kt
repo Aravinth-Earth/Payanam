@@ -55,6 +55,7 @@ import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.model.TimeEntry
 import io.payanam.core.ui.components.DimensionIconCascadeLayer
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.shared.logging.AppLogger
@@ -452,6 +453,7 @@ private fun TimeEntryBlock(
                     shape = RoundedCornerShape(8.dp),
                 )
                 .clickable { onClick() }
+                .testTag(TestTags.Time.ENTRY_BLOCK)
                 .padding(4.dp)
                 // A block whose entire content is an icon cascade and, in the compact case, ONE line of
                 // `labelSmall` text clipped to a few characters - a screen reader reads that clipped fragment

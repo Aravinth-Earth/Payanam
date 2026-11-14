@@ -20,6 +20,7 @@ enum class DayTab {
  */
 data class DayUiState(
     val isLoading: Boolean = true,
+    val error: String? = null,
     val selectedDate: LocalDate = LocalDate.now(),
     val selectedTab: DayTab = DayTab.SUMMARY,
     val journalEntry: DayJournalEntry? = null,

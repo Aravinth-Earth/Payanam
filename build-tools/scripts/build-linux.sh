@@ -1,4 +1,6 @@
 #!/usr/bin/env bash
+#  SPDX-FileCopyrightText: 2026 Aravinth-Earth
+#  SPDX-License-Identifier: AGPL-3.0-or-later
 # ============================================================================
 #  Payanam Desktop Build Script — Linux (Compose JVM)
 #  Artifact: output/debs/Payanam_linux_<version>_<sha>_<debug|release>_<yyyyMMdd_HHmmss>.deb
@@ -179,6 +181,27 @@ if [[ ${#MISSING[@]} -gt 0 ]]; then
     fail "Missing desktop source files: ${MISSING[*]}"
 fi
 ok "Desktop source structure present"
+
+# First candidate that reports Python 3: python3, then python.
+resolve_payanam_python() {
+    local candidate
+    for candidate in python3 python; do
+        command -v "$candidate" >/dev/null 2>&1 || continue
+        if "$candidate" -c 'import sys; raise SystemExit(0 if sys.version_info.major == 3 else 1)' \
+            >/dev/null 2>&1; then
+            printf '%s' "$candidate"
+            return 0
+        fi
+    done
+    return 1
+}
+
+PYTHON3="$(resolve_payanam_python)" \
+    || fail "Python 3 is required for build preflight checks; python3 or python must be on PATH."
+
+# Store-listing assets. A 120000 symlink checks out as path text on Windows.
+"$PYTHON3" "$SCRIPT_DIR/check-store-listing-assets.py" --repo-root "$PROJECT_ROOT" \
+    || fail "Store-listing asset guard failed - fix the tracked mode or the image content."
 
 ok "All preflight checks passed!"
 

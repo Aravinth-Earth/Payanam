@@ -1208,7 +1208,7 @@ class TimeVisualsViewModelTest {
             taskId: String,
             newDueDate: LocalDateTime,
             lastOccurrenceDate: LocalDateTime,
-        ) = Unit
+        ): Int = 0
     }
 
     private class FakeDayPlanRepository : DayPlanRepository {
@@ -1370,6 +1370,11 @@ class TimeVisualsViewModelTest {
         ): TaskOccurrence = throw UnsupportedOperationException()
 
         override suspend fun deleteOccurrence(id: String) = Unit
+
+        override suspend fun clearActualDurationMinutes(
+            taskId: String,
+            date: LocalDate,
+        ) = Unit
     }
 
     // ────────────────────────────────────────────────────────────────

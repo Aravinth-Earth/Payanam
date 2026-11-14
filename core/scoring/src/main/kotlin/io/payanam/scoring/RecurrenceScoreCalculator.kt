@@ -54,6 +54,8 @@ data class FrequencyWindowSummary(
 ) {
     /** True when completed count meets or exceeds the effective target. */
     val isSatisfied: Boolean get() = completedCount >= effectiveTargetCount
+    /** True when skips removed the whole target: the window asks for nothing, so it neither counts nor blocks. */
+    val isNeutral: Boolean get() = effectiveTargetCount <= 0
     /** Completed-to-effective-target ratio, or 1.0 when there is no target. */
     val completionRatio: Double
         get() = if (effectiveTargetCount <= 0) 1.0 else completedCount.toDouble() / effectiveTargetCount
@@ -73,7 +75,10 @@ object RecurrenceScoreCalculator {
     private const val WINDOW_DAYS_7 = 7
     private const val WINDOW_DAYS_30 = 30
     private const val WINDOW_DAYS_90 = 90
-    
+
+    // Day index 0 is today.
+    private const val DAY_INDEX_TODAY = 0
+
     /**
      * Represents a recurrence frequency as "X times per Y days".
      *
@@ -151,14 +156,16 @@ object RecurrenceScoreCalculator {
         
         /**
          * Completion rate over the trailing [days]-day window (dayIndex 0 = today).
-         * Days with no actionable occurrences count as satisfied (1.0).
+         * A day the user skipped is not asked for, so it is not in the denominator; with nothing to ask
+         * the rate is 0.0, the same answer an empty history returns.
          */
         fun calculateRate(days: Int): Double {
-            val relevant = occurrences.filter { it.first <= days }
-            if (relevant.isEmpty()) return 1.0
+            val relevant = occurrences.filter { it.first < days }
             val completed = relevant.count { it.second == "completed" }
-            val total = relevant.count { it.second in listOf("completed", "skipped", "missed") }
-            return if (total > 0) completed.toDouble() / total else 1.0
+            // A skipped day is neutral in the streak loops below, so it must not sit in the rate's
+            // denominator either — otherwise one gesture scores two ways in the same answer.
+            val total = relevant.count { it.second == "completed" || it.second == "missed" }
+            return if (total > 0) completed.toDouble() / total else 0.0
         }
         
         // Calculate streaks
@@ -178,8 +185,12 @@ object RecurrenceScoreCalculator {
         }
         
         // Current streak from today backwards
-        val recentOccurrences = occurrences.filter { it.first <= WINDOW_DAYS_7 }.sortedBy { it.first }
-        for ((_, status) in recentOccurrences) {
+        val recentOccurrences = occurrences.filter { it.first < WINDOW_DAYS_7 }.sortedBy { it.first }
+        // Day index 0 is today: a still-pending row for it is open until the day ends and must not break
+        // the streak.
+        val currentStreakOccurrences =
+            recentOccurrences.dropWhile { it.first == DAY_INDEX_TODAY && it.second == "pending" }
+        for ((_, status) in currentStreakOccurrences) {
             if (status == "completed") {
                 currentStreak++
             } else if (status == "missed") {
@@ -288,8 +299,10 @@ object RecurrenceScoreCalculator {
             // Skipped doesn't break streak (like uHabits)
         }
         
-        // For current streak, process from today backwards
-        for (date in allScheduledDates) {
+        // For current streak, process from today backwards. Today's scheduled date is still open until the
+        // day ends, so an unrecorded one must not break the streak on its own.
+        val currentStreakDates = allScheduledDates.dropWhile { it == today && occurrences[it] == null }
+        for (date in currentStreakDates) {
             val status = occurrences[date]
             if (status == "completed") {
                 currentStreak++
@@ -376,21 +389,27 @@ object RecurrenceScoreCalculator {
         var longestStreak = 0
         var tempStreak = 0
 
-        allWindows.forEach { window ->
-            if (window.isSatisfied) {
-                tempStreak++
-                longestStreak = max(longestStreak, tempStreak)
-            } else {
-                tempStreak = 0
+        // A window that has not ended yet cannot break the streak: today's window stays unsatisfied until
+        // the habit is ticked, so counting it would report a 0 streak for the whole day.
+        val closedWindows = allWindows.dropLastWhile { !it.isSatisfied && !it.end.isBefore(today) }
+
+        closedWindows.forEach { window ->
+            // A neutral window (every required day skipped) is neither earned nor missed: it must not
+            // extend the streak, and it must not break one the user did earn.
+            when {
+                window.isNeutral -> Unit
+                window.isSatisfied -> {
+                    tempStreak++
+                    longestStreak = max(longestStreak, tempStreak)
+                }
+                else -> tempStreak = 0
             }
         }
 
-        allWindows.asReversed().forEach { window ->
-            if (window.isSatisfied) {
-                currentStreak++
-            } else {
-                return@forEach
-            }
+        for (window in closedWindows.asReversed()) {
+            if (window.isNeutral) continue
+            if (!window.isSatisfied) break
+            currentStreak++
         }
 
         val stats = CompletionStats(

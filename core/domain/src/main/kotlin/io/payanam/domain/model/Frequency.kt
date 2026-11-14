@@ -108,32 +108,44 @@ data class Frequency(
                 if (kv.size == 2) kv[0].trim() to kv[1].trim() else kv[0].trim() to ""
             }
             val type = parts["type"] ?: return DAILY
-            return when (type) {
-                "DAILY" -> DAILY
-                "WEEKDAYS_ONLY" -> WEEKDAYS
-                "SPECIFIC_WEEKDAYS" -> {
-                    val days = parts["weekdays"]?.split(",")
-                        ?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
-                    Frequency(days.size.coerceAtLeast(1), 7)
+            val frequency =
+                when (type) {
+                    "DAILY" -> DAILY
+                    "WEEKDAYS_ONLY" -> WEEKDAYS
+                    "SPECIFIC_WEEKDAYS" -> {
+                        val days = parts["weekdays"]?.split(",")
+                            ?.mapNotNull { it.toIntOrNull() }?.toSet() ?: emptySet()
+                        Frequency(days.size.coerceAtLeast(1), 7)
+                    }
+                    "MONTHLY_DATES" -> {
+                        val dates = parts["monthlyDates"]?.split(",")
+                            ?.mapNotNull { it.toIntOrNull() }?.toSet() ?: setOf(1)
+                        Frequency(dates.size.coerceAtLeast(1), 30)
+                    }
+                    "INTERVAL" -> {
+                        val interval = parts["interval"]?.toIntOrNull() ?: 1
+                        Frequency(1, interval.coerceAtLeast(1))
+                    }
+                    "FREQUENCY" -> {
+                        val freq = parts["freq"]?.split("/")
+                        val num = freq?.getOrNull(0)?.toIntOrNull() ?: 1
+                        val den = freq?.getOrNull(1)?.toIntOrNull() ?: 7
+                        Frequency(num.coerceAtLeast(1), den.coerceAtLeast(1))
+                    }
+                    "YEARLY" -> YEARLY
+                    else -> DAILY
                 }
-                "MONTHLY_DATES" -> {
-                    val dates = parts["monthlyDates"]?.split(",")
-                        ?.mapNotNull { it.toIntOrNull() }?.toSet() ?: setOf(1)
-                    Frequency(dates.size.coerceAtLeast(1), 30)
+            // A legacy CONFIG rule carries its own `start=`, and dropping it moved the grid onto the
+            // mutable due date. An unparseable value keeps the rule but leaves the anchor unset.
+            val start = parts["start"]
+            if (start.isNullOrBlank()) return frequency
+            val anchor =
+                try {
+                    LocalDate.parse(start)
+                } catch (e: DateTimeParseException) {
+                    return frequency
                 }
-                "INTERVAL" -> {
-                    val interval = parts["interval"]?.toIntOrNull() ?: 1
-                    Frequency(1, interval.coerceAtLeast(1))
-                }
-                "FREQUENCY" -> {
-                    val freq = parts["freq"]?.split("/")
-                    val num = freq?.getOrNull(0)?.toIntOrNull() ?: 1
-                    val den = freq?.getOrNull(1)?.toIntOrNull() ?: 7
-                    Frequency(num.coerceAtLeast(1), den.coerceAtLeast(1))
-                }
-                "YEARLY" -> YEARLY
-                else -> DAILY
-            }
+            return frequency.copy(anchorDate = anchor)
         }
 
         private fun legacyParseRRule(rrule: String): Frequency {

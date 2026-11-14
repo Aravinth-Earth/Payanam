@@ -5,7 +5,11 @@ package io.payanam.common.logging
 import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.test.runTest
+import kotlinx.coroutines.withTimeout
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -138,5 +142,48 @@ class UnifiedLoggerExportTest {
             assertThat(exported!!.exists()).isTrue()
             assertThat(exported.length()).isGreaterThan(0)
             assertThat(exported.parentFile.listFiles()!!.any { it.name.endsWith(".tmp") }).isFalse()
+        }
+
+    /**
+     * Rotation and export take the same mutex, so an export always copies a quiescent file: it neither
+     * deadlocks on a re-entrant lock nor publishes a copy that stopped where a rotation truncated the
+     * source. Every export must therefore be a complete, non-empty file ending on a line boundary, with
+     * no .tmp left behind.
+     */
+    @Test
+    fun exportLatestLog_publishesCompleteFileWhileSessionsRotate() =
+        runBlocking {
+            // If the export re-locked the non-reentrant mutex while already holding it, this times out
+            // instead of hanging the suite.
+            withTimeout(60_000) {
+                logger.i("Test", "line before rotations")
+                Thread.sleep(300)
+
+                val rotation =
+                    launch(Dispatchers.IO) {
+                        repeat(6) { index ->
+                            logger.startNewSession("export-race-$index")
+                            Thread.sleep(15)
+                        }
+                    }
+
+                val firstExport = logger.exportLatestLog()
+                assertThat(firstExport).isNotNull()
+                val exportDir = firstExport!!.parentFile!!
+
+                repeat(12) {
+                    val exported = logger.exportLatestLog()
+                    assertThat(exported).isNotNull()
+                    assertThat(exported!!.length()).isGreaterThan(0)
+                    // Entries and the session header both end with a newline, so a copy that stopped
+                    // mid-record is visible here.
+                    assertThat(exported.readText().endsWith("\n")).isTrue()
+                    Thread.sleep(15)
+                }
+
+                rotation.join()
+
+                assertThat(exportDir.listFiles()!!.any { it.name.endsWith(".tmp") }).isFalse()
+            }
         }
 }

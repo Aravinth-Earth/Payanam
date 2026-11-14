@@ -929,10 +929,9 @@ private fun desktopContentPane(
             onDatabaseReady = callbacks.onGraphDatabaseReady,
             // Android runs its post-unlock initialisation here (`handlePostUnlockInitState()`, MainActivity
             // :360). The desktop's equivalent is the reconcile the session-open path already runs on launch -
-            // same call, same guard - so what runs on the desktop is that reconcile and nothing more: this
-            // platform deliberately does not recompute score roll-ups (a declared divergence, see
-            // DesktopUnsupportedPorts.scoreRollupTrigger), and inventing a step it cannot perform would make
-            // the log claim a reconciliation that did not happen.
+            // same call, same guard - and that reconcile is all this platform runs: the score roll-up cascade
+            // it reaches is the shared `ScoreRollupTriggerJdbc`, bound by `DesktopPayanamDataLayer`, so no
+            // extra post-unlock step is invented here.
             //
             // Launched rather than awaited: the unlock's own navigation must not wait on a WAL-backed
             // rollover, and the reconcile is guarded, so an overlapping resume cannot double-run it.

@@ -23,6 +23,16 @@ import kotlin.coroutines.cancellation.CancellationException
 private const val BYTES_PER_KB: Long = 1024
 
 /**
+ * A snapshot failure that no retry can change: a non-empty WAL after the fold, or a snapshot that
+ * failed verification. [BackupCoordinatorCore.createSnapshot] rethrows it at once rather than paying
+ * [BackupRetryPolicy.retryDelayMs] for attempts that would fail identically.
+ */
+private class NonRetryableSnapshotFailure(
+    message: String,
+    cause: Throwable? = null,
+) : IllegalStateException(message, cause)
+
+/**
  * Shared backup-snapshot logic: the fold-WAL → check-WAL-empty → copy → verify sequence
  * that every Payanam platform must run before treating a database file as a backup.
  * Per-OS paths ([dbFile], [tempSnapshotDir]) and the database session ([checkpointPort])
@@ -86,7 +96,7 @@ class BackupCoordinatorCore(
                 // `-wal` every other platform checks, not a second spelling.
                 val walFile = File(dbFile.parent, dbFile.name + DatabaseArtifacts.WAL_SUFFIX)
                 if (walFile.exists() && walFile.length() > 0L) {
-                    throw IllegalStateException(
+                    throw NonRetryableSnapshotFailure(
                         if (checkpointPort.isDbOpen()) {
                             "WAL still contains pending pages after checkpoint"
                         } else {
@@ -95,7 +105,15 @@ class BackupCoordinatorCore(
                     )
                 }
                 dbFile.copyTo(tempSnapshot, overwrite = true)
-                BackupSnapshotVerification.verifySnapshot(tempSnapshot)
+                try {
+                    BackupSnapshotVerification.verifySnapshot(tempSnapshot)
+                } catch (e: CancellationException) {
+                    throw e
+                } catch (
+                    @Suppress("TooGenericExceptionCaught") error: Exception,
+                ) {
+                    throw NonRetryableSnapshotFailure(error.message ?: error::class.java.simpleName, error)
+                }
                 logger.i(
                     "BackupCoordinatorCore.createSnapshot",
                     "Backup snapshot created successfully",
@@ -125,6 +143,7 @@ class BackupCoordinatorCore(
                         "error" to (error.message ?: error::class.java.simpleName),
                     ),
                 )
+                if (error is NonRetryableSnapshotFailure) throw error
                 if (attemptNumber < retryPolicy.maxAttempts) {
                     delay(retryPolicy.retryDelayMs)
                 }

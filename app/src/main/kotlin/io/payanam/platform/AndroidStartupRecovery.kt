@@ -8,6 +8,7 @@ import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.scoring.RecurrenceManager
 import io.payanam.shared.platform.StartupRecovery
 import io.payanam.shared.platform.StartupRecoveryStep
+import kotlinx.coroutines.CancellationException
 import javax.inject.Inject
 import javax.inject.Provider
 import javax.inject.Singleton
@@ -20,7 +21,8 @@ import javax.inject.Singleton
  * desktop's does: one handler wrapped around several steps reports a failure under whichever name sits
  * nearest the catch, which is how a score roll-up failure once became a log line about recurring tasks.
  * A step that throws is logged under its own name and skipped; the steps that already ran are still
- * returned, so a partial recovery is reported as partial.
+ * returned, so a partial recovery is reported as partial. A [CancellationException] is not a step
+ * failure and is rethrown, so a cancelled scope stops the remaining steps instead of running them.
  *
  * The minimal-mode decision is made here, from the shared flag holder, so the caller does not have to
  * know which of the two shapes it is in: a build without habits returns an **empty** list rather than
@@ -51,6 +53,7 @@ constructor(
             }
             completed += StartupRecoveryStep.REPAIR_STUCK_RECURRING_TASKS
         }.onFailure { failure ->
+            if (failure is CancellationException) throw failure
             UnifiedLogger.getInstance().e(
                 SOURCE,
                 "Startup recovery step ${StartupRecoveryStep.REPAIR_STUCK_RECURRING_TASKS} failed",
@@ -63,6 +66,7 @@ constructor(
         }.onSuccess {
             completed += StartupRecoveryStep.AUTO_ADVANCE_RECURRING_TASKS
         }.onFailure { failure ->
+            if (failure is CancellationException) throw failure
             UnifiedLogger.getInstance().e(
                 SOURCE,
                 "Startup recovery step ${StartupRecoveryStep.AUTO_ADVANCE_RECURRING_TASKS} failed",
@@ -75,6 +79,7 @@ constructor(
         }.onSuccess {
             completed += StartupRecoveryStep.BACKFILL_SCORE_ROLLUPS
         }.onFailure { failure ->
+            if (failure is CancellationException) throw failure
             UnifiedLogger.getInstance().e(
                 SOURCE,
                 "Startup recovery step ${StartupRecoveryStep.BACKFILL_SCORE_ROLLUPS} failed",

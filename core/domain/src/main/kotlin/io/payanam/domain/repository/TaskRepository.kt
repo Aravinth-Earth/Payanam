@@ -91,10 +91,13 @@ interface TaskRepository {
     /**
      * Update recurrence state after completion/skip/miss or auto-advance.
      * Sets new due date and records last occurrence (Inc 4b: decay score removed).
+     *
+     * Returns the number of rows changed: 0 means nothing advanced (the task was archived between the
+     * read and this write), so callers must not report an advancement.
      */
     suspend fun updateRecurrenceState(
         taskId: String,
         newDueDate: java.time.LocalDateTime,
         lastOccurrenceDate: java.time.LocalDateTime
-    )
+    ): Int
 }

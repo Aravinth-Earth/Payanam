@@ -42,6 +42,7 @@ import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.hapticfeedback.HapticFeedbackType
 import androidx.compose.ui.platform.LocalHapticFeedback
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.Dp
@@ -352,7 +353,8 @@ fun HabitCard(
                             onCardClick()
                         },
                         onLongClick = { }, // Could add multi-select later
-                    ).padding(horizontal = 3.dp, vertical = 3.dp),
+                    )
+                    .padding(horizontal = 3.dp, vertical = 3.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             // Life dimension color bar indicator (Phase 4: use dimensionId)
@@ -376,14 +378,23 @@ fun HabitCard(
             )
 
             // Title (takes remaining space after checkmarks)
-            Text(
-                text = task.title,
-                style = MaterialTheme.typography.labelMedium,
-                fontWeight = FontWeight.Normal,
-                maxLines = 2,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier.weight(1f),
-            )
+            // The row's click also spans the checkmark panel, so the row tag sits on a node covering only
+            // the title area: its centre always reaches the row's click instead of a checkmark cell.
+            Box(
+                modifier =
+                    Modifier
+                        .weight(1f)
+                        .testTag(TestTags.Habits.row(task.id)),
+                contentAlignment = Alignment.CenterStart,
+            ) {
+                Text(
+                    text = task.title,
+                    style = MaterialTheme.typography.labelMedium,
+                    fontWeight = FontWeight.Normal,
+                    maxLines = 2,
+                    overflow = TextOverflow.Ellipsis,
+                )
+            }
 
             // Checkmark Panel (Canvas-based)
             CheckmarkPanelCanvas(

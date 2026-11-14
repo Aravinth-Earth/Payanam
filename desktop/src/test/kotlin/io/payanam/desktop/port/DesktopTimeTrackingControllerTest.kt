@@ -145,7 +145,7 @@ class DesktopTimeTrackingControllerTest {
                 taskId: String,
                 newDueDate: LocalDateTime,
                 lastOccurrenceDate: LocalDateTime,
-            ) = unexpected("updateRecurrenceState")
+            ): Int = unexpected("updateRecurrenceState")
         }
 
     private val taskOccurrences =
@@ -199,6 +199,11 @@ class DesktopTimeTrackingControllerTest {
             ): TaskOccurrence = unexpected("recordOccurrence(fields)")
 
             override suspend fun deleteOccurrence(id: String) = unexpected("deleteOccurrence(id)")
+
+            override suspend fun clearActualDurationMinutes(
+                taskId: String,
+                date: LocalDate,
+            ) = unexpected("clearActualDurationMinutes")
         }
 
     private val recurrence =

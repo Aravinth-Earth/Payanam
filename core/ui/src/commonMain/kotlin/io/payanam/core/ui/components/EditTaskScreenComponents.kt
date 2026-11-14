@@ -91,6 +91,53 @@ fun resolveAlignmentIndex(level: String): Int =
         else -> 1
     }
 
+private const val ENERGY_INDEX_LOW = 0
+private const val ENERGY_INDEX_MODERATE = 1
+private const val ENERGY_INDEX_HIGH = 2
+
+private const val CONTROL_INDEX_FULL = 0
+private const val CONTROL_INDEX_MOSTLY = 1
+private const val CONTROL_INDEX_OFFICE = 2
+private const val CONTROL_INDEX_EXTERNAL = 3
+
+/**
+ * Maps a task's stored energy level onto its index in the edit screen's three-button row.
+ *
+ * The row's order is `Low`, `Moderate`, `High`; the scoring config stores the same three labels,
+ * so a legacy synonym is folded onto its canonical label first. An unrecognized or blank level
+ * resolves to `1` (moderate), never `0`: the top step would silently rewrite the task as the
+ * lowest-energy option on the next save.
+ *
+ * @param level the task's stored `energyLevel`; matching is exact and case-sensitive.
+ */
+fun resolveEnergyIndex(level: String): Int =
+    when (level) {
+        "High", "High Energy" -> ENERGY_INDEX_HIGH
+        "Moderate", "Medium", "Moderate Energy" -> ENERGY_INDEX_MODERATE
+        "Low", "Low Energy" -> ENERGY_INDEX_LOW
+        else -> ENERGY_INDEX_MODERATE
+    }
+
+/**
+ * Maps a task's stored control level onto its index in the edit screen's four-button row.
+ *
+ * The row's order is `Full Control`, `Mostly Controllable`, `Office/Colleagues Dependent`,
+ * `External Dependent`, which covers four of the five labels the scoring config stores; `No
+ * Control` folds onto the last step. Legacy synonyms are folded onto their canonical label first.
+ * An unrecognized or blank level resolves to `2` (`Office/Colleagues Dependent`), the value the
+ * task repository already writes as its own default, rather than to `0`.
+ *
+ * @param level the task's stored `controlLevel`; matching is exact and case-sensitive.
+ */
+fun resolveControlIndex(level: String): Int =
+    when (level) {
+        "Full Control", "Self", "Self Controlled", "Fully Independent" -> CONTROL_INDEX_FULL
+        "Mostly Controllable" -> CONTROL_INDEX_MOSTLY
+        "Office/Colleagues Dependent" -> CONTROL_INDEX_OFFICE
+        "External Dependent", "Fully Dependent", "No Control" -> CONTROL_INDEX_EXTERNAL
+        else -> CONTROL_INDEX_OFFICE
+    }
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EditLifeDimensionDropdown(

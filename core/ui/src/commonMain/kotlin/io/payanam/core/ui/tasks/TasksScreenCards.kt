@@ -30,6 +30,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -41,6 +42,7 @@ import io.payanam.core.ui.preferences.labelForDimensionId
 import io.payanam.core.ui.theme.scoreColor
 import io.payanam.domain.model.Task
 import io.payanam.core.ui.components.DimensionIdentityRow
+import io.payanam.core.ui.components.TestTags
 import java.time.format.DateTimeFormatter
 
 private val taskDueFormatter24h: DateTimeFormatter = DateTimeFormatter.ofPattern("MMM d, HH:mm")
@@ -67,7 +69,10 @@ internal fun TaskListRow(
     var badgeTraceSent by remember(traceInteractionId, task.id) { mutableStateOf(false) }
     Card(
         onClick = onClick,
-        modifier = modifier.fillMaxWidth(),
+        modifier =
+            modifier
+                .fillMaxWidth()
+                .testTag(TestTags.Tasks.row(task.id)),
         colors = CardDefaults.cardColors(
             containerColor = MaterialTheme.colorScheme.surfaceContainerLow,
         ),

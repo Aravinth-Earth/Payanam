@@ -40,6 +40,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.TopAppBar
@@ -69,6 +73,7 @@ import io.payanam.core.ui.preferences.labelForDimensionId
 import io.payanam.core.ui.preferences.optionsForSelection
 import io.payanam.core.ui.preferences.visibleDimensionOptions
 import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.text.formatArgs
 import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.model.Note
 import io.payanam.presentation.notes.NotesScreenUiState
@@ -87,13 +92,36 @@ fun NotesScreen(viewModel: NotesViewModel) {
     val dimensionOptions = prefs.visibleDimensionOptions()
     var showAddNoteDialog by remember { mutableStateOf(false) }
     var showEditNoteDialog by remember { mutableStateOf<Note?>(null) }
+    val snackbarHostState = remember { SnackbarHostState() }
+    val actionFailedReasonPlaceholder = "__NOTES_ERROR_REASON__"
+    val actionFailedMessageTemplate = strings.locActionFailedWithReason.formatArgs(actionFailedReasonPlaceholder)
     LaunchedEffect(dimensionOptions, uiState.selectedDimensionId) {
         val visibleIds = dimensionOptions.map { it.id }.toSet()
         if (uiState.selectedDimensionId != null && uiState.selectedDimensionId !in visibleIds) {
             viewModel.setDimensionFilter(null)
         }
     }
+    // A failed write is reported over the list, never in place of it.
+    LaunchedEffect(uiState.error) {
+        val error = uiState.error ?: return@LaunchedEffect
+        snackbarHostState.showSnackbar(
+            message = actionFailedMessageTemplate.replace(actionFailedReasonPlaceholder, error),
+            withDismissAction = true,
+            duration = SnackbarDuration.Indefinite,
+        )
+        viewModel.clearError()
+    }
     Scaffold(
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.inverseSurface,
+                    contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                    actionColor = MaterialTheme.colorScheme.inversePrimary,
+                )
+            }
+        },
         topBar = {
             TopAppBar(
                 title = { Text(strings.settingsDatabaseNotes) },
@@ -413,8 +441,11 @@ private fun NoteDialog(
     }
     val dimensionOptions = prefs.optionsForSelection(selectedDimensionId)
     var dimensionExpanded by remember { mutableStateOf(false) }
+    var showDeleteConfirm by remember { mutableStateOf(false) }
     PayanamAlertDialog(
         onDismissRequest = onDismiss,
+        // The editor holds typed text: an outside tap must not discard it.
+        dismissOnClickOutside = false,
         title = {
             Text(
                 if (note == null) {
@@ -532,7 +563,7 @@ private fun NoteDialog(
                 // Delete button (for edit mode only)
                 if (onDelete != null) {
                     TextButton(
-                        onClick = onDelete,
+                        onClick = { showDeleteConfirm = true },
                         modifier = Modifier.fillMaxWidth(),
                     ) {
                         Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
@@ -568,6 +599,29 @@ private fun NoteDialog(
             }
         },
     )
+    // Deleting a note is permanent, so it is confirmed rather than run from the editor's tap.
+    if (showDeleteConfirm && onDelete != null) {
+        PayanamAlertDialog(
+            onDismissRequest = { showDeleteConfirm = false },
+            title = { Text(strings.locDeleteNoteConfirm) },
+            text = { Text(strings.locThisActionCannotBeUndone) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirm = false
+                        onDelete?.invoke()
+                    },
+                ) {
+                    Text(strings.locDelete, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirm = false }) {
+                    Text(strings.settingsActionCancel)
+                }
+            },
+        )
+    }
 }
 
 private fun parseTagsInput(rawTags: String): List<String> =

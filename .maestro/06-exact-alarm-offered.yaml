@@ -1,0 +1,39 @@
+appId: io.payanam
+name: The exact-alarm affordance appears only when the permission is missing
+---
+# With SCHEDULE_EXACT_ALARM denied, Settings shows the Reminders card and its row
+# opens the system screen that grants it. The runner asserts the follow-up (row gone,
+# pending reminders re-armed), not this flow.
+- launchApp
+- extendedWaitUntil:
+    visible:
+      id: "passphrase_unlock.passphrase_field"
+    timeout: 60000
+- tapOn:
+    id: "passphrase_unlock.passphrase_field"
+- inputText: "${PASS}"
+- hideKeyboard
+- tapOn:
+    id: "passphrase_unlock.unlock_button"
+# The unlock decrypts the database; nothing renders until it finishes.
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.settings"
+    timeout: 60000
+- tapOn:
+    id: "nav.tab.settings"
+- scrollUntilVisible:
+    element:
+      id: "settings.reminders_card"
+    direction: DOWN
+    timeout: 60000
+- tapOn:
+    id: "settings.reminders_card"
+- extendedWaitUntil:
+    visible:
+      id: "settings.exact_alarm_row"
+- takeScreenshot: 80-exact-alarm-row-visible
+- tapOn:
+    id: "settings.exact_alarm_row"
+# The system screen owns the toggle; this only proves the app sent the user there.
+- takeScreenshot: 81-system-exact-alarm-screen

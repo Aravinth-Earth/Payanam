@@ -7,8 +7,10 @@ import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.repository.TaskRepository
 import io.payanam.presentation.preferences.AppPreferenceKeys
+import kotlinx.coroutines.CoroutineExceptionHandler
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.runBlocking
@@ -70,11 +72,15 @@ class TasksViewModelLoadPipelineTest {
         if (::viewModel.isInitialized) viewModel.dispose()
     }
 
-    private fun createViewModel(settings: Map<String, String> = emptyMap()): TasksViewModel {
+    private fun createViewModel(
+        settings: Map<String, String> = emptyMap(),
+        repository: TaskRepository = taskRepository,
+        scope: CoroutineScope = CoroutineScope(testDispatcher),
+    ): TasksViewModel {
         if (::viewModel.isInitialized) viewModel.dispose()
         appSettingsRepository = FakeAppSettingsRepository(settings)
         return TasksViewModel(
-            taskRepository = taskRepository,
+            taskRepository = repository,
             taskOccurrenceRepository = taskOccurrenceRepository,
             notificationScheduler = notificationScheduler,
             appSettingsRepository = appSettingsRepository,
@@ -85,7 +91,7 @@ class TasksViewModelLoadPipelineTest {
             scoreWindowRepository = scoreWindowRepository,
             scoreChangeStream = scoreChangeStream,
             tracer = tracer,
-            scope = CoroutineScope(testDispatcher),
+            scope = scope,
         ).also {
             it.shapingDispatcher = testDispatcher
             viewModel = it
@@ -132,6 +138,7 @@ class TasksViewModelLoadPipelineTest {
                 listOf(
                     task(id = "overdue", dueDate = now.minusDays(1)),
                     task(id = "today", dueDate = now.withHour(23).withMinute(59)),
+                    task(id = "today-early", dueDate = now.toLocalDate().atStartOfDay()),
                     task(id = "future", dueDate = now.plusDays(3)),
                     task(id = "completed", status = "completed", dueDate = now.minusDays(2)),
                     task(id = "archived", status = "archived", dueDate = now.minusDays(1)),
@@ -139,8 +146,8 @@ class TasksViewModelLoadPipelineTest {
             createViewModel()
             advanceUntilIdle()
             val state = viewModel.uiState.value
-            assertThat(state.todayCount).isEqualTo(1) // "today"
-            assertThat(state.overdueCount).isEqualTo(1) // "overdue"
+            assertThat(state.todayCount).isEqualTo(2) // "today", "today-early"
+            assertThat(state.overdueCount).isEqualTo(1) // "overdue"; earlier today is not overdue
             assertThat(state.taskFilterCounts.future).isEqualTo(1) // "future"
             assertThat(state.isLoading).isFalse()
         }
@@ -415,6 +422,25 @@ class TasksViewModelLoadPipelineTest {
             assertThat(state.isLoading).isFalse()
         }
 
+    /**
+     * A closed database session makes `getAllTasks()` throw before a Flow exists, so `.catch` is never
+     * reached: the failure must land in `state.error`, not in the scope's uncaught handler.
+     */
+    @Test
+    fun `loadTasks reports a synchronous getAllTasks failure instead of failing the scope`() =
+        runTest(testDispatcher) {
+            val uncaught = mutableListOf<Throwable>()
+            val handler = CoroutineExceptionHandler { _, failure -> uncaught += failure }
+            createViewModel(
+                repository = ClosedSessionTaskRepository(),
+                scope = CoroutineScope(SupervisorJob() + testDispatcher + handler),
+            )
+            advanceUntilIdle()
+            assertThat(uncaught).isEmpty()
+            assertThat(viewModel.uiState.value.error).contains("session is closed")
+            assertThat(viewModel.uiState.value.isLoading).isFalse()
+        }
+
     // ── Load pipeline: score-change stream reaction ───────────────────
 
     /** A backfill event (non-today date) triggers loadTasks + day metrics refresh. */
@@ -531,6 +557,21 @@ class TasksViewModelLoadPipelineTest {
             )
         val result = filterAndSortTasks(tasks, TaskFilter.OVERDUE, TaskSortOption.CREATED_ASC)
         assertThat(result.map { it.id }).containsExactly("overdue")
+    }
+
+    /** OVERDUE is day-based, so a task due earlier today is still a TODAY task. */
+    @Test
+    fun `overdue filter excludes tasks due earlier today`() {
+        // A fixed day: with LocalDate.now() this assertion turns into a failure at local midnight, when
+        // "earlier today" becomes "yesterday" before the filter runs.
+        val today = LocalDate.of(2026, 11, 7)
+        val tasks =
+            listOf(
+                task(id = "earlier-today", dueDate = today.atStartOfDay()),
+                task(id = "yesterday", dueDate = today.minusDays(1).atStartOfDay()),
+            )
+        val result = filterAndSortTasks(tasks, TaskFilter.OVERDUE, TaskSortOption.CREATED_ASC, today)
+        assertThat(result.map { it.id }).containsExactly("yesterday")
     }
 
     /** FUTURE filter keeps tasks with due date after today or null due date. */
@@ -952,4 +993,13 @@ class TasksViewModelLoadPipelineTest {
                 AppPreferenceKeys.KEY_HABIT_SORT_OPTION to HabitSortOption.BY_NAME.key,
             )
         }
+}
+
+/**
+ * [TaskRepository] whose `getAllTasks()` throws synchronously, as a closed database session does:
+ * the exception is raised before any Flow exists, so an upstream `.catch` cannot see it.
+ */
+private class ClosedSessionTaskRepository :
+    TaskRepository by FakeTaskRepository() {
+    override fun getAllTasks(): Flow<List<Task>> = throw IllegalStateException("Database session is closed")
 }

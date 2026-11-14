@@ -7,6 +7,9 @@
 # Android modules' JVM-side unit tests, so `app` and the two Android libraries
 # are no longer the only code whose tests run in no CI gate.
 #
+# Each job runs only when the changed paths can affect it; a workflow-file
+# change runs actionlint instead of the Kotlin gate.
+#
 # NOTE: this runs detekt only, NOT the full `preCommitCheck`. The repo's
 # spotless/ktlint and lint checks have pre-existing violations on `dev` that are
 # out of scope for this gate; adding them here would red-fail every PR for
@@ -19,12 +22,83 @@ on:
   push:
     branches: ["dev"]
   pull_request:
+    # Draft runs are skipped below, so ready_for_review is what triggers the gate once a
+    # draft is marked ready; listing types replaces the defaults, so all four are named.
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: ["main", "dev"]
 
+permissions:
+  contents: read
+
+# Superseded pull-request runs are cancelled: a new push to the same PR makes the
+# previous run's result irrelevant, and these jobs are long enough that letting the
+# stale run finish would queue behind it. Pushes to `dev` are NOT cancelled, because
+# that run is the one allowed to populate the Gradle cache (see cache-read-only below).
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event_name == 'pull_request' && github.ref || github.run_id }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
 jobs:
+  # Always runs, and tells the Kotlin jobs whether this change can affect them at
+  # all. Job-level permissions replace the workflow-level ones for this job, and
+  # `pull-requests: read` is what lets paths-filter list the PR's changed files.
+  changes:
+    name: Changed paths
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      pull-requests: read
+    outputs:
+      code: ${{ steps.filter.outputs.code }}
+      android: ${{ steps.filter.outputs.android }}
+      desktop: ${{ steps.filter.outputs.desktop }}
+      workflows: ${{ steps.filter.outputs.workflows }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Detect changed paths
+        id: filter
+        uses: dorny/paths-filter@ceb8a2b8f2d89434be7ff52d3de7ec3738c5cc9d # v4.0.3
+        with:
+          filters: |
+            code:
+              - 'app/**'
+              - 'core/**'
+              - 'desktop/**'
+              - 'gradle/**'
+              - '**/*.gradle.kts'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+              - '.github/workflows/**'
+            android:
+              - 'app/**'
+              - 'core/**'
+              - 'gradle/**'
+              - '**/*.gradle.kts'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+              - '.github/workflows/**'
+            desktop:
+              - 'desktop/**'
+              - 'core/**'
+              - 'gradle/**'
+              - '**/*.gradle.kts'
+              - 'gradle.properties'
+              - 'settings.gradle.kts'
+              - '.github/workflows/**'
+            workflows:
+              - '.github/**'
+
   detekt:
     name: Detekt static analysis
+    needs: changes
+    # A skipped job reports Success, so a failed change-detection must run the work
+    # instead of skipping it: `always()` plus the `result != 'success'` arm fails safe.
+    if: "!cancelled() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.code == 'true')"
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -37,6 +111,9 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          # Pull requests read the cache only; the `dev` push run is the one that writes it.
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
@@ -51,7 +128,10 @@ jobs:
 
   jvm-desktop-tests:
     name: JVM + desktop tests
+    needs: changes
+    if: "!cancelled() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.desktop == 'true')"
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -64,6 +144,9 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          # Pull requests read the cache only; the `dev` push run is the one that writes it.
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
@@ -82,7 +165,10 @@ jobs:
 
   android-unit-tests:
     name: Android unit tests
+    needs: changes
+    if: "!cancelled() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.android == 'true')"
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - name: Checkout repository
         uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -95,6 +181,9 @@ jobs:
 
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          # Pull requests read the cache only; the `dev` push run is the one that writes it.
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
 
       - name: Grant execute permission for gradlew
         run: chmod +x ./gradlew
@@ -108,3 +197,15 @@ jobs:
         # setup-android action; `compileSdk 36` is the same value the CodeQL job already compiles against.
         run: ./gradlew :app:testDebugUnitTest :core:database:testDebugUnitTest :core:common:testDebugUnitTest --no-daemon --console=plain
 
+  workflow-lint:
+    name: Workflow lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    needs: changes
+    if: "!cancelled() && github.event.pull_request.draft != true && (needs.changes.result != 'success' || needs.changes.outputs.workflows == 'true')"
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
+
+      - name: Run actionlint
+        uses: raven-actions/actionlint@3d39aea434753780c3b3d4a1a31c854b4dbf49d7 # v2.2.0

@@ -18,6 +18,8 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.domain.port.BackupTrigger
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.shared.database.PayanamDatabaseSchema
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import java.io.File
 import java.util.UUID
 import java.util.concurrent.TimeUnit
@@ -191,12 +193,15 @@ class AutoBackupWorker(
          * Reschedule periodic auto-backup from now so that the next auto backup fires
          * at (now + interval) rather than the original schedule. Called after a successful
          * manual backup to honour the user's expectation: interval since last backup.
+         *
+         * Suspends on [Dispatchers.IO] because it reads settings from the database; the caller runs on
+         * the main dispatcher and must not block on that read.
          */
-        fun rescheduleFromNow(context: Context, appSettingsRepository: AppSettingsRepository) {
+        suspend fun rescheduleFromNow(context: Context, appSettingsRepository: AppSettingsRepository) {
             val logger = UnifiedLogger.getInstance()
-            kotlinx.coroutines.runBlocking {
+            withContext(Dispatchers.IO) {
                 val enabled = appSettingsRepository.getSetting(KEY_AUTO_BACKUP_ENABLED)?.toBoolean() ?: false
-                if (!enabled) return@runBlocking
+                if (!enabled) return@withContext
                 val intervalMinutes = intervalKeyToMinutes(appSettingsRepository.getSetting(KEY_AUTO_BACKUP_INTERVAL))
                 logger.i(
                     "AutoBackupWorker.rescheduleFromNow",

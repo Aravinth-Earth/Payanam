@@ -58,15 +58,14 @@ internal class FrequencyHabitSync(
      * decides WHEN the next reminder is due. That is why it is separate from the advance path, which does
      * create occurrences for interval-style recurrences.
      */
-    suspend fun sync(task: Task) {
+    suspend fun sync(task: Task, today: LocalDate = LocalDate.now()) {
         val frequencyRule = Frequency.legacyParse(task.recurrenceRule)
         val occurrences = taskOccurrenceRepository.getOccurrencesByTaskId(task.id)
-        val today = LocalDate.now()
         val windowState = evaluateWindow(task, frequencyRule, occurrences, today)
         val occurrenceMap = occurrences.associateNotNull { occurrence ->
             parseOccurrenceDate(occurrence)?.let { it to occurrence.status }
         }
-        val anchorDate = frequencyRule.anchorDate ?: task.dueDate?.toLocalDate() ?: task.createdAt.toLocalDate()
+        val anchorDate = anchorDateOf(frequencyRule, task, occurrences)
         val stats = RecurrenceScoreCalculator.calculateFrequencyAwareStats(
             occurrences = occurrenceMap,
             frequency = frequencyRule,
@@ -74,7 +73,7 @@ internal class FrequencyHabitSync(
             today = today,
         )
         val nextReminderDate =
-            if (windowState.isSatisfied) {
+            if (windowState.isSatisfied || windowState.isNeutral) {
                 windowState.end.plusDays(1)
             } else {
                 val todayReminderDateTime = today.atTime(task.dueDate?.toLocalTime() ?: LocalTime.of(9, 0))
@@ -91,11 +90,22 @@ internal class FrequencyHabitSync(
                 ?: LocalDateTime.now()
         // Inc 4b: decay derived score removed — score roll-up (L1) owns scoring now.
 
-        taskRepository.updateRecurrenceState(
-            taskId = task.id,
-            newDueDate = newDueDate,
-            lastOccurrenceDate = latestOccurrenceDate,
-        )
+        val changed =
+            taskRepository.updateRecurrenceState(
+                taskId = task.id,
+                newDueDate = newDueDate,
+                lastOccurrenceDate = latestOccurrenceDate,
+            )
+        if (changed == 0) {
+            // The task was archived between the read above and this write: nothing was moved, so the
+            // success line would report a reminder that is not armed.
+            logger.w(
+                "FrequencyHabitSync.sync",
+                "No row updated; the task is no longer writable",
+                mapOf("taskId" to task.id),
+            )
+            return
+        }
 
         logger.i(
             "FrequencyHabitSync.sync",
@@ -121,7 +131,7 @@ internal class FrequencyHabitSync(
         occurrences: List<TaskOccurrence>,
         today: LocalDate,
     ): FrequencyWindowState {
-        val anchorDate = frequency.anchorDate ?: task.dueDate?.toLocalDate() ?: task.createdAt.toLocalDate()
+        val anchorDate = anchorDateOf(frequency, task, occurrences)
         val denominator = max(1, frequency.denominator)
         val daysSinceAnchor = max(0L, ChronoUnit.DAYS.between(anchorDate, today))
         val windowOffset = (daysSinceAnchor / denominator) * denominator
@@ -137,7 +147,7 @@ internal class FrequencyHabitSync(
                 anchorDate = anchorDate,
                 rangeStart = windowStart,
                 rangeEnd = windowEnd,
-            ).firstOrNull() ?: fallbackWindowSummary(anchorDate, frequency)
+            ).firstOrNull() ?: fallbackWindowSummary(anchorDate, frequency, today)
 
         return FrequencyWindowState(
             start = windowSummary.start,
@@ -160,7 +170,7 @@ internal class FrequencyHabitSync(
         if (!RecurrenceManager.isFrequencyRule(task)) return null
         val occurrences = taskOccurrenceRepository.getOccurrencesByTaskId(task.id)
         val frequency = Frequency.legacyParse(task.recurrenceRule)
-        val anchorDate = frequency.anchorDate ?: task.dueDate?.toLocalDate() ?: task.createdAt.toLocalDate()
+        val anchorDate = anchorDateOf(frequency, task, occurrences)
         val occurrenceMap = occurrences.associateNotNull { occurrence ->
             parseOccurrenceDate(occurrence)?.let { it to occurrence.status }
         }
@@ -179,15 +189,25 @@ internal class FrequencyHabitSync(
         runCatching { LocalDate.parse(occurrence.occurrenceDate.take(ISO_DATE_LENGTH)) }.getOrNull()
 
     /**
+     * The first day of the grid: stored anchor, else earliest occurrence, else creation — never the due
+     * date, which sync rewrites to the next reminder on every pass.
+     */
+    private fun anchorDateOf(frequency: Frequency, task: Task, occurrences: List<TaskOccurrence>): LocalDate =
+        frequency.anchorDate
+            ?: occurrences.mapNotNull(::parseOccurrenceDate).minOrNull()
+            ?: task.createdAt.toLocalDate()
+
+    /**
      * The window when the calculator returned none, which happens for an anchor date with no history behind
      * it. The counts are zero on purpose: an unmeasured window is not a satisfied one.
      */
     private fun fallbackWindowSummary(
         anchorDate: LocalDate,
         frequency: Frequency,
+        today: LocalDate,
     ): FrequencyWindowSummary {
         val denominator = max(1, frequency.denominator)
-        val daysSinceAnchor = max(0L, ChronoUnit.DAYS.between(anchorDate, LocalDate.now()))
+        val daysSinceAnchor = max(0L, ChronoUnit.DAYS.between(anchorDate, today))
         val windowOffset = (daysSinceAnchor / denominator) * denominator
         val windowStart = anchorDate.plusDays(windowOffset)
         return FrequencyWindowSummary(
@@ -225,4 +245,6 @@ internal data class FrequencyWindowState(
     val effectiveTargetCount: Int,
 ) {
     val isSatisfied: Boolean get() = effectiveTargetCount > 0 && completedCount >= effectiveTargetCount
+    /** True when skips removed the whole target: the window asks for nothing, so it neither counts nor blocks. */
+    val isNeutral: Boolean get() = effectiveTargetCount <= 0
 }

@@ -80,6 +80,7 @@ import io.payanam.presentation.tasks.tasksViewModel
 import io.payanam.presentation.time.timeTagEditorViewModel
 import io.payanam.presentation.time.timeViewModel
 import io.payanam.presentation.time.timeVisualsViewModel
+import io.payanam.shared.version.BuildLabel
 import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.platform.SupportState
@@ -275,6 +276,12 @@ internal class DesktopPayanamNavHostScreens(
                     uiState =
                         PreUnlockUpdateUiState(
                             buildNumber = DesktopBuildInfo.VERSION_CODE,
+                            buildLabel =
+                                BuildLabel.of(
+                                    DesktopBuildInfo.VERSION_NAME,
+                                    DesktopBuildInfo.BUILD_SHORT_SHA,
+                                    DesktopBuildInfo.BUILD_TIMESTAMP,
+                                ),
                             platformSupport = SupportState.NOT_APPLICABLE,
                         ),
                     // Lives in the port package, not here: this file's own render guard scans it for
@@ -542,7 +549,7 @@ internal class DesktopPayanamNavHostScreens(
             onOpenJournal = { nav.openJournal() },
             onOpenNotes = { nav.openNotes() },
             onOpenScoreDetail = { type, key ->
-                logger.i("PayanamNavHost", "Opening score detail from lenses", mapOf("type" to type, "key" to key))
+                logger.i("PayanamNavHost", "Opening score detail from lenses", mapOf("type" to type, "dimensionKey" to key))
                 nav.openScoreDetail(type, key)
             },
         )

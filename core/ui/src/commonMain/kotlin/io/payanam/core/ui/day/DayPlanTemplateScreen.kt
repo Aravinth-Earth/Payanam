@@ -37,10 +37,15 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.preferences.DimensionPreference
 import io.payanam.core.ui.preferences.LocalAppPreferences
 import io.payanam.core.ui.preferences.labelForDimension
@@ -72,6 +77,7 @@ fun DayPlanTemplateScreen(
     val strings = LocalUiStrings.current
     val appPrefs = LocalAppPreferences.current
     val dimensionOptions = appPrefs.visibleDimensions()
+    var templatePendingDelete by rememberSaveable { mutableStateOf<String?>(null) }
     Scaffold(
         topBar = {
             TopAppBar(
@@ -123,6 +129,27 @@ fun DayPlanTemplateScreen(
                 )
             } else {
                 // Template list
+                // The failure stays until it is dismissed, so a cancelled retry cannot leave a stale error
+                // above a list that is now fine.
+                if (uiState.errorMessage != null) {
+                    Row(
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .padding(horizontal = 16.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                    ) {
+                        Text(
+                            text = uiState.errorMessage ?: "",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.weight(1f),
+                        )
+                        TextButton(onClick = { viewModel.clearError() }) {
+                            Text(strings.locDismiss)
+                        }
+                    }
+                }
                 if (uiState.templates.isEmpty()) {
                     Box(
                         modifier = Modifier
@@ -162,13 +189,36 @@ fun DayPlanTemplateScreen(
                                     label?.let { it to alloc.plannedMinutes }
                                 },
                                 onEdit = { viewModel.startEditTemplate(template.id) },
-                                onDelete = { viewModel.deleteTemplate(template.id) },
+                                onDelete = { templatePendingDelete = template.id },
                             )
                         }
                     }
                 }
             }
         }
+    }
+    // A template delete is permanent and one tap away, so it is confirmed first.
+    if (templatePendingDelete != null) {
+        PayanamAlertDialog(
+            onDismissRequest = { templatePendingDelete = null },
+            title = { Text(strings.locDeleteTemplate) },
+            text = { Text(strings.locThisActionCannotBeUndone) },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        templatePendingDelete?.let { viewModel.deleteTemplate(it) }
+                        templatePendingDelete = null
+                    },
+                ) {
+                    Text(strings.locDelete, color = MaterialTheme.colorScheme.error)
+                }
+            },
+            dismissButton = {
+                TextButton(onClick = { templatePendingDelete = null }) {
+                    Text(strings.settingsActionCancel)
+                }
+            },
+        )
     }
 }
 

@@ -37,12 +37,15 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.TestTags
 import io.payanam.shared.logging.AppLogger
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.text.LocalUiStrings
+import io.payanam.core.ui.text.formatArgs
 import io.payanam.shared.settings.FocusModePreset
 
 /**
@@ -121,7 +124,8 @@ fun FocusModeSelectionScreen(
                 },
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(56.dp),
+                    .height(56.dp)
+                    .testTag(TestTags.Onboarding.FOCUS_MODE_CONTINUE_BUTTON),
             ) {
                 Text(
                     text = strings.locContinue,
@@ -140,6 +144,7 @@ fun FocusModeSelectionScreen(
                     )
                     onPresetSelected(FocusModePreset.FULL_SUITE)
                 },
+                modifier = Modifier.testTag(TestTags.Onboarding.FOCUS_MODE_SKIP_BUTTON),
             ) {
                 Text(
                     text = strings.skipFocusMode,
@@ -245,7 +250,7 @@ private fun PresetCard(
                         },
                     )
                     Text(
-                        text = "${preset.visibleTabs.size} tabs visible",
+                        text = strings.locFocusTabsVisible.formatArgs(preset.visibleTabs.size),
                         style = MaterialTheme.typography.labelSmall,
                         color = if (isSelected) {
                             MaterialTheme.colorScheme.onPrimaryContainer.copy(alpha = 0.7f)

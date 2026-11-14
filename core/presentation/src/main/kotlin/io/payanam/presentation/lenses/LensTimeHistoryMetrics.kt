@@ -103,10 +103,11 @@ internal fun buildTimeModuleDayMetrics(days: List<Pair<LocalDate, UnifiedLensSna
             } else {
                 roundToScorePrecision(dayScore - previousScore)
             }
+        // A positive gain held flat still counts: without the equality term a steady improvement never streaks.
         val streak =
             if (index == 0) {
                 0
-            } else if (delta > previousDelta) {
+            } else if (delta > previousDelta || (delta > 0.0 && delta == previousDelta)) {
                 previousStreak + 1
             } else {
                 0

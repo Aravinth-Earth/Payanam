@@ -467,6 +467,41 @@ class RecurrenceManagerTest {
         }
 
     @Test
+    fun `repair does not count a fix when the write matched no row`() =
+        runBlocking {
+            // Archived between the read and the write: nothing was repaired, so the count must stay 0 rather
+            // than report a fix that never landed.
+            val stuck =
+                task(
+                    id = "t1",
+                    recurrenceRule = "daily",
+                    status = "skipped",
+                    dueDate = LocalDateTime.now().minusDays(2),
+                )
+            val tasks = InMemoryTasks(listOf(stuck), recurrenceWritesMatchNothing = true)
+            val manager = RecurrenceManager(tasks, InMemoryOccurrences(emptyList()))
+
+            assertEquals(0, manager.repairStuckRecurringTasks())
+            assertEquals(stuck.dueDate, tasks.task("t1")?.dueDate)
+        }
+
+    @Test
+    fun `advance leaves the due date alone when the write matched no row`() =
+        runBlocking {
+            // The same case on the advance path: an update that matched nothing must not be reported as an
+            // advancement. The return value counts tasks PROCESSED, so it still counts this one - the honest
+            // signal is the stored date, which must stay where it was, and the early return that keeps the
+            // "Task advanced" line out of the log.
+            val overdue = task(id = "t1", recurrenceRule = "daily", dueDate = LocalDateTime.now().minusDays(1))
+            val tasks = InMemoryTasks(listOf(overdue), recurrenceWritesMatchNothing = true)
+            val manager = RecurrenceManager(tasks, InMemoryOccurrences(emptyList()))
+
+            manager.autoAdvanceRecurringTasks()
+
+            assertEquals(overdue.dueDate, tasks.task("t1")?.dueDate)
+        }
+
+    @Test
     fun `getCompletionStats counts a non-frequency habit from its occurrences`() =
         runBlocking {
             // The interval path of the port's read side. A daily habit with three completed days must show a
@@ -744,6 +779,11 @@ class RecurrenceManagerTest {
      */
     private class InMemoryTasks(
         initial: List<Task>,
+        /**
+         * Behave like the store when the row is gone: the task is read, but the write matches nothing. This is
+         * the archived-between-read-and-write case the manager has to survive honestly instead of counting it.
+         */
+        private val recurrenceWritesMatchNothing: Boolean = false,
     ) : TaskRepository {
         private val all = initial.toMutableList()
 
@@ -770,11 +810,14 @@ class RecurrenceManagerTest {
             taskId: String,
             newDueDate: LocalDateTime,
             lastOccurrenceDate: LocalDateTime,
-        ) {
+        ): Int {
+            if (recurrenceWritesMatchNothing) return 0
             val index = all.indexOfFirst { it.id == taskId }
             if (index >= 0) {
                 all[index] = all[index].copy(dueDate = newDueDate, updatedAt = LocalDateTime.now())
+                return 1
             }
+            return 0
         }
 
         override suspend fun createTask(input: TaskInput): Task = unused("createTask")
@@ -872,6 +915,16 @@ class RecurrenceManagerTest {
 
         override suspend fun deleteOccurrence(id: String) {
             all.removeAll { it.id == id }
+        }
+
+        override suspend fun clearActualDurationMinutes(
+            taskId: String,
+            date: LocalDate,
+        ) {
+            val index = all.indexOfFirst { it.taskId == taskId && it.occurrenceDate == date.toString() }
+            if (index >= 0) {
+                all[index] = all[index].copy(actualDurationMinutes = null)
+            }
         }
 
         override suspend fun recordOccurrence(occurrence: TaskOccurrence) {

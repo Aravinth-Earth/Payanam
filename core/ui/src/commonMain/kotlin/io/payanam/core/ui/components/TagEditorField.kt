@@ -52,7 +52,7 @@ fun TagEditorField(
                     onClick = {
                         val newTags = (selectedTags + suggestion).distinct()
                         onValueChange(newTags.joinToString(", "))
-                        logger.d("TagEditorField", "Tag suggestion applied", mapOf("tag" to suggestion))
+                        logger.d("TagEditorField", "Tag suggestion applied", mapOf("tagLength" to suggestion.length))
                     },
                     label = { Text(suggestion) },
                 )

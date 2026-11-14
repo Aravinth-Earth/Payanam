@@ -141,6 +141,31 @@ interface TaskOccurrenceDao {
         actualDurationMinutes: Int?,
     )
 
+    @Query(
+        """
+        UPDATE task_occurrences
+        SET status = :status, statusReason = :statusReason, note = :note, completedAt = :completedAt,
+            actualCompletedAt = :actualCompletedAt, actualDurationMinutes = :actualDurationMinutes,
+            completionRate = :completionRate
+        WHERE id = :id
+        """,
+    )
+    /**
+     * Replaces every field a caller-supplied occurrence carries, for the single row that already
+     * represents that (task, day). Used by `recordOccurrence` when the day is already recorded, so a
+     * second write updates that day instead of appending one.
+     */
+    suspend fun updateRecordedOccurrence(
+        id: String,
+        status: String,
+        statusReason: String?,
+        note: String?,
+        completedAt: String?,
+        actualCompletedAt: String?,
+        actualDurationMinutes: Int?,
+        completionRate: Double?,
+    )
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     /**
      * Inserts or replaces an occurrence row.

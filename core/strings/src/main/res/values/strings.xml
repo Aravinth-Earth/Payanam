@@ -304,8 +304,10 @@
     <string name="loc_default_time_with_label">Default Time: %1$s</string>
     <string name="loc_delete">Delete</string>
     <string name="loc_delete_note">Delete Note</string>
+    <string name="loc_delete_note_confirm">Delete Note?</string>
     <string name="loc_delete_task">Delete Task?</string>
     <string name="loc_delete_template">Delete Template</string>
+    <string name="loc_delete_time_entry">Delete Time Entry?</string>
     <string name="loc_description_optional">Description (optional)</string>
     <string name="loc_details_optional">Details (optional)</string>
     <string name="loc_deviation">Deviation</string>
@@ -331,6 +333,7 @@
     <string name="loc_dimension_desc_community_service">Activities that help others, support communities, encourage participation, and create value beyond personal or family needs.</string>
     <string name="loc_dimension_desc_unassigned">System fallback for uncategorized or imported records.</string>
     <string name="loc_dimension_reflections">Dimension Reflections</string>
+    <string name="loc_dismiss">Dismiss</string>
     <string name="loc_done">Done</string>
     <string name="loc_done_2">✓ Done</string>
     <string name="loc_due_date">Due Date</string>
@@ -354,6 +357,8 @@
     <string name="loc_energy_levels">Energy Levels</string>
     <string name="loc_energy_low_to_high">Energy Low To High</string>
     <string name="loc_energy_required">Energy Required</string>
+    <string name="loc_enter_time_with_dial">Choose the time on the dial</string>
+    <string name="loc_enter_time_with_keyboard">Enter the time with the keyboard</string>
     <string name="loc_estimated_duration">Estimated Duration</string>
     <string name="loc_every">Every</string>
     <string name="loc_every_day">Every Day</string>
@@ -374,6 +379,7 @@
     <string name="loc_focus_rating_0_1">Focus Rating (0.00-1.00)</string>
     <string name="loc_focus_rating_value">Selected: %1$s</string>
     <string name="loc_focus_required_0_1">Focus Required (0-1)</string>
+    <string name="loc_focus_tabs_visible">%1$d tabs visible</string>
     <string name="loc_focused_minutes_value">Focused: %1$s</string>
     <string name="loc_follow_original_schedule">Follow Original Schedule</string>
     <string name="loc_friday">Friday</string>
@@ -396,6 +402,7 @@
     <string name="loc_hide_completed_today">Hide completed today</string>
     <string name="loc_high">High</string>
     <string name="loc_high_alignment">High Alignment</string>
+    <string name="loc_hour">Hour</string>
     <string name="loc_how_did_it_go">How Did It Go</string>
     <string name="loc_how_long_did_it_take">How long did it take?</string>
     <string name="loc_how_was_it_any_observations">How was it? Any observations?</string>
@@ -520,6 +527,7 @@
     <string name="loc_metric_net_streak">Net streak</string>
     <string name="loc_metric_running_avg">Avg</string>
     <string name="loc_minimal_impact">Minimal Impact</string>
+    <string name="loc_minute">Minute</string>
     <string name="loc_miss">Miss</string>
     <string name="loc_missed">Missed</string>
     <string name="loc_moderate">Moderate</string>
@@ -720,7 +728,6 @@
     <string name="loc_yearly">Yearly</string>
     <string name="loc_yesterday">Yesterday</string>
     <string name="loc_your_thoughts">Your thoughts...</string>
-    <string name="pre_unlock_update_build_value">#%1$d</string>
     <string name="pre_unlock_update_check_failed">Check failed — check connection and retry</string>
     <string name="pre_unlock_update_download_failed">Download failed — tap Retry</string>
     <string name="pre_unlock_update_download_install">Download &amp; install</string>
@@ -735,8 +742,6 @@
     <string name="preset_simple_tasks_desc">Manage tasks and to-dos</string>
     <string name="preset_simple_time_habits">Simple: Time + Habits</string>
     <string name="preset_simple_time_habits_desc">Track time and complete habits</string>
-    <string name="settings_about_codename_label">Codename</string>
-    <string name="settings_about_codename_value">Kotlin Compose Migration</string>
     <string name="settings_about_title">About</string>
     <string name="settings_about_version_label">Version</string>
     <string name="settings_about_version_value">%1$s</string>
@@ -822,6 +827,8 @@
     <string name="settings_dimension_save">Save name</string>
     <string name="settings_dimension_weight_label">Weight</string>
     <string name="settings_disabled">Disabled</string>
+    <string name="settings_exact_alarm_body">Without this, reminders can arrive a few minutes late. Tap to open the system setting.</string>
+    <string name="settings_exact_alarm_title">Allow exact reminder times</string>
     <string name="settings_font_family">Font Family</string>
     <string name="settings_import_dialog_backup_hint">Consider exporting your current data first as a backup.</string>
     <string name="settings_import_dialog_data_loss">All current tasks, time entries, notes, and settings will be permanently lost.</string>
@@ -850,6 +857,7 @@
     <string name="settings_life_dimensions_title">Life Dimensions</string>
     <string name="settings_loading_preferences">Loading preferences...</string>
     <string name="settings_manual_backup_in_progress">Backup in progress…</string>
+    <string name="settings_reminders_title">Reminders</string>
     <string name="settings_scoring_description">Customize how task scores are calculated by adjusting factor weights and level values.</string>
     <string name="settings_scoring_title">Scoring Configuration</string>
     <string name="settings_security_title">Security &amp; Timeout</string>
@@ -913,6 +921,7 @@
     <string name="tab_visibility_warning">Changes to individual tabs will override the active preset</string>
     <string name="task_notification_action_complete">Complete</string>
     <string name="task_notification_action_skip">Skip</string>
+    <string name="task_notification_action_more">More</string>
     <string name="widget_tracking_status_active">Active</string>
     <string name="loc_time_scale_1m">1m</string>
     <string name="loc_time_scale_2m">2m</string>
@@ -980,7 +989,6 @@
     <string name="tracking_notification_subtext">Tracking in progress</string>
     <string name="tracking_notification_action_open">Open Time</string>
     <string name="tracking_notification_action_stop">Stop</string>
-    <string name="tracking_notification_content">%1$s • %2$s</string>
     <string name="tracking_notification_channel_description">Shows active time tracking status</string>
     <string name="task_reminders_channel_description">Reminders for upcoming and due tasks</string>
     <string name="habit_tracking_channel_description">Reminders for recurring habits</string>

@@ -217,4 +217,106 @@ class ScoringConfigViewModelTest {
             assertNotNull(model.uiState.value.config)
             assertEquals(0.15, model.uiState.value.config.durationWeight, 1e-9)
         }
+
+    @Test
+    fun `a failed read leaves the state un-saveable`() =
+        runTest(dispatcher) {
+            repository.failure = RuntimeException("the database session is closed")
+            val model = viewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue("the failed read is recorded", model.uiState.value.loadFailed)
+            assertFalse("the read is no longer in flight", model.uiState.value.isLoading)
+
+            model.setDimensionWeight(2.5)
+            assertFalse("an edit over defaults is refused", model.uiState.value.hasChanges)
+
+            model.saveConfig()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertNull("nothing may be written over a configuration nobody read", repository.saved)
+
+            model.resetToDefaults()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals("a reset would delete the stored configuration", 0, repository.resetCount)
+        }
+
+    @Test
+    fun `a retry stays locked until the read succeeds`() =
+        runTest(dispatcher) {
+            val stored = ScoringConfig.defaults().copy(dimensionWeight = 2.25)
+            repository = FakeScoringConfigRepository(stored)
+            repository.failure = RuntimeException("the database session is closed")
+            val model = viewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertTrue(model.uiState.value.loadFailed)
+
+            repository.failure = null
+            model.reloadConfig()
+
+            // Synchronously after the retry starts and before it has run: this is the window the old code
+            // opened by clearing `loadFailed` on entry, when the screen was editable but the config was
+            // still defaults.
+            assertTrue("the retry is in flight", model.uiState.value.isLoading)
+            assertTrue("the failed read stays recorded until a read succeeds", model.uiState.value.loadFailed)
+
+            model.setDimensionWeight(2.5)
+            model.saveConfig()
+            model.resetToDefaults()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull("no write may happen before the read succeeds", repository.saved)
+            assertEquals("and no reset either", 0, repository.resetCount)
+            assertFalse(model.uiState.value.isLoading)
+            assertFalse("only the successful read clears the failure", model.uiState.value.loadFailed)
+            assertEquals(stored, model.uiState.value.config)
+
+            // The locks lift once the read has landed.
+            model.setDimensionWeight(2.5)
+            assertTrue(model.uiState.value.hasChanges)
+            model.resetToDefaults()
+            dispatcher.scheduler.advanceUntilIdle()
+            assertEquals(1, repository.resetCount)
+        }
+
+    @Test
+    fun `an in-flight first read refuses edits and writes`() =
+        runTest(dispatcher) {
+            val stored = ScoringConfig.defaults().copy(durationWeight = 0.15)
+            repository = FakeScoringConfigRepository(stored)
+
+            val model = viewModel()
+            // The load is queued but has not run. `loadFailed` is false here, so `isLoading` is the only flag
+            // that can keep the screen locked during the FIRST read.
+            assertTrue(model.uiState.value.isLoading)
+            assertFalse(model.uiState.value.loadFailed)
+
+            model.setDurationWeight(0.9)
+            assertFalse("an edit during the read is ignored", model.uiState.value.hasChanges)
+            model.saveConfig()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(repository.saved)
+            assertEquals(stored, model.uiState.value.config)
+        }
+
+    @Test
+    fun `a retry that fails again keeps the state un-saveable`() =
+        runTest(dispatcher) {
+            repository.failure = RuntimeException("the database session is closed")
+            val model = viewModel()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            model.reloadConfig()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(model.uiState.value.loadFailed)
+            assertFalse(model.uiState.value.isLoading)
+
+            model.saveConfig()
+            model.resetToDefaults()
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertNull(repository.saved)
+            assertEquals(0, repository.resetCount)
+        }
 }

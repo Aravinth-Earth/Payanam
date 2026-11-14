@@ -38,7 +38,9 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -85,6 +87,7 @@ class TasksViewModel(
             .map { state ->
                 TasksChromeUiState(
                     isLoading = state.isLoading,
+                    error = state.error,
                     recurringTaskCount = state.recurringTasks.size,
                     oneTimeTaskCount = state.oneTimeTasks.size,
                     habitSortOption = state.habitSortOption,
@@ -444,13 +447,12 @@ class TasksViewModel(
         tasksLoadJob =
             scope.launch {
                 tracer.incrementQuery(screen = "tasks", source = "getAllTasks")
-                taskRepository
-                    .getAllTasks()
+                // Wrapped in flow: getAllTasks() throws on a closed session before .catch is installed.
+                flow { emitAll(taskRepository.getAllTasks()) }
                     .catch { e ->
                         logger.e("TasksViewModel.loadTasks", "Failed to load tasks", e)
                         _uiState.update { it.copy(isLoading = false, error = e.message) }
                     }.collect { tasks ->
-                        val now = LocalDateTime.now()
                         val today = LocalDate.now()
                         val state = _uiState.value
                         val activeTasks = tasks.filter { it.status != "archived" }
@@ -471,7 +473,7 @@ class TasksViewModel(
                             }
                         val overdueCount =
                             activeOneTime.count { task ->
-                                task.dueDate?.isBefore(now) == true &&
+                                task.dueDate?.toLocalDate()?.isBefore(today) == true &&
                                     task.status != "completed" && task.status != "archived"
                             }
                         val futureCount =
@@ -496,7 +498,16 @@ class TasksViewModel(
                         // Inc 4: latest L1 score roll-up state per habit (sort + card ring).
                         // Fetched on the real load path (loadTasks), not the dead
                         // refreshRecurringTasksList path.
-                        val latestL1 = runCatching { habitMetricRepository.getLatestPerHabit() }.getOrDefault(emptyMap())
+                        val latestL1 =
+                            runCatching { habitMetricRepository.getLatestPerHabit() }
+                                .onFailure { failure ->
+                                    logger.e(
+                                        "TasksViewModel.loadTasks",
+                                        "Failed to read latest habit metrics; scores fall back to unknown",
+                                        failure,
+                                    )
+                                }
+                                .getOrDefault(emptyMap())
                         val occurrencesMap =
                             if (taskIds.isNotEmpty()) {
                                 tracer.incrementQuery(screen = "habits", source = "getOccurrencesForTasksInLastNDays")
@@ -898,7 +909,16 @@ class TasksViewModel(
             // Inc 4: refresh the L1 map after a toggle so the ring/sort follow
             // the just-updated metric.
             val fallbackL1 = _uiState.value.latestL1ByHabit
-            val latestL1 = runCatching { habitMetricRepository.getLatestPerHabit() }.getOrDefault(fallbackL1)
+            val latestL1 =
+                runCatching { habitMetricRepository.getLatestPerHabit() }
+                    .onFailure { failure ->
+                        logger.e(
+                            "TasksViewModel.refreshCheckmarksForTask",
+                            "Failed to read latest habit metrics; keeping the current values",
+                            failure,
+                        )
+                    }
+                    .getOrDefault(fallbackL1)
             // E1: recompute the due-today flag after every mark — a FREQUENCY
             // habit whose quota just became satisfied is no longer due.
             val task = _uiState.value.recurringTasks.find { it.id == taskId }
@@ -971,7 +991,16 @@ class TasksViewModel(
                     allTasks.filter { it.status != "archived" && it.recurrenceEnabled }
                 }
             // Inc 4: latest L1 score roll-up state per habit (sort + card ring)
-            val latestL1 = runCatching { habitMetricRepository.getLatestPerHabit() }.getOrDefault(emptyMap())
+            val latestL1 =
+                runCatching { habitMetricRepository.getLatestPerHabit() }
+                    .onFailure { failure ->
+                        logger.e(
+                            "TasksViewModel.refreshRecurringTasksList",
+                            "Failed to read latest habit metrics; scores fall back to unknown",
+                            failure,
+                        )
+                    }
+                    .getOrDefault(emptyMap())
             _uiState.update { state ->
                 val sortedRecurring =
                     sortHabits(

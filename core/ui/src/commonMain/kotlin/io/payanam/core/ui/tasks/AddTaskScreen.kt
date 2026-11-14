@@ -57,10 +57,13 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.TimePickerDialog
 import io.payanam.core.ui.components.TagEditorField
+import io.payanam.core.ui.components.TestTags
+import io.payanam.core.ui.components.exposeTestTagsAsResourceIds
 import io.payanam.core.ui.components.parseTagsInput
 import io.payanam.core.ui.preferences.LocalAppPreferences
 import io.payanam.core.ui.preferences.visibleDimensionOptions
@@ -94,6 +97,7 @@ fun AddTaskScreen(
     // Hoisted here on purpose: the feature flag is a composition read, so it has to happen in a
     // composable scope and not inside the save callback.
     val remindersEnabled = LocalFeatureFlags.current.remindersEnabled
+    val minimalModeEnabled = LocalFeatureFlags.current.minimalModeEnabled
     val snackbarHostState = remember { SnackbarHostState() }
     val scope = rememberCoroutineScope()
     // The notification permission, and the offer that may follow a save that armed a reminder. The
@@ -188,6 +192,19 @@ fun AddTaskScreen(
     val dateFormatter = DateTimeFormatter.ofPattern("EEE, MMM d")
     val timePattern = if (prefs.timeFormat.use24Hour) "HH:mm" else "h:mm a"
     val timeFormatter = DateTimeFormatter.ofPattern(timePattern)
+    // The recurring first occurrence feeds both the preview and the saved due date; it is computed once
+    // here so the two can never disagree.
+    val recurringFirstOccurrence =
+        if (recurrenceEnabled) {
+            selectedTime?.let { time ->
+                RecurrenceConfig.parse(recurrenceRule)
+                    .getScheduledDatesInRange(LocalDate.now(), LocalDate.now().plusMonths(1))
+                    .firstOrNull()
+                    ?.atTime(time)
+            }
+        } else {
+            null
+        }
     Scaffold(
         snackbarHost = {
             SnackbarHost(snackbarHostState) { data ->
@@ -227,7 +244,10 @@ fun AddTaskScreen(
                 onValueChange = { title = it },
                 label = { Text(strings.locTaskTitle) },
                 placeholder = { Text(strings.locWhatNeedsToBeDone) },
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.TaskAdd.TITLE_FIELD),
                 singleLine = true,
             )
             if (LocalFeatureFlags.current.recurringTasksEnabled) {
@@ -253,6 +273,7 @@ fun AddTaskScreen(
                                 }
                             },
                             selected = recurrenceEnabled == option.first,
+                            modifier = Modifier.testTag(taskTypeTag(option.first)),
                         ) {
                             Text(
                                 text = option.second,
@@ -279,7 +300,10 @@ fun AddTaskScreen(
                                 color = MaterialTheme.colorScheme.primary,
                             )
                         }
-                        TextButton(onClick = { showRecurrenceDialog = true }) {
+                        TextButton(
+                            onClick = { showRecurrenceDialog = true },
+                            modifier = Modifier.testTag(TestTags.TaskAdd.RECURRENCE_CHANGE_BUTTON),
+                        ) {
                             Text(strings.locChange)
                         }
                     }
@@ -296,46 +320,36 @@ fun AddTaskScreen(
             if (recurrenceEnabled) {
                 OutlinedButton(
                     onClick = { showTimePicker = true },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag(TestTags.TaskAdd.DUE_TIME_BUTTON),
                 ) {
                     Text(
                         text = selectedTime?.format(timeFormatter)
                             ?: strings.locSelectTime,
                     )
                 }
-                if (selectedTime != null) {
-                    val calculatedFirstOccurrence = run {
-                        val config = RecurrenceConfig.parse(recurrenceRule)
-                        val nextDates = config.getScheduledDatesInRange(
-                            LocalDate.now(),
-                            LocalDate.now().plusMonths(1),
-                        )
-                        nextDates.firstOrNull()?.atTime(selectedTime!!)
-                    }
-                    if (calculatedFirstOccurrence != null) {
-                        Surface(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .padding(top = 8.dp),
-                            color = MaterialTheme.colorScheme.surfaceVariant,
-                            shape = RoundedCornerShape(8.dp),
+                if (recurringFirstOccurrence != null) {
+                    Surface(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(top = 8.dp),
+                        color = MaterialTheme.colorScheme.surfaceVariant,
+                        shape = RoundedCornerShape(8.dp),
+                    ) {
+                        Column(
+                            modifier = Modifier.padding(12.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp),
                         ) {
-                            Column(
-                                modifier = Modifier.padding(12.dp),
-                                verticalArrangement = Arrangement.spacedBy(4.dp),
-                            ) {
-                                Text(
-                                    text = strings.locFirstOccurrence,
-                                    style = MaterialTheme.typography.labelSmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                                )
-                                Text(
-                                    text = calculatedFirstOccurrence.format(
-                                        DateTimeFormatter.ofPattern("EEE, MMM d, yyyy • h:mm a"),
-                                    ),
-                                    style = MaterialTheme.typography.bodyMedium,
-                                )
-                            }
+                            Text(
+                                text = strings.locFirstOccurrence,
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            )
+                            Text(
+                                text = recurringFirstOccurrence.format(
+                                    DateTimeFormatter.ofPattern("EEE, MMM d, yyyy • h:mm a"),
+                                ),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
                         }
                     }
                 }
@@ -346,7 +360,7 @@ fun AddTaskScreen(
                 ) {
                     OutlinedButton(
                         onClick = { showDatePicker = true },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag(TestTags.TaskAdd.DUE_DATE_BUTTON),
                     ) {
                         Icon(
                             imageVector = Icons.Default.CalendarMonth,
@@ -360,7 +374,7 @@ fun AddTaskScreen(
                     }
                     OutlinedButton(
                         onClick = { showTimePicker = true },
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag(TestTags.TaskAdd.DUE_TIME_BUTTON),
                         enabled = selectedDate != null,
                     ) {
                         Text(
@@ -384,6 +398,7 @@ fun AddTaskScreen(
                             ),
                             onClick = { notificationMode = option.first },
                             selected = notificationMode == option.first,
+                            modifier = Modifier.testTag(reminderModeTag(option.first)),
                         ) {
                             Text(text = option.second, style = MaterialTheme.typography.labelSmall)
                         }
@@ -398,7 +413,10 @@ fun AddTaskScreen(
                         label = { Text(strings.locCustomLeadMinutes) },
                         placeholder = { Text(strings.loc15) },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier =
+                            Modifier
+                                .fillMaxWidth()
+                                .testTag(TestTags.TaskAdd.REMINDER_CUSTOM_MINUTES_FIELD),
                         singleLine = true,
                     )
                 }
@@ -529,6 +547,8 @@ fun AddTaskScreen(
                 onClick = {
                     val dueDateTime = if (selectedDate != null) {
                         LocalDateTime.of(selectedDate, selectedTime ?: LocalTime.MIDNIGHT)
+                    } else if (recurrenceEnabled) {
+                        recurringFirstOccurrence
                     } else {
                         null
                     }
@@ -550,15 +570,21 @@ fun AddTaskScreen(
                             "recurrenceRule" to (if (recurrenceEnabled) recurrenceRule else "none"),
                         ),
                     )
-                    // Whether THIS save arms a reminder. The screen can see the three facts the reminder
-                    // needs - the feature flag, the mode and the time - and the ViewModel arms the
-                    // reminder from exactly those, so this is the same question the scheduler asks.
-                    // A recurring task with no date still gets the ViewModel's default due time, so it
-                    // still arms one.
+                    // Whether THIS save arms a reminder - the scheduler's own decision, not a guess
+                    // from three form fields, because a reminder with no alarm behind it must not
+                    // raise the warning that says it will not arrive.
                     val reminderArmed =
-                        remindersEnabled &&
-                            notificationMode != "off" &&
-                            (dueDateTime != null || recurrenceEnabled)
+                        reminderWillBeArmed(
+                            taskId = "",
+                            taskTitle = title,
+                            dueAt = dueDateTime,
+                            recurrenceEnabled = recurrenceEnabled,
+                            status = "pending",
+                            notificationMode = notificationMode,
+                            customNotificationMinutes = normalizedCustomMinutes,
+                            remindersEnabled = remindersEnabled,
+                            minimalModeEnabled = minimalModeEnabled,
+                        )
                     viewModel.createTask(
                         title = title,
                         description = description.ifBlank { null },
@@ -581,10 +607,9 @@ fun AddTaskScreen(
                         tags = parseTagsInput(tagsInput),
                         onResult = { result ->
                             result.onSuccess {
-                                // The save has COMMITTED: the task exists and its reminder is armed.
-                                // The offer only reports that the notification that would have told
-                                // the user about it cannot arrive, so the way back is held until the
-                                // offer has been seen - the task itself is already saved either way.
+                                // The save has COMMITTED: the task exists and its reminder is armed. The offer only
+                                // reports that the notification that would have told the user cannot arrive, so the
+                                // way back is held until it has been seen - the task is already saved either way.
                                 if (reminderArmed && notificationPermission.state == SupportState.DECLINES) {
                                     showNotificationRationale = true
                                 } else {
@@ -601,7 +626,10 @@ fun AddTaskScreen(
                         },
                     )
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(TestTags.TaskAdd.SAVE_BUTTON),
                 enabled = title.isNotBlank() && selectedDimensionId.isNotBlank(),
             ) {
                 Text(strings.locSaveTask)
@@ -623,6 +651,9 @@ fun AddTaskScreen(
             )
             DatePickerDialog(
                 onDismissRequest = { showDatePicker = false },
+                // The dialog draws in its own window, so the app root's test-tag publication is not an
+                // ancestor of the confirm button and the tag below it stays invisible without this.
+                modifier = Modifier.exposeTestTagsAsResourceIds(),
                 confirmButton = {
                     TextButton(
                         onClick = {
@@ -633,6 +664,7 @@ fun AddTaskScreen(
                             }
                             showDatePicker = false
                         },
+                        modifier = Modifier.testTag(TestTags.TaskAdd.DUE_DATE_CONFIRM_BUTTON),
                     ) {
                         Text(strings.locOk)
                     }
@@ -653,6 +685,7 @@ fun AddTaskScreen(
                     selectedTime = LocalTime.of(hour, minute)
                     showTimePicker = false
                 },
+                confirmButtonModifier = Modifier.testTag(TestTags.TaskAdd.DUE_TIME_CONFIRM_BUTTON),
             )
         }
     }
@@ -669,3 +702,16 @@ fun AddTaskScreen(
         )
     }
 }
+
+/** The tag of the segmented control for [mode]; an unrecognised mode keeps its own name rather than a guess. */
+private fun reminderModeTag(mode: String): String =
+    when (mode) {
+        "auto" -> TestTags.TaskAdd.REMINDER_MODE_AUTO
+        "custom" -> TestTags.TaskAdd.REMINDER_MODE_CUSTOM
+        "off" -> TestTags.TaskAdd.REMINDER_MODE_OFF
+        else -> mode
+    }
+
+/** The tag of the task-type control for [recurring]: recurring is what turns the saved task into a habit. */
+private fun taskTypeTag(recurring: Boolean): String =
+    if (recurring) TestTags.TaskAdd.TASK_TYPE_RECURRING else TestTags.TaskAdd.TASK_TYPE_ONE_TIME

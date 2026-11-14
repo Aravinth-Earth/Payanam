@@ -7,7 +7,9 @@ package io.payanam.presentation.tasks
 import com.google.common.truth.Truth.assertThat
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
+import io.payanam.domain.repository.TaskRepository
 import io.payanam.presentation.flags.PlatformFeatureFlags
+import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.SupervisorJob
@@ -720,6 +722,51 @@ class TaskDetailViewModelTest {
                     .first { it.id == "t1" }
                     .status,
             ).isEqualTo("archived")
+            assertThat(reminderScheduler.cancelled).contains("t1")
+        }
+
+    /**
+     * The reminder cancel has to survive the screen being released while the write is in flight.
+     *
+     * `archiveTask marks archived and cancels reminder` passes on the broken code because it only asserts
+     * the call WAS made, never that the call survives disposal: the fake write never suspends, so the whole
+     * body runs before anything can dispose the scope. Here the write parks on a gate, which is where the
+     * screen's disposal lands, and the reminder cancel is the tail the released scope used to skip.
+     */
+    @Test
+    fun `archiveTask reminder cancel survives dispose while the write is in flight`() =
+        runTest {
+            taskRepo.tasks.value = listOf(task(id = "t1"))
+            val writeStarted = CompletableDeferred<Unit>()
+            val releaseWrite = CompletableDeferred<Unit>()
+            val gatedRepository =
+                object : TaskRepository by taskRepo {
+                    override suspend fun archiveTask(id: String): Task {
+                        val archived = taskRepo.archiveTask(id)
+                        writeStarted.complete(Unit)
+                        releaseWrite.await()
+                        return archived
+                    }
+                }
+            val vm =
+                TaskDetailViewModel(
+                    taskRepository = gatedRepository,
+                    taskOccurrenceRepository = occurrenceRepo,
+                    taskRescheduleRepository = rescheduleRepo,
+                    notificationScheduler = reminderScheduler,
+                    recurrenceHandler = recurrenceHandler,
+                    habitMetricRepository = habitMetricRepo,
+                    scope = newViewModelScope(),
+                )
+            vm.loadTask("t1")
+            advanceUntilIdle()
+
+            vm.archiveTask()
+            writeStarted.await()
+            vm.dispose()
+            releaseWrite.complete(Unit)
+            advanceUntilIdle()
+
             assertThat(reminderScheduler.cancelled).contains("t1")
         }
 

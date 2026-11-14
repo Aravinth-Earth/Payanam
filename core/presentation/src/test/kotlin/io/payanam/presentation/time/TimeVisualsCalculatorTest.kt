@@ -60,6 +60,43 @@ class TimeVisualsCalculatorTest {
         assertTrue(summary.trackedMinutes > 0)
     }
 
+    /**
+     * Two entries covering the same half hour are 120 minutes of day, not the 150 their lengths add to.
+     */
+    @Test
+    fun computeDayOverall_unions_overlapping_entries() {
+        logger.d("TimeVisualsCalculatorTest.computeDayOverall", "Running overlap-union case")
+        val day = LocalDate.of(2026, 2, 15)
+        val entries =
+            listOf(
+                entry("e1", day.atTime(9, 0), day.atTime(10, 0), focus = 1.0),
+                entry("e2", day.atTime(9, 30), day.atTime(11, 0), focus = 0.5),
+            )
+        val summary = TimeVisualsCalculator.computeDayOverall(day, entries, now = day.atTime(23, 0))
+        assertEquals(120L, summary.trackedMinutes)
+        // (60 x 1.0 + 90 x 0.5) / 150 = 0.7, weighted by the merged 120 minutes.
+        assertEquals(0.7f, summary.focusedMinutesPercent, 0.01f)
+    }
+
+    /**
+     * An entry nested inside a longer one is an overlap too, not only one that starts before the
+     * previous entry's end: 09:30-10:00 and 10:15-11:00 both sit inside 09:00-12:00.
+     */
+    @Test
+    fun computeDayOverall_counts_nested_overlaps() {
+        logger.d("TimeVisualsCalculatorTest.computeDayOverall", "Running nested-overlap case")
+        val day = LocalDate.of(2026, 2, 15)
+        val entries =
+            listOf(
+                entry("e1", day.atTime(9, 0), day.atTime(12, 0), focus = 1.0),
+                entry("e2", day.atTime(9, 30), day.atTime(10, 0), focus = 1.0),
+                entry("e3", day.atTime(10, 15), day.atTime(11, 0), focus = 1.0),
+            )
+        val summary = TimeVisualsCalculator.computeDayOverall(day, entries, now = day.atTime(23, 0))
+        assertEquals(2, summary.overlapCount)
+        assertEquals(180L, summary.trackedMinutes)
+    }
+
     @Test
     fun computePerDimension_builds_plan_vs_actual() {
         logger.d("TimeVisualsCalculatorTest.computePerDimension", "Running plan-vs-actual baseline case")

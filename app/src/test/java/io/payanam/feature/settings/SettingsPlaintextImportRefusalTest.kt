@@ -34,7 +34,12 @@ import org.junit.After
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.mockito.kotlin.any
 import org.mockito.kotlin.mock
+import org.mockito.kotlin.never
+import org.mockito.kotlin.verify
+import org.mockito.kotlin.verifyBlocking
+import org.mockito.kotlin.whenever
 import org.robolectric.RobolectricTestRunner
 import java.io.File
 
@@ -170,6 +175,68 @@ class SettingsPlaintextImportRefusalTest {
         assertThat(viewModel.uiState.value.awaitingImportPassphrase).isFalse()
     }
 
+    @Test
+    fun `a refused import never closes the live session or moves the live files`() {
+        SQLiteDatabase.openOrCreateDatabase(databaseFile, null).use { db ->
+            db.version = PayanamDatabaseSchema.VERSION
+            db.execSQL("CREATE TABLE IF NOT EXISTS tasks (id TEXT PRIMARY KEY, title TEXT)")
+            db.execSQL("INSERT INTO tasks (id, title) VALUES ('task-1', 'the one that matters')")
+        }
+        val before = databaseFile.readBytes()
+        val offered = writePlaintextDatabase("offered-plaintext-session.db")
+
+        val sessionManager = mock<DatabaseSessionManager>()
+        whenever(sessionManager.isDbOpen()).thenReturn(true)
+
+        val viewModel = newViewModel(sessionManager)
+        viewModel.importDatabase(
+            Uri.fromFile(offered).toString(),
+            databaseFile,
+            AndroidDatabaseEncryptionProbe(context),
+            uiStringsFor(context),
+            AndroidDocumentSource(context),
+            appDatabaseInitWalConsolidator(context, UnifiedLogger.getInstance()),
+        )
+        awaitSettled(viewModel)
+
+        // Validation happens on the staged file. The live session and its files are not touched at all,
+        // so a refusal cannot depend on a rollback having restored them correctly.
+        verify(sessionManager, never()).closeDatabase()
+        verify(sessionManager, never()).requireOpenPassphrase()
+        verifyBlocking(sessionManager, never()) { openDatabase(any()) }
+        assertThat(databaseFile.readBytes().toList()).isEqualTo(before.toList())
+        val strays = databaseFile.parentFile!!.listFiles()!!.filter { it.name.contains(IMPORT_STAGING_MARKER) }
+        assertThat(strays).isEmpty()
+    }
+
+    @Test
+    fun `the staged artifact family moves over the live names`() {
+        val dir = context.cacheDir
+        val live = File(dir, "swap-live.db")
+        val staging = stagingDatabaseFile(live)
+        val liveWal = File(dir, live.name + "-wal")
+        val liveShm = File(dir, live.name + "-shm")
+        val stagingWal = File(dir, staging.name + "-wal")
+        val stagingShm = File(dir, staging.name + "-shm")
+        try {
+            live.writeText("old-main")
+            liveWal.writeText("old-wal")
+            staging.writeText("new-main")
+            stagingWal.writeText("new-wal")
+            stagingShm.writeText("new-shm")
+
+            moveStagingArtifactsIntoPlace(staging, live)
+
+            assertThat(live.readText()).isEqualTo("new-main")
+            assertThat(liveWal.readText()).isEqualTo("new-wal")
+            assertThat(liveShm.readText()).isEqualTo("new-shm")
+            assertThat(staging.exists()).isFalse()
+            assertThat(stagingWal.exists()).isFalse()
+        } finally {
+            listOf(live, liveWal, liveShm, staging, stagingWal, stagingShm).forEach { it.delete() }
+        }
+    }
+
     /** A real, readable, unencrypted database at a path the picker would accept. */
     private fun writePlaintextDatabase(name: String): File {
         val file = File(context.cacheDir, name)
@@ -219,7 +286,12 @@ class SettingsPlaintextImportRefusalTest {
      * The repositories are mocks because nothing on the import path reads them — only the `init` block
      * does, and it is written to log-and-continue when they fail.
      */
-    private fun newViewModel(): SettingsViewModel {
+    private fun newViewModel(
+        sessionManager: DatabaseSessionManager = DatabaseSessionManager(
+            context,
+            DatabaseEncryptionManager(context),
+        ),
+    ): SettingsViewModel {
         val encryptionManager = DatabaseEncryptionManager(context)
         // The ViewModel reads its repositories from the installed data layer now that it is Hilt-free, so
         // the layer must be installed before it is constructed - its property initialisers run at build
@@ -237,7 +309,7 @@ class SettingsPlaintextImportRefusalTest {
         )
         return SettingsViewModel(
             context = context,
-            sessionManager = DatabaseSessionManager(context, encryptionManager),
+            sessionManager = sessionManager,
             databaseEncryptionManager = encryptionManager,
             databaseBackupCoordinator =
             DatabaseBackupCoordinator(
@@ -251,5 +323,6 @@ class SettingsPlaintextImportRefusalTest {
     private companion object {
         const val AWAIT_TIMEOUT_MILLIS = 20_000L
         const val POLL_INTERVAL_MILLIS = 20L
+        const val IMPORT_STAGING_MARKER = ".import_staging"
     }
 }

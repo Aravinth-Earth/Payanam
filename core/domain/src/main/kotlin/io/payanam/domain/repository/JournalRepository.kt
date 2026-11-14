@@ -247,6 +247,15 @@ interface TaskOccurrenceRepository {
      * Delete an occurrence.
      */
     suspend fun deleteOccurrence(id: String)
+
+    /**
+     * Clears the recorded actual duration of [taskId]'s occurrence on [date], leaving the rest of the
+     * row untouched. No-ops when no occurrence exists for that (task, day).
+     */
+    suspend fun clearActualDurationMinutes(
+        taskId: String,
+        date: java.time.LocalDate
+    )
 }
 
 /**

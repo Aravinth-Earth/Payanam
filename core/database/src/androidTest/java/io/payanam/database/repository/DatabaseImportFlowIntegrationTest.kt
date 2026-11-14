@@ -8,6 +8,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.google.common.truth.Truth.assertThat
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.security.DatabaseEncryptionManager
+import io.payanam.database.security.DatabaseEncryptionMigrationSupport
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.LifeDimension
 import kotlinx.coroutines.test.runTest
@@ -44,6 +45,7 @@ class DatabaseImportFlowIntegrationTest {
 
         encryptionManager = DatabaseEncryptionManager(context)
         encryptionManager.resetEncryptionState()
+        deleteAllDatabaseFiles()
 
         sessionManager = DatabaseSessionManager(context, encryptionManager)
 
@@ -107,6 +109,8 @@ class DatabaseImportFlowIntegrationTest {
             // Step 5: Reset encryption for new import
             encryptionManager.resetEncryptionState()
             assertThat(encryptionManager.hasPassphraseConfigured()).isFalse()
+            // An import replaces the file; a mere prefs reset cannot re-key the old one.
+            deleteAllDatabaseFiles()
 
             // Step 6: Configure new passphrase and reopen (simulating import with new password)
             val importConfigResult = encryptionManager.configurePassphrase(importPassphrase)
@@ -143,6 +147,7 @@ class DatabaseImportFlowIntegrationTest {
 
             sessionManager.closeDatabase()
             encryptionManager.resetEncryptionState()
+            deleteAllDatabaseFiles()
 
             // Second import cycle with completely different passphrase
             val secondPassphrase = "Completely_Different_Pass_789!"
@@ -180,6 +185,14 @@ class DatabaseImportFlowIntegrationTest {
 
             // Step 2: Close and change passphrase
             sessionManager.closeDatabase()
+            // The key change is the rekey; updatePassphrase only moves the verifier metadata.
+            DatabaseEncryptionMigrationSupport.rekeyEncryptedDatabase(
+                context,
+                context.getDatabasePath(PayanamDatabaseSchema.DATABASE_NAME),
+                sourcePassphrase,
+                importPassphrase,
+                "DatabaseImportFlowIntegrationTest",
+            )
             val updateResult = encryptionManager.updatePassphrase(sourcePassphrase, importPassphrase)
             assertThat(updateResult).isTrue()
 
@@ -257,6 +270,7 @@ class DatabaseImportFlowIntegrationTest {
                 // Close and reset for next cycle
                 sessionManager.closeDatabase()
                 encryptionManager.resetEncryptionState()
+                deleteAllDatabaseFiles()
 
                 logger.d(
                     "DatabaseImportFlowIntegrationTest.importFlow_multipleSequentialImports",

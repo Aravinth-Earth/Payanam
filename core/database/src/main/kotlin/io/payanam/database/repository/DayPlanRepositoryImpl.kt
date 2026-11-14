@@ -149,7 +149,8 @@ class DayPlanRepositoryImpl
 
         /**
          * Sets or replaces one [dimensionId]'s planned minutes for [dayKey], forcing
-         * the day to CUSTOM mode. Rejects past days. Marks the day insight-dirty.
+         * the day to CUSTOM mode in the same transaction. Rejects past days. Marks
+         * the day insight-dirty.
          */
         override suspend fun setAllocation(
             dayKey: String,
@@ -159,21 +160,24 @@ class DayPlanRepositoryImpl
             templateId: String?,
         ) {
             requireTodayOrFuture(dayKey)
-            setDayMode(dayKey = dayKey, mode = MODE_CUSTOM, templateId = null)
-            val now = LocalDateTime.now().format(formatter)
-            val existing = sessionManager.requireDatabase().dayPlanDao().getAllocationForDayAndDimension(dayKey, dimensionId)
-            val entity =
-                DayPlanAllocationEntity(
-                    id = existing?.id ?: UUID.randomUUID().toString(),
-                    dayKey = dayKey,
-                    dimensionId = dimensionId,
-                    plannedMinutes = plannedMinutes.coerceAtLeast(0),
-                    source = source,
-                    templateId = templateId,
-                    createdAt = existing?.createdAt ?: now,
-                    updatedAt = now,
-                )
-            sessionManager.requireDatabase().dayPlanDao().insertAllocation(entity)
+            // Mode flip and allocation write land together — one transaction.
+            sessionManager.inTransaction {
+                setDayMode(dayKey = dayKey, mode = MODE_CUSTOM, templateId = null)
+                val now = LocalDateTime.now().format(formatter)
+                val existing = sessionManager.requireDatabase().dayPlanDao().getAllocationForDayAndDimension(dayKey, dimensionId)
+                val entity =
+                    DayPlanAllocationEntity(
+                        id = existing?.id ?: UUID.randomUUID().toString(),
+                        dayKey = dayKey,
+                        dimensionId = dimensionId,
+                        plannedMinutes = plannedMinutes.coerceAtLeast(0),
+                        source = source,
+                        templateId = templateId,
+                        createdAt = existing?.createdAt ?: now,
+                        updatedAt = now,
+                    )
+                sessionManager.requireDatabase().dayPlanDao().insertAllocation(entity)
+            }
             markDirtyForDay(dayKey, "day_plan_set_single_allocation")
             logger.i(
                 "DayPlanRepositoryImpl.setAllocation",
@@ -184,8 +188,8 @@ class DayPlanRepositoryImpl
 
         /**
          * Replaces ALL of [dayKey]'s allocations atomically with [allocations]
-         * (delete-then-insert in one transaction), forcing CUSTOM mode. Rejects past
-         * days. Marks the day insight-dirty.
+         * (delete-then-insert in one transaction), forcing CUSTOM mode in the same
+         * transaction. Rejects past days. Marks the day insight-dirty.
          */
         override suspend fun setAllocations(
             dayKey: String,
@@ -194,8 +198,8 @@ class DayPlanRepositoryImpl
             templateId: String?,
         ) {
             requireTodayOrFuture(dayKey)
-            setDayMode(dayKey = dayKey, mode = MODE_CUSTOM, templateId = null)
             sessionManager.inTransaction {
+                setDayMode(dayKey = dayKey, mode = MODE_CUSTOM, templateId = null)
                 val now = LocalDateTime.now().format(formatter)
                 // Replace as one atomic batch to avoid partial states during high-frequency updates.
                 sessionManager.requireDatabase().dayPlanDao().deleteAllocationsForDay(dayKey)

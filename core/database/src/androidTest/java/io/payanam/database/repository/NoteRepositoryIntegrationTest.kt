@@ -67,7 +67,7 @@ class NoteRepositoryIntegrationTest {
      * Creates the create note creates and returns note with generated id.
      */
     fun createNote_createsAndReturnsNoteWithGeneratedId() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val input = createTestNoteInput("Test Note", "Test details")
 
@@ -87,7 +87,7 @@ class NoteRepositoryIntegrationTest {
      * Returns the all notes returns all created notes.
      */
     fun getAllNotes_returnsAllCreatedNotes() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val note1 = repository.createNote(createTestNoteInput("Note 1", "Details 1"))
             val note2 = repository.createNote(createTestNoteInput("Note 2", "Details 2"))
@@ -105,7 +105,7 @@ class NoteRepositoryIntegrationTest {
      * Returns the note by id returns correct note when exists.
      */
     fun getNoteById_returnsCorrectNoteWhenExists() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val createdNote = repository.createNote(createTestNoteInput("Find Me", "My details"))
 
@@ -124,7 +124,7 @@ class NoteRepositoryIntegrationTest {
      * Returns the note by id returns null when note does not exist.
      */
     fun getNoteById_returnsNullWhenNoteDoesNotExist() =
-        runBlocking {
+        runBlocking<Unit> {
             // When
             val foundNote = repository.getNoteById("nonexistent-id")
 
@@ -137,7 +137,7 @@ class NoteRepositoryIntegrationTest {
      * Get notes by dimension filters notes by life intention category.
      */
     fun getNotesByDimension_filtersNotesByLifeIntentionCategory() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val careerNote =
                 repository.createNote(
@@ -164,7 +164,7 @@ class NoteRepositoryIntegrationTest {
      * Updates the update note modifies existing note.
      */
     fun updateNote_modifiesExistingNote() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val createdNote = repository.createNote(createTestNoteInput("Original Title", "Original details"))
             val updateInput = createTestNoteInput("Updated Title", "Updated details")
@@ -184,7 +184,7 @@ class NoteRepositoryIntegrationTest {
      * Removes the delete note removes note from database.
      */
     fun deleteNote_removesNoteFromDatabase() =
-        runBlocking {
+        runBlocking<Unit> {
             // Given
             val note = repository.createNote(createTestNoteInput("Delete Me", "Delete details"))
             val noteId = note.id

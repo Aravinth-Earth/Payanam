@@ -22,16 +22,17 @@ import kotlinx.coroutines.flow.Flow
  * (descending) so the highest-priority task surfaces first.
  */
 interface TaskDao {
-    @Query("SELECT * FROM tasks ORDER BY taskScore DESC, createdAt DESC")
+    @Query("SELECT * FROM tasks ORDER BY taskScore DESC, createdAt DESC, id ASC")
     /**
      * Returns every task ordered by score (highest first), then creation time
-     * (newest first). Emitted as a [Flow] that re-emits whenever the table changes.
+     * (newest first), then id. Emitted as a [Flow] that re-emits whenever the
+     * table changes.
      */
     fun getAllTasks(): Flow<List<TaskEntity>>
 
-    @Query("SELECT * FROM tasks WHERE status = :status ORDER BY taskScore DESC")
+    @Query("SELECT * FROM tasks WHERE status = :status ORDER BY taskScore DESC, id ASC")
     /**
-     * Returns tasks with the given status, ordered by score descending.
+     * Returns tasks with the given status, ordered by score descending then id.
      * Emitted as a [Flow] for reactive UI observation.
      */
     fun getTasksByStatus(status: String): Flow<List<TaskEntity>>
@@ -44,7 +45,7 @@ interface TaskDao {
             day_key = :date
             OR (day_key IS NULL AND date(dueDate) = date(:date))
         )
-        ORDER BY taskScore DESC
+        ORDER BY taskScore DESC, id ASC
         """,
     )
     /**
@@ -113,13 +114,13 @@ interface TaskDao {
             )
         )
         OR (recurrenceEnabled = 1 AND status = 'pending')
-        ORDER BY taskScore DESC
+        ORDER BY taskScore DESC, id ASC
     """,
     )
     /**
      * Returns today's actionable tasks for [today]: pending tasks scheduled for
      * that day (by `day_key` or, when null, by `dueDate`), plus every pending
-     * task that has recurrence enabled. Ordered by score descending.
+     * task that has recurrence enabled. Ordered by score descending then id.
      */
     fun getTodaysTasks(today: String): Flow<List<TaskEntity>>
 
@@ -212,10 +213,10 @@ interface TaskDao {
         updatedAt: String,
     ): Int
 
-    @Query("SELECT * FROM tasks WHERE recurrenceEnabled = 1")
+    @Query("SELECT * FROM tasks WHERE recurrenceEnabled = 1 AND status != 'archived'")
     /**
-     * Returns all tasks that have recurrence enabled. Called by the scheduler
-     * to regenerate future occurrences.
+     * Returns all tasks that have recurrence enabled and are not archived. Called
+     * by the scheduler to regenerate future occurrences.
      */
     suspend fun getRecurringTasks(): List<TaskEntity>
 
@@ -227,13 +228,17 @@ interface TaskDao {
             status = 'pending',
             lastOccurrenceDate = :lastOccurrenceDate,
             updatedAt = :updatedAt
-        WHERE id = :id
+        WHERE id = :id AND status != 'archived'
     """,
     )
     /**
      * Advances a recurring task to its next occurrence: sets the new [newDueDate]
      * and [dayKey], records [lastOccurrenceDate], resets [status] to pending, and
-     * stamps [updatedAt].
+     * stamps [updatedAt]. Matches no row when the task is archived, so an archived
+     * task is never returned to pending.
+     *
+     * Returns the number of rows changed: 0 means nothing advanced (the task was archived between the
+     * read and this write), and the caller must not report an advancement or dirty the new day.
      */
     suspend fun updateRecurrenceState(
         id: String,
@@ -241,5 +246,5 @@ interface TaskDao {
         dayKey: String,
         lastOccurrenceDate: String,
         updatedAt: String,
-    )
+    ): Int
 }

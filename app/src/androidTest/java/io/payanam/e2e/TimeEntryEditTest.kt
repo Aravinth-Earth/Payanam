@@ -92,7 +92,8 @@ class TimeEntryEditTest {
 
         // ── 5. Delete the entry ───────────────────────────────────────────────────────────────
         openEntryModal()
-        h.click(l.ui.locDelete)
+        h.click(l.ui.locDelete) // opens the confirm dialog
+        h.clickLast(l.ui.locDelete) // confirms - the dialog reuses the "Delete" label
         waitForEntryBlockGone()
         h.assertLogged("TimeViewModel.deleteTimeEntry", "Time entry deleted")
         h.log("entry=deleted")

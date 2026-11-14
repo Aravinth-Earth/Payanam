@@ -29,6 +29,7 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.time.format.FormatStyle
 import java.util.UUID
+import java.util.concurrent.ConcurrentHashMap
 
 /**
  * Day-screen ViewModel: date navigation (never into the future) and the
@@ -40,7 +41,9 @@ class DayViewModel(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val logger = AppLogger.current
-    private val pendingJournalSaves = mutableMapOf<JournalResponseKey, Job>()
+
+    // Mutated from the caller's thread, the debounced save coroutine's finally, and dispose().
+    private val pendingJournalSaves = ConcurrentHashMap<JournalResponseKey, Job>()
 
     private val _uiState = MutableStateFlow(DayUiState())
     val uiState: StateFlow<DayUiState> = _uiState.asStateFlow()
@@ -376,15 +379,11 @@ class DayViewModel(
 
                             "dimension" -> {
                                 resp.dimensionKey?.let { dimKey ->
-                                    val resolvedDimensionId = DimensionTaxonomyCatalog.fromCanonicalId(dimKey)?.id
-                                    try {
-                                        val dimensionId =
-                                            resolvedDimensionId ?: throw IllegalArgumentException("Unknown dimension key: $dimKey")
-                                        val dimMap = dimensionResponses.getOrPut(dimensionId) { mutableMapOf() }
-                                        dimMap[resp.promptKey] = resp.responseText
-                                    } catch (_: Exception) {
-                                        logger.w("DayViewModel.loadDayData", "Unknown dimension: $dimKey")
-                                    }
+                                    // Keyed by the stored key: an id the taxonomy does not know (a user's own
+                                    // dimension) must still reach the form, not be dropped.
+                                    val dimensionId = DimensionTaxonomyCatalog.fromCanonicalId(dimKey)?.id ?: dimKey
+                                    val dimMap = dimensionResponses.getOrPut(dimensionId) { mutableMapOf() }
+                                    dimMap[resp.promptKey] = resp.responseText
                                 }
                             }
                         }
@@ -394,6 +393,7 @@ class DayViewModel(
                 _uiState.update { state ->
                     state.copy(
                         isLoading = false,
+                        error = null,
                         journalEntry = journalEntry,
                         overallResponses = overallResponses,
                         dimensionResponses = dimensionResponses.mapValues { it.value.toMap() },
@@ -413,7 +413,7 @@ class DayViewModel(
                 throw e
             } catch (e: Exception) {
                 logger.e("DayViewModel.loadDayData", "Failed to load day journal data", e)
-                _uiState.update { it.copy(isLoading = false) }
+                _uiState.update { it.copy(isLoading = false, error = e.message) }
             }
         }
     }

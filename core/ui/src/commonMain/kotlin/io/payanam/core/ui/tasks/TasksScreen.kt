@@ -45,6 +45,10 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.Snackbar
+import androidx.compose.material3.SnackbarDuration
+import androidx.compose.material3.SnackbarHost
+import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Tab
 import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
@@ -65,6 +69,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.platform.LocalSoftwareKeyboardController
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.ImeAction
 import androidx.compose.ui.unit.dp
 import io.payanam.presentation.tasks.HabitSortOption
@@ -77,6 +82,7 @@ import io.payanam.presentation.tasks.DayCheckmark
 import io.payanam.core.ui.components.DayHeaderRow
 import io.payanam.core.ui.components.DayMetricsStrip
 import io.payanam.core.ui.components.HabitCard
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.components.calculateButtonCount
 import io.payanam.domain.model.Task
 import io.payanam.presentation.habits.HabitDayMetricsState
@@ -169,6 +175,9 @@ fun TasksScreen(
     val tracer = LocalDataLayer.current.tracer
     val logger = AppLogger.current
     val chromeState by viewModel.chromeUiState.collectAsState()
+    val snackbarHostState = remember { SnackbarHostState() }
+    val actionFailedReasonPlaceholder = "__TASKS_ERROR_REASON__"
+    val actionFailedMessageTemplate = strings.locActionFailedWithReason.formatArgs(actionFailedReasonPlaceholder)
     var firstContentLogged by remember { mutableStateOf(false) }
     var selectedTabIndex by remember {
         mutableIntStateOf(
@@ -218,6 +227,18 @@ fun TasksScreen(
             tracer.markEvent(screen = "habits", event = "first_content")
         }
     }
+    // An empty list already renders this error in place below, so only a failed write on a populated
+    // list becomes a snackbar; clearing it there would replace that message with the empty state.
+    LaunchedEffect(chromeState.error) {
+        val error = chromeState.error ?: return@LaunchedEffect
+        if (chromeState.oneTimeTaskCount == 0 && chromeState.recurringTaskCount == 0) return@LaunchedEffect
+        snackbarHostState.showSnackbar(
+            message = actionFailedMessageTemplate.replace(actionFailedReasonPlaceholder, error),
+            withDismissAction = true,
+            duration = SnackbarDuration.Indefinite,
+        )
+        viewModel.clearError()
+    }
     LaunchedEffect(effectiveTabIndex) {
         tracer.markEvent(
             screen = "tasks",
@@ -251,6 +272,16 @@ fun TasksScreen(
         pendingTabTrace = null
     }
     Scaffold(
+        snackbarHost = {
+            SnackbarHost(snackbarHostState) { data ->
+                Snackbar(
+                    snackbarData = data,
+                    containerColor = MaterialTheme.colorScheme.inverseSurface,
+                    contentColor = MaterialTheme.colorScheme.inverseOnSurface,
+                    actionColor = MaterialTheme.colorScheme.inversePrimary,
+                )
+            }
+        },
         topBar = {
             TasksTopBar(
                 mode = mode,
@@ -294,6 +325,7 @@ fun TasksScreen(
                     logger.i("TasksScreen", "Add task FAB clicked", mapOf())
                     onNavigateToAddTask()
                 },
+                modifier = Modifier.testTag(TestTags.Tasks.ADD_BUTTON),
                 containerColor = MaterialTheme.colorScheme.primaryContainer,
                 contentColor = MaterialTheme.colorScheme.onPrimaryContainer,
             ) {
@@ -386,6 +418,21 @@ fun TasksScreen(
                     }
                 }
 
+                // Only preempts the list when nothing loaded, so a failed write on a populated list still shows it.
+                chromeState.error != null && chromeState.oneTimeTaskCount == 0 && chromeState.recurringTaskCount == 0 -> {
+                    Box(
+                        modifier = Modifier.fillMaxSize(),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text(
+                            text = chromeState.error ?: "",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.error,
+                            modifier = Modifier.padding(16.dp),
+                        )
+                    }
+                }
+
                 effectiveTabIndex == 0 -> {
                     HabitsTabRoute(
                         viewModel = viewModel,
@@ -397,7 +444,6 @@ fun TasksScreen(
                                 "TasksScreen.searchQueryChanged",
                                 "Habit search query changed",
                                 mapOf(
-                                    "query" to newQuery,
                                     "queryLength" to newQuery.length,
                                     "elapsedSinceOpenMs" to (elapsedMillis() - habitSearchOpenElapsed),
                                 ),
@@ -409,7 +455,6 @@ fun TasksScreen(
                                 "TasksScreen.searchClosed",
                                 "Habit search closed",
                                 mapOf(
-                                    "query" to habitSearchQuery,
                                     "queryLength" to habitSearchQuery.length,
                                     "elapsedSinceOpenMs" to (closeMs - habitSearchOpenElapsed),
                                 ),
@@ -621,7 +666,6 @@ private fun HabitsTabContent(
                 "TasksScreen.habitSearchFiltered",
                 "Habit search filter applied",
                 mapOf(
-                    "query" to searchQuery,
                     "queryLength" to searchQuery.length,
                     "inputRows" to rows.size,
                     "matchedRows" to displayRows.size,

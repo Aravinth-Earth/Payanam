@@ -18,6 +18,7 @@ import io.payanam.presentation.updates.ApkDownloader
 import io.payanam.presentation.updates.ApkInstaller
 import io.payanam.presentation.updates.InstallSourceReader
 import io.payanam.presentation.updates.UpdateChecker
+import io.payanam.shared.version.BuildLabel
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateOutcome
 import kotlinx.coroutines.Dispatchers
@@ -85,6 +86,14 @@ class PreUnlockUpdateViewModel @Inject constructor(
     private var lastCheckTimestampMs = 0L
     private val checkCooldownMs = 60_000L
     val currentBuildNumber: Int = BuildConfig.VERSION_CODE
+
+    /** The label the hatch prints; one formatter, so it matches the settings About row exactly. */
+    val currentBuildLabel: String =
+        BuildLabel.of(
+            BuildConfig.VERSION_NAME,
+            BuildConfig.BUILD_SHORT_SHA,
+            BuildConfig.BUILD_TIMESTAMP,
+        )
 
     /** User tapped "Check for update" (manual only). */
     @Suppress("TooGenericExceptionCaught") // Intentional: UpdateChecker.check network + JSON parsing

@@ -1,0 +1,10 @@
+Fixes and hardening, plus a few additions.
+
+• Reminders work while the app is locked: Complete, Miss or More
+• New Reminders setting offers exact alarm timing
+• Reminders survive app updates and timezone changes
+• Scores and streaks corrected; skipped days no longer count
+• Continuing a finished timer starts a new entry
+• Deleting a note, time entry or plan asks first
+• Failed loads show Retry, not an empty screen
+• The build label replaces the version code

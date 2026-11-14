@@ -410,6 +410,47 @@ class TaskOccurrenceRepositoryJvm(
         }
     }
 
+    /**
+     * Clears `actualDurationMinutes` on [taskId]'s occurrence for [date], rewriting the row with its other
+     * fields unchanged. No-ops when no row exists for that (task, day).
+     */
+    override suspend fun clearActualDurationMinutes(
+        taskId: String,
+        date: LocalDate,
+    ) {
+        JdbcFlows.onIo {
+            val dateStr = date.format(dateFormatter)
+            val existing = readOccurrence(taskId, dateStr)
+            if (existing == null) {
+                logger.d(
+                    "TaskOccurrenceRepositoryJvm.clearActualDurationMinutes",
+                    "No occurrence to clear duration on",
+                    mapOf("taskId" to taskId, "date" to dateStr),
+                )
+                return@onIo
+            }
+            JdbcQueries.write(
+                session,
+                UPDATE_OCCURRENCE_SQL,
+                arrayOf(
+                    existing.status,
+                    existing.statusReason,
+                    existing.note,
+                    existing.completedAt,
+                    existing.actualCompletedAt,
+                    null,
+                    existing.id,
+                ),
+            )
+            markDirtyForDay(date, "habit_occurrence_duration_cleared")
+            logger.i(
+                "TaskOccurrenceRepositoryJvm.clearActualDurationMinutes",
+                "Cleared occurrence actual duration",
+                mapOf("id" to existing.id, "taskId" to taskId, "date" to dateStr),
+            )
+        }
+    }
+
     private fun readOccurrence(
         taskId: String,
         dateStr: String,

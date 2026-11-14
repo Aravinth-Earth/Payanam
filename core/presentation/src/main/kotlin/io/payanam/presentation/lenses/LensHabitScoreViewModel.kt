@@ -15,16 +15,22 @@ import io.payanam.shared.logging.AppLogger
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.job
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import java.time.LocalDate
 import java.time.format.DateTimeFormatter
 import java.util.Locale
+import java.util.concurrent.atomic.AtomicInteger
 
 /** One row of the score matrix: a dimension (or DAY) on its latest day. */
 data class ScoreMatrixRow(
@@ -83,6 +89,35 @@ class LensHabitScoreViewModel(
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val logger = AppLogger.current
+    private var loadJob: Job? = null
+
+    /**
+     * The ONE lock that makes a load's registration and its publication atomic with respect to each other.
+     *
+     * Cancelling the previous job is cooperative, so a load already past its last suspension can still reach
+     * a publish. Registration (generation bump, cancel, job swap) and every publish therefore take the same
+     * lock: "is this still the registered load?" and "write that load's result" become one indivisible step,
+     * so a superseded load can never land its rows, its rank, or its error under a newer selection. It is also
+     * what makes [loadGeneration] and [loadJob] safe: both are only touched while this lock is held, on
+     * whichever thread the load is running on, so there is no torn/stale read across dispatcher threads.
+     *
+     * Held only for that short bookkeeping and the state write - never across a repository read or another
+     * suspension, and never nested.
+     */
+    private val loadMutex = Mutex()
+
+    /**
+     * Request order, assigned on the CALLER's thread before the load is dispatched.
+     *
+     * A plain launched coroutine cannot be trusted to reach the lock in call order, and the load that registers
+     * last owns the state - so without this token a slow-to-schedule newer request could register before an
+     * older one and then be overwritten by it. The ticket is this request's identity; the highest ticket seen
+     * under [loadMutex] is the registered load.
+     */
+    private val loadRequests = AtomicInteger()
+
+    /** Ticket of the newest registered load. Guarded by [loadMutex]. */
+    private var loadGeneration = 0
 
     private val _uiState = MutableStateFlow(LensHabitScoreUiState())
     val uiState: StateFlow<LensHabitScoreUiState> = _uiState.asStateFlow()
@@ -107,17 +142,42 @@ class LensHabitScoreViewModel(
     fun loadWindow(
         endDate: LocalDate = LocalDate.now(),
         days: Int = 14,
-        metric: ScoreMetricColumn = _uiState.value.selectedMetric,
+        metric: ScoreMetricColumn? = null,
     ) {
         val t0 = System.currentTimeMillis()
+        // The ticket is taken on the caller's thread, before the load is dispatched: the dispatcher may run two
+        // launches in either order, but the later REQUEST must still win.
+        val ticket = loadRequests.incrementAndGet()
         scope.launch {
-            _uiState.update { it.copy(isLoading = true, error = null) }
+            val self = coroutineContext.job
+            val registration =
+                loadMutex.withLock {
+                    // Registration is one guarded step: become the registered load, supersede (and cancel) the
+                    // previous one, and raise the spinner. A request that reached the lock after a newer one
+                    // already registered must NOT take over - the newer request owns the state, and taking the
+                    // ticket would let this older load overwrite it. (A ticket newer than the registered one
+                    // is always the newest request, whatever order the coroutines were scheduled in.)
+                    if (ticket <= loadGeneration) {
+                        null
+                    } else {
+                        loadGeneration = ticket
+                        loadJob?.cancel()
+                        loadJob = self
+                        _uiState.update { it.copy(isLoading = true, error = null) }
+                        // The metric is read here, under the same lock. Taking it as a default argument
+                        // read the selection before the ticket was drawn, so a selection made in between
+                        // could be overwritten by the metric an older load had already captured.
+                        ticket to (metric ?: _uiState.value.selectedMetric)
+                    }
+                } ?: return@launch
+            val generation = registration.first
+            val activeMetric = registration.second
             val end = endDate.format(DateTimeFormatter.ISO_LOCAL_DATE)
             val start = endDate.minusDays((days - 1).toLong()).format(DateTimeFormatter.ISO_LOCAL_DATE)
             logger.d(
                 "LensHabitScoreViewModel.loadWindow",
                 "Score matrix load started",
-                mapOf("start" to start, "end" to end, "days" to days, "metric" to metric.key),
+                mapOf("start" to start, "end" to end, "days" to days, "metric" to activeMetric.key),
             )
             try {
                 // 14-day window for display
@@ -146,31 +206,53 @@ class LensHabitScoreViewModel(
                     ),
                 )
                 val history = buildRankHistory(dimHist, dayHist)
-                rankHistory = history
+                // Currency check + write are one step under the mutex, so a newer registration cannot slot in
+                // between them and leave this load's rank history attached to the newer metric.
+                val stillCurrent =
+                    loadMutex.withLock {
+                        if (!isActive || generation != loadGeneration) {
+                            false
+                        } else {
+                            rankHistory = history
+                            true
+                        }
+                    }
+                if (!stillCurrent) return@launch
                 val dayRows = days.associateBy { it.dayKey }
                 val rows = buildDimensionRows(dims, dayRows, start, end)
                 val dayRow = buildDayRow(days, start, end)
                 val tRankStart = System.currentTimeMillis()
-                val rankByKey = computeRankMap(history, metric)
+                val rankByKey = computeRankMap(history, activeMetric)
                 val tRankEnd = System.currentTimeMillis()
                 val tUpdateStart = System.currentTimeMillis()
-                _uiState.update {
-                    it.copy(
-                        isLoading = false,
-                        windowStart = start,
-                        windowEnd = end,
-                        rows = rows,
-                        dayRow = dayRow,
-                        radarAxes = buildRadarAxes(dims),
-                        rankByKey = rankByKey,
-                    )
-                }
+                // Same guarded window for the state write: only the registered generation may publish, and
+                // nothing can register between the check and the write.
+                val published =
+                    loadMutex.withLock {
+                        if (!isActive || generation != loadGeneration) {
+                            false
+                        } else {
+                            _uiState.update {
+                                it.copy(
+                                    isLoading = false,
+                                    windowStart = start,
+                                    windowEnd = end,
+                                    rows = rows,
+                                    dayRow = dayRow,
+                                    radarAxes = buildRadarAxes(dims),
+                                    rankByKey = rankByKey,
+                                )
+                            }
+                            true
+                        }
+                    }
+                if (!published) return@launch
                 val tUpdateEnd = System.currentTimeMillis()
                 logger.d(
                     "LensHabitScoreViewModel.loadWindow",
                     "Rank recomputed for window",
                     mapOf(
-                        "metric" to metric.key,
+                        "metric" to activeMetric.key,
                         "rankKeys" to rankByKey.size,
                         "sampleDay" to (rankByKey["DAY"] ?: "none"),
                     ),
@@ -189,7 +271,13 @@ class LensHabitScoreViewModel(
                 throw e
             } catch (e: Exception) {
                 logger.e("LensHabitScoreViewModel.loadWindow", "Failed to load score matrix", e)
-                _uiState.update { it.copy(isLoading = false, error = e.message) }
+                // A superseded load must not replace the newest request's state with its own failure - the
+                // check and the write are one guarded step for the same reason the success publish is.
+                loadMutex.withLock {
+                    if (generation == loadGeneration) {
+                        _uiState.update { it.copy(isLoading = false, error = e.message) }
+                    }
+                }
             }
         }
     }

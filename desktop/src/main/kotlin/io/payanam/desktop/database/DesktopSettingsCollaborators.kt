@@ -11,6 +11,7 @@ import io.payanam.presentation.preferences.AppPreferencesWriter
 import io.payanam.presentation.preferences.DimensionLabelNormalizer
 import io.payanam.presentation.settings.DatabaseArtifactUiModel
 import io.payanam.presentation.settings.SettingsUiState
+import io.payanam.shared.version.BuildLabel
 import io.payanam.shared.database.DatabaseArtifacts
 import io.payanam.shared.database.PayanamDatabaseSchema
 import kotlinx.coroutines.flow.first
@@ -179,7 +180,12 @@ internal data class DesktopSettingsCollaborators(
         SettingsUiState(
             currentDatabaseSchemaVersion = PayanamDatabaseSchema.VERSION,
             minimumSupportedSchemaVersion = PayanamDatabaseSchema.MIN_MIGRATABLE_VERSION,
-            appVersion = io.payanam.desktop.DesktopBuildInfo.VERSION_DISPLAY_NAME,
+            appVersion =
+                BuildLabel.of(
+                    io.payanam.desktop.DesktopBuildInfo.VERSION_NAME,
+                    io.payanam.desktop.DesktopBuildInfo.BUILD_SHORT_SHA,
+                    io.payanam.desktop.DesktopBuildInfo.BUILD_TIMESTAMP,
+                ),
             buildNumber = io.payanam.desktop.DesktopBuildInfo.VERSION_CODE,
             taskCount =
                 LocalDataLayer.current.tasks

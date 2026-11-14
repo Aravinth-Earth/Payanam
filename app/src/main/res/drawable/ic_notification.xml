@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- SPDX-FileCopyrightText: 2026 Aravinth-Earth -->
+<!-- SPDX-License-Identifier: AGPL-3.0-or-later -->
+<!-- Life Wheel silhouette for the notification small slot: three alternating white segments and the centre hole, r=11 at (12,12). -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp"
+    android:height="24dp"
+    android:viewportWidth="24"
+    android:viewportHeight="24">
+    <path
+        android:fillColor="#FFFFFFFF"
+        android:fillType="evenOdd"
+        android:pathData="M12,12 L12,1 A11,11 0 0,1 21.53,6.5 Z M12,12 L21.53,17.5 A11,11 0 0,1 12,23 Z M12,12 L2.47,17.5 A11,11 0 0,1 2.47,6.5 Z M12,10.28 A1.72,1.72 0 1,0 12,13.72 A1.72,1.72 0 1,0 12,10.28 Z" />
+</vector>

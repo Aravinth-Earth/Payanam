@@ -22,6 +22,7 @@ import java.time.LocalDateTime
 import java.time.LocalTime
 import java.time.temporal.ChronoUnit
 import java.util.UUID
+import kotlin.math.ceil
 import kotlin.math.max
 
 /**
@@ -62,7 +63,7 @@ class RecurrenceManager(
         var skippedNotOverdue = 0
         for (task in tasks) {
             if (isFrequencyHabit(task)) {
-                frequencyHabitSync.sync(task)
+                frequencyHabitSync.sync(task, effectiveToday)
                 processedCount++
                 continue
             }
@@ -187,12 +188,26 @@ class RecurrenceManager(
                     ),
                 )
 
-                taskRepository.updateRecurrenceState(
-                    taskId = task.id,
-                    newDueDate = newDueDate,
-                    lastOccurrenceDate = LocalDateTime.now(),
-                )
-                repairedCount++
+                val changed =
+                    taskRepository.updateRecurrenceState(
+                        taskId = task.id,
+                        newDueDate = newDueDate,
+                        lastOccurrenceDate = LocalDateTime.now(),
+                    )
+                if (changed > 0) {
+                    repairedCount++
+                } else {
+                    // Archived between the read and this write: nothing was repaired, so it must not be
+                    // counted as one.
+                    logger.w(
+                        "RecurrenceManager.repairStuckRecurringTasks",
+                        "Recurrence update matched no row; task archived",
+                        mapOf(
+                            "taskId" to task.id,
+                            "title" to task.title,
+                        ),
+                    )
+                }
             }
         }
 
@@ -249,11 +264,24 @@ class RecurrenceManager(
         val newDueDate = effectiveToday.atTime(originalTime)
 
         // Update task
-        taskRepository.updateRecurrenceState(
-            taskId = task.id,
-            newDueDate = newDueDate,
-            lastOccurrenceDate = effectiveToday.minusDays(1).atStartOfDay(),
-        )
+        val changed =
+            taskRepository.updateRecurrenceState(
+                taskId = task.id,
+                newDueDate = newDueDate,
+                lastOccurrenceDate = effectiveToday.minusDays(1).atStartOfDay(),
+            )
+        if (changed <= 0) {
+            // Archived between the read and this write: nothing advanced, so no "advanced" line.
+            logger.w(
+                "RecurrenceManager.processOverdueTask",
+                "Recurrence update matched no row; task archived",
+                mapOf(
+                    "taskId" to task.id,
+                    "newDueDate" to newDueDate.toString(),
+                ),
+            )
+            return
+        }
 
         logger.i(
             "RecurrenceManager.processOverdueTask",
@@ -450,7 +478,8 @@ class RecurrenceManager(
                     ),
                 )
                 val frequency = RecurrenceScoreCalculator.fromRule(task.recurrenceRule)
-                val daysToAdd = frequency.denominator.toLong() / frequency.numerator
+                // Ceiling, not integer division: a 9-per-7 rule gave 7/9 = 0 days, so the due date never moved.
+                val daysToAdd = max(1L, ceil(frequency.denominator.toDouble() / frequency.numerator).toLong())
                 baseDate.plusDays(daysToAdd).atTime(preservedTime)
             }
 

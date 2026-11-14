@@ -412,20 +412,33 @@ class TaskRepositoryImpl
          * Advances a recurring task [taskId] to its next due date: sets `dueDate`
          * and `dayKey` from [newDueDate], records [lastOccurrenceDate], stamps
          * `updatedAt`, and marks the new due day insight-dirty.
+         *
+         * Returns the DAO's changed-row count so callers can tell whether anything advanced.
          */
         override suspend fun updateRecurrenceState(
             taskId: String,
             newDueDate: LocalDateTime,
             lastOccurrenceDate: LocalDateTime,
-        ) {
+        ): Int {
             val now = LocalDateTime.now()
-            sessionManager.requireDatabase().taskDao().updateRecurrenceState(
-                id = taskId,
-                newDueDate = PersistedDateTime.format(newDueDate),
-                dayKey = newDueDate.toLocalDate().format(dateFormatter),
-                lastOccurrenceDate = PersistedDateTime.format(lastOccurrenceDate),
-                updatedAt = PersistedDateTime.format(now),
-            )
+            val changed =
+                sessionManager.requireDatabase().taskDao().updateRecurrenceState(
+                    id = taskId,
+                    newDueDate = PersistedDateTime.format(newDueDate),
+                    dayKey = newDueDate.toLocalDate().format(dateFormatter),
+                    lastOccurrenceDate = PersistedDateTime.format(lastOccurrenceDate),
+                    updatedAt = PersistedDateTime.format(now),
+                )
+            if (changed == 0) {
+                // The task was archived between the read and this write: nothing advanced, so the day is not
+                // dirty and this is not an advancement.
+                logger.w(
+                    "TaskRepositoryImpl.updateRecurrenceState",
+                    "Recurrence update matched no row; task archived",
+                    mapOf("taskId" to taskId),
+                )
+                return 0
+            }
             markDirtyForTaskDay(newDueDate.toLocalDate(), "task_recurrence_updated")
             logger.i(
                 "TaskRepositoryImpl.updateRecurrenceState",
@@ -435,6 +448,7 @@ class TaskRepositoryImpl
                     "newDueDate" to newDueDate.toString(),
                 ),
             )
+            return changed
         }
 
         private suspend fun markDirtyForTaskId(

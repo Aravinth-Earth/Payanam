@@ -220,6 +220,7 @@ class TimeEntryRepositoryImpl
                 updatedAt = PersistedDateTime.format(now),
             )
             active.dayKey?.let { markDirtyForDay(LocalDate.parse(it), "time_entry_stopped") }
+            markDirtyForDay(now.toLocalDate(), "time_entry_stopped_end_day")
 
             logger.i("TimeEntryRepositoryImpl.stopActiveTimeEntry", "Entry stopped", mapOf("id" to active.id))
             return sessionManager
@@ -232,9 +233,9 @@ class TimeEntryRepositoryImpl
         /**
          * Applies a partial update from [input] to the time-entry [id]: re-resolves
          * the dimension, recomputes `dayKey` from `startedAt`, rewrites `endedAt`/
-         * focus, and marks the old + new days insight-dirty. Throws
-         * [IllegalArgumentException] when [id] is missing. Returns the domain
-         * [TimeEntry].
+         * focus, and marks the start and end days of both the old and the new row
+         * insight-dirty. Throws [IllegalArgumentException] when [id] is missing.
+         * Returns the domain [TimeEntry].
          */
         override suspend fun updateTimeEntry(
             id: String,
@@ -274,7 +275,13 @@ class TimeEntryRepositoryImpl
 
             sessionManager.requireDatabase().timeEntryDao().update(updated)
             existing.dayKey?.let { markDirtyForDay(LocalDate.parse(it), "time_entry_updated_previous_day") }
+            existing.endedAt?.let { endedAt ->
+                PersistedDateTime.parseOrNull(endedAt)?.let {
+                    markDirtyForDay(it.toLocalDate(), "time_entry_updated_previous_end_day")
+                }
+            }
             markDirtyForDay(input.startedAt.toLocalDate(), "time_entry_updated_target_day")
+            input.endedAt?.let { markDirtyForDay(it.toLocalDate(), "time_entry_updated_target_end_day") }
             logger.i(
                 "TimeEntryRepositoryImpl.updateTimeEntry",
                 "Time entry updated",
@@ -284,21 +291,27 @@ class TimeEntryRepositoryImpl
         }
 
         /**
-         * Hard-deletes the time entry [id] and marks its day insight-dirty.
+         * Hard-deletes the time entry [id] and marks its start and end days
+         * insight-dirty.
          */
         override suspend fun deleteTimeEntry(id: String) {
             logger.w("TimeEntryRepositoryImpl.deleteTimeEntry", "Deleting time entry", mapOf("id" to id))
             val existing = sessionManager.requireDatabase().timeEntryDao().getById(id)
             sessionManager.requireDatabase().timeEntryDao().deleteById(id)
             existing?.dayKey?.let { markDirtyForDay(LocalDate.parse(it), "time_entry_deleted") }
+            existing?.endedAt?.let { endedAt ->
+                PersistedDateTime.parseOrNull(endedAt)?.let {
+                    markDirtyForDay(it.toLocalDate(), "time_entry_deleted_end_day")
+                }
+            }
             logger.i("TimeEntryRepositoryImpl.deleteTimeEntry", "Time entry deleted", mapOf("id" to id))
         }
 
         /**
          * Persists a completed (or explicit) time entry from [input] with an
          * `endedAt` already supplied. Distinct from [startTimeEntry], which begins a
-         * running entry. Marks the start day insight-dirty. Returns the domain
-         * [TimeEntry].
+         * running entry. Marks the start and end days insight-dirty. Returns the
+         * domain [TimeEntry].
          */
         override suspend fun createTimeEntry(input: TimeEntryInput): TimeEntry {
             logger.i(
@@ -336,6 +349,7 @@ class TimeEntryRepositoryImpl
 
             sessionManager.requireDatabase().timeEntryDao().insert(entity)
             markDirtyForDay(input.startedAt.toLocalDate(), "time_entry_created")
+            input.endedAt?.let { markDirtyForDay(it.toLocalDate(), "time_entry_created_end_day") }
             logger.i(
                 "TimeEntryRepositoryImpl.createTimeEntry",
                 "Time entry created",
@@ -364,8 +378,9 @@ class TimeEntryRepositoryImpl
 
         /**
          * Replaces the whole time entry [entry] from its domain model: re-resolves
-         * the dimension, recomputes `dayKey`, marks old + new days insight-dirty.
-         * Throws [IllegalArgumentException] when [entry.id] is missing.
+         * the dimension, recomputes `dayKey`, marks the start and end days of both
+         * the old and the new row insight-dirty. Throws
+         * [IllegalArgumentException] when [entry.id] is missing.
          */
         override suspend fun updateTimeEntry(entry: TimeEntry) {
             logger.i(
@@ -398,7 +413,13 @@ class TimeEntryRepositoryImpl
 
             sessionManager.requireDatabase().timeEntryDao().update(updated)
             existing.dayKey?.let { markDirtyForDay(LocalDate.parse(it), "time_entry_direct_updated_previous_day") }
+            existing.endedAt?.let { endedAt ->
+                PersistedDateTime.parseOrNull(endedAt)?.let {
+                    markDirtyForDay(it.toLocalDate(), "time_entry_direct_updated_previous_end_day")
+                }
+            }
             markDirtyForDay(entry.startedAt.toLocalDate(), "time_entry_direct_updated_target_day")
+            entry.endedAt?.let { markDirtyForDay(it.toLocalDate(), "time_entry_direct_updated_target_end_day") }
             logger.i(
                 "TimeEntryRepositoryImpl.updateTimeEntryDirect",
                 "Time entry updated via domain model",

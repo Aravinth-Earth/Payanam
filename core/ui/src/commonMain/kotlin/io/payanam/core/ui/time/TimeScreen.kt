@@ -45,10 +45,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.platform.LocalLifecycleOwner
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.repeatOnLifecycle
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.day.DayPlanTemplateScreen
 import io.payanam.core.ui.preferences.DimensionOption
 import io.payanam.core.ui.preferences.LocalAppPreferences
@@ -91,14 +93,7 @@ fun TimeScreen(
     openStopTrackingDialogRequestId: Long? = null,
     onOpenStopTrackingDialogHandled: (Long) -> Unit = {},
     onNavigateToTask: (String) -> Unit = {},
-    /**
-     * Persists the timeline hour height the scale preset selected.
-     *
-     * A parameter rather than a call into a platform ViewModel, because the write itself is already
-     * shared: both platforms hold the same `app_settings` row behind `PayanamDataLayer`, so a shared
-     * screen that reached for one platform's ViewModel could not be built by the other. The clamp and
-     * the stored format stay with the caller, which is where they already were.
-     */
+    /** Persists the timeline hour height the scale preset selected; a parameter so both platforms build this. */
     onTimeHourHeightDpChange: (Float) -> Unit,
 ) {
     val strings = LocalUiStrings.current
@@ -122,10 +117,9 @@ fun TimeScreen(
     var lastAutoScrollHourHeightDp by remember { mutableStateOf<Float?>(null) }
     var currentTime by remember { mutableStateOf(LocalDateTime.now()) }
     var hasObservedTimelineRefresh by remember { mutableStateOf(false) }
-    // The notification permission, and the offer that may follow a start. The offer is raised from the
-    // STATE TRANSITION into tracking (see the effect below), never from a start button, so it cannot
-    // gate the action the user came for: the tracking service runs correctly without the permission and
-    // the only thing missing is the notification's drawer row.
+    // The notification permission, and the offer that may follow a start. Raised from the state
+    // transition below, never from a start button: tracking runs without the permission, only the
+    // notification row is missing.
     val notificationPermission = rememberNotificationPermission()
     var showNotificationRationale by remember { mutableStateOf(false) }
     val scrollState = rememberScrollState()
@@ -188,11 +182,27 @@ fun TimeScreen(
     }
     LaunchedEffect(uiState.selectedDate, uiState.activeEntry?.id, lifecycleOwner) {
         lifecycleOwner.repeatOnLifecycle(Lifecycle.State.STARTED) {
+            var lastVisualRefreshAt = LocalDateTime.now()
             while (true) {
                 currentTime = LocalDateTime.now()
-                val delayMillis = if (uiState.activeEntry != null) 1_000L else 60_000L
+                val isTracking = uiState.activeEntry != null
+                // A running entry has no endedAt, so the day summary only grows when it is recomputed.
+                if (isTracking && Duration.between(lastVisualRefreshAt, currentTime).toMinutes() >= 1L) {
+                    lastVisualRefreshAt = currentTime
+                    if (!minimalModeEnabled) {
+                        timeVisualsViewModel.loadForDate(uiState.selectedDate)
+                    }
+                }
+                val delayMillis = if (isTracking) 1_000L else 60_000L
                 delay(delayMillis)
             }
+        }
+    }
+    // A tracking-service stop that an edit could not complete is retried on every return to the foreground:
+    // the entry is already ended in the store, so no later save would ever revisit it.
+    LaunchedEffect(lifecycleOwner, viewModel) {
+        lifecycleOwner.repeatOnLifecycle(Lifecycle.State.RESUMED) {
+            viewModel.reconcileTrackingService()
         }
     }
     LaunchedEffect(uiState.error) {
@@ -205,19 +215,11 @@ fun TimeScreen(
         )
         viewModel.clearError()
     }
-    // WHY THE OFFER IS RAISED HERE AND NOT ON A START BUTTON:
-    //
-    // Tracking starts in three places on this screen - the FAB's start dialog, the modal's "set and
-    // continue", and the modal's "start task tracking" - and each of them ends in the same place: an
-    // ACTIVE ENTRY appears in the state. Watching that transition therefore covers all three with one
-    // hook, and it is inherently AFTER the user's action, because the entry only exists once the start
-    // has been committed. A hook on any one button would miss the other two.
-    //
-    // The entry's ID is the key rather than its presence, so a stop (the entry goes away) and a fresh
-    // start (a new entry arrives) are two different transitions.
+    // Raised on the STATE TRANSITION into tracking, never on a start button: all three start paths end
+    // in an active entry, and the entry only exists after the start is committed. Keyed by entry id, so a
+    // stop and a fresh start are two different transitions.
     val activeEntryId = uiState.activeEntry?.id
-    // Seeded with the entry this screen already had, so a session that RESUMES with a timer already
-    // running does not raise an offer for something the user did not just do.
+    // Seeded with the entry this screen already had, so a resumed session raises no offer.
     var seenActiveEntryId by remember { mutableStateOf(activeEntryId) }
     LaunchedEffect(activeEntryId) {
         val previousEntryId = seenActiveEntryId
@@ -230,6 +232,14 @@ fun TimeScreen(
             mapOf("entryId" to activeEntryId),
         )
         showNotificationRationale = true
+    }
+    // The offer is withdrawn once the state stops being DECLINES: notifications can be switched on outside
+    // this app - in the system settings screen or the shade - while the offer is up, and a dialog asking for
+    // something already granted must not stay on screen.
+    LaunchedEffect(notificationPermission.state) {
+        if (notificationPermission.state != SupportState.DECLINES) {
+            showNotificationRationale = false
+        }
     }
     val dateFormatter = remember {
         DateTimeFormatter.ofLocalizedDate(FormatStyle.MEDIUM)
@@ -452,6 +462,7 @@ fun TimeScreen(
                                 logger.d("TimeScreen.stopTrackingTapped", "Stop tracking button tapped")
                                 activeModalTarget = TimeBlockModalTarget.ExistingEntry(active)
                             },
+                            modifier = Modifier.testTag(TestTags.Time.STOP_TRACKING_BUTTON),
                             colors = IconButtonDefaults.filledIconButtonColors(
                                 containerColor = MaterialTheme.colorScheme.error,
                             ),
@@ -498,6 +509,7 @@ fun TimeScreen(
                             logger.d("TimeScreen.startTrackingFabTapped", "Start tracking FAB tapped")
                             showStartTrackingDialog = true
                         },
+                        modifier = Modifier.testTag(TestTags.Time.START_TRACKING_FAB),
                     ) {
                         Icon(Icons.Default.PlayArrow, strings.locStartTracking)
                     }

@@ -36,6 +36,7 @@ import kotlinx.coroutines.sync.withLock
 import kotlinx.coroutines.withContext
 import net.zetetic.database.sqlcipher.SQLiteDatabase
 import net.zetetic.database.sqlcipher.SupportOpenHelperFactory
+import java.util.concurrent.atomic.AtomicInteger
 import javax.inject.Inject
 import javax.inject.Singleton
 import io.payanam.shared.database.PayanamDatabaseSchema
@@ -75,6 +76,26 @@ class DatabaseSessionManager
         private var inactivityJob: Job? = null
         private var periodicCheckpointJob: Job? = null
 
+        // One lock for the session state. `openDatabase` keeps its suspend mutex; every close path takes
+        // this one, so a close cannot land between installing a handle and publishing it.
+        private val stateLock = Any()
+
+        // Bumped on every timer arm and every close. A timeout that wakes after a later arm — or after an
+        // explicit close — must not close a session it no longer owns.
+        private val sessionGeneration = AtomicInteger(0)
+
+        // A close that arrives while a handle is being built has nowhere to land, so it is remembered and
+        // applied the moment the build tries to publish.
+        private var openInFlight = false
+        private var closeRequested = false
+
+        // True between an in-process maintenance close and its reopen. An import closes the session to
+        // replace the files and immediately reopens the imported database; publishing the closed state
+        // mid-swap would tear the Settings screen (and its import prompt) out of composition and raise the
+        // unlock gate for a session that is about to exist again. If the reopen fails, endInProcessSwap
+        // publishes the closed state, so the normal gate appears.
+        private var maintenanceClose = false
+
         /**
          * Opens Room with SQLCipher using [passphrase]. Idempotent if already open with the
          * same passphrase; callers should not call this redundantly.
@@ -90,11 +111,30 @@ class DatabaseSessionManager
                         "encryptionEnabled" to encryptionManager.isEncryptionEnabled(),
                     ),
                 )
+                var built: PayanamDatabase? = null
                 return runCatching {
-                    if (_db != null) {
+                    // Register before the health check: a close that lands while the file is being examined
+                    // has nowhere else to record itself, and the open would otherwise publish over it.
+                    synchronized(stateLock) {
+                        openInFlight = true
+                        closeRequested = false
+                    }
+                    val replaced =
+                        synchronized(stateLock) {
+                            // The replaced session's timer must die with its handle, or a timeout armed by
+                            // the old session can close the handle this attempt is about to publish.
+                            sessionGeneration.incrementAndGet()
+                            inactivityJob?.cancel()
+                            inactivityJob = null
+                            periodicCheckpointJob?.cancel()
+                            periodicCheckpointJob = null
+                            val handle = _db
+                            _db = null
+                            handle
+                        }
+                    if (replaced != null) {
                         logger.w("DatabaseSessionManager.openDatabase", "DB already open; closing before re-open")
-                        _db?.close()
-                        _db = null
+                        replaced.close()
                     }
                     if (DatabaseHealthChecker.hasDatabaseArtifacts(context)) {
                         val health =
@@ -134,11 +174,24 @@ class DatabaseSessionManager
                             )
                             .openHelperFactory(SupportOpenHelperFactory(passphrase.toByteArray()))
                             .build()
+                            .also { built = it }
                     // Force open so SQLCipher validation happens now (throws on wrong passphrase)
                     db.openHelper.writableDatabase
-                    _db = db
-                    _openPassphrase = passphrase
-                    _isOpen.value = true
+                    synchronized(stateLock) {
+                        openInFlight = false
+                        if (closeRequested) {
+                            closeRequested = false
+                            error("DatabaseSessionManager: session closed while opening")
+                        }
+                        // Belt and braces: a timer armed before this publish holds the pre-re-open
+                        // generation and must not be able to close the handle installed here.
+                        sessionGeneration.incrementAndGet()
+                        inactivityJob?.cancel()
+                        inactivityJob = null
+                        _db = db
+                        _openPassphrase = passphrase
+                        _isOpen.value = true
+                    }
                     configureWalAutoCheckpoint(db)
                     logger.i(
                         "DatabaseSessionManager.openDatabase",
@@ -148,9 +201,16 @@ class DatabaseSessionManager
                     startInactivityTimer()
                     startPeriodicCheckpointTimer()
                 }.onFailure { error ->
-                    _db = null
-                    _openPassphrase = null
-                    _isOpen.value = false
+                    // The attempt's own handle: an unclosed SQLCipher helper keeps the derived key, so the
+                    // session would report closed while a handle still lives.
+                    synchronized(stateLock) {
+                        openInFlight = false
+                        closeRequested = false
+                        _db = null
+                        _openPassphrase = null
+                        if (!maintenanceClose) _isOpen.value = false
+                    }
+                    runCatching { built?.close() }
                     logger.e("DatabaseSessionManager.openDatabase", "Failed to open DB session", error)
                 }
             }
@@ -160,21 +220,52 @@ class DatabaseSessionManager
          * import-replace operation that overwrites the DB file on disk.
          */
         fun closeDatabase() {
-            val wasOpen = _db != null
-            inactivityJob?.cancel()
-            inactivityJob = null
-            periodicCheckpointJob?.cancel()
-            periodicCheckpointJob = null
-            val db = _db
-            _db = null
-            _openPassphrase = null
-            _isOpen.value = false
+            val db =
+                synchronized(stateLock) {
+                    sessionGeneration.incrementAndGet()
+                    if (openInFlight) closeRequested = true
+                    inactivityJob?.cancel()
+                    inactivityJob = null
+                    periodicCheckpointJob?.cancel()
+                    periodicCheckpointJob = null
+                    val handle = _db
+                    _db = null
+                    _openPassphrase = null
+                    if (!maintenanceClose) _isOpen.value = false
+                    handle
+                }
+            val wasOpen = db != null
             db?.close()
             logger.i(
                 "DatabaseSessionManager.closeDatabase",
                 "DB session closed explicitly",
                 mapOf("wasOpen" to wasOpen),
             )
+        }
+
+        /**
+         * Marks the start of an in-process close/reopen that must not surface as a locked session.
+         *
+         * The import closes the session only to replace the files, then immediately opens the imported
+         * database. The owner of the import prompt lives on a screen the unlock gate would otherwise
+         * replace, so the closed state is withheld for that window. The caller must pair this with
+         * [endInProcessSwap] on every path.
+         */
+        fun beginInProcessSwap() {
+            synchronized(stateLock) { maintenanceClose = true }
+        }
+
+        /**
+         * Ends the window started by [beginInProcessSwap].
+         *
+         * A reopen that succeeded leaves the UI signal untouched; one that failed publishes the closed
+         * state so the normal unlock gate appears instead of leaving a dead screen.
+         */
+        fun endInProcessSwap(sessionOpen: Boolean) {
+            synchronized(stateLock) {
+                maintenanceClose = false
+                if (!sessionOpen) _isOpen.value = false
+            }
         }
 
         /**
@@ -242,9 +333,18 @@ class DatabaseSessionManager
          * are triggered by direct user interaction. Do NOT call from background services.
          */
         fun touch() {
-            if (_db != null) {
-                startInactivityTimer()
-            } else {
+            val sessionOpen =
+                synchronized(stateLock) {
+                    // The check and the arm happen under the same lock as the timeout's teardown, so a touch
+                    // either re-arms a live session or is ignored; it cannot arm a timer on a closed one.
+                    if (_db != null) {
+                        startInactivityTimer()
+                        true
+                    } else {
+                        false
+                    }
+                }
+            if (!sessionOpen) {
                 logger.d("DatabaseSessionManager.touch", "Session touch ignored because DB is closed")
             }
         }
@@ -414,6 +514,9 @@ class DatabaseSessionManager
             val wasInactive = inactivityJob == null
             inactivityJob?.cancel()
             val timeoutMs = encryptionManager.getSessionTimeoutMinutes() * 60_000L
+            // Captured before the launch: a job that wakes after a later arm owns a stale generation and
+            // must not close the session that arm belongs to.
+            val generation = sessionGeneration.incrementAndGet()
             inactivityJob =
                 scope.launch {
                     if (wasInactive) {
@@ -424,11 +527,12 @@ class DatabaseSessionManager
                         )
                     }
                     delay(timeoutMs)
+                    if (generation != sessionGeneration.get()) return@launch
                     logger.i(
                         "DatabaseSessionManager.inactivityTimer",
                         "Inactivity timeout reached; closing DB session for silent re-auth",
                     )
-                    closeDatabaseForTimeout()
+                    closeDatabaseForTimeout(generation)
                 }
         }
 
@@ -478,7 +582,11 @@ class DatabaseSessionManager
         }
 
         @Suppress("TooGenericExceptionCaught", "SwallowedException")
-        private fun closeDatabaseForTimeout() {
+        private fun closeDatabaseForTimeout(generation: Int) {
+            if (generation != sessionGeneration.get()) return
+            // An in-process swap owns the session for its short window; the timer it cancelled must not
+            // close the database the swap is about to replace.
+            if (synchronized(stateLock) { maintenanceClose }) return
             logger.i("DatabaseSessionManager.closeDatabaseForTimeout", "Closing DB session after inactivity timeout")
             CrashBreadcrumbs.record(
                 source = "DatabaseSessionManager.closeDatabaseForTimeout",
@@ -496,13 +604,22 @@ class DatabaseSessionManager
             } catch (e: Exception) {
                 logger.e("DatabaseSessionManager.closeDatabaseForTimeout", "Failed to write timeout sentinel", e)
             }
-            val db = _db
-            inactivityJob = null
-            periodicCheckpointJob?.cancel()
-            periodicCheckpointJob = null
-            _db = null
-            _openPassphrase = null
-            _isOpen.value = false
+            val db =
+                synchronized(stateLock) {
+                    // Re-checked inside the lock: a touch that armed a new timer while the sentinel was being
+                    // written still owns the session and this close must not take it.
+                    if (generation != sessionGeneration.get()) return
+                    if (maintenanceClose) return
+                    sessionGeneration.incrementAndGet()
+                    inactivityJob = null
+                    periodicCheckpointJob?.cancel()
+                    periodicCheckpointJob = null
+                    val handle = _db
+                    _db = null
+                    _openPassphrase = null
+                    _isOpen.value = false
+                    handle
+                }
             db?.close()
 
             CrashBreadcrumbs.record(

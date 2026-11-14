@@ -256,6 +256,45 @@ class BackupCoordinatorCoreTest {
         }
 
     @Test
+    fun `createSnapshot does not retry a non-empty WAL`() =
+        runBlocking {
+            val dbFile = createDummyDbFile()
+            val walFile = File(dbFile.parent, dbFile.name + DatabaseArtifacts.WAL_SUFFIX)
+            walFile.writeBytes(ByteArray(16) { 0x42 })
+            val snapshotDir = tempFolder.newFolder("snapshots")
+            var foldCalls = 0
+            val checkpointPort =
+                object : BackupCheckpointPort {
+                    override fun isDbOpen(): Boolean = true
+
+                    override fun foldWal(): WalCheckpointRule.FoldReport {
+                        foldCalls++
+                        return WalCheckpointRule.FoldReport(busy = 0, logFrames = 0, checkpointedFrames = 0)
+                    }
+                }
+            val coordinator =
+                BackupCoordinatorCore(
+                    dbFile = dbFile,
+                    tempSnapshotDir = snapshotDir,
+                    checkpointPort = checkpointPort,
+                    retryPolicy = BackupRetryPolicy(maxAttempts = 3, retryDelayMs = 10L),
+                    logger = NoOpUnifiedLogger,
+                    backupDirectory = java.io.File(tempFolder.root, "backups"),
+                    sessionFolderName = { "auto_bk_test" },
+                    destinationFileName = "payanam.db",
+                    rotationRows = { emptyMap() },
+                    failureMessage = { _, _, error -> "backup failed: ${error.message}" },
+                    recordSuccess = { },
+                    recordFailure = { },
+                )
+
+            val failure = runCatching { coordinator.createSnapshot(BackupTrigger.MANUAL) }
+
+            assertThat(failure.isFailure).isTrue()
+            assertThat(foldCalls).isEqualTo(1)
+        }
+
+    @Test
     fun `checkpointIfPossible skips fold when db closed`() =
         runBlocking {
             val dbFile = createDummyDbFile()

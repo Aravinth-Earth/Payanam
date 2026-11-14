@@ -40,6 +40,15 @@ class FrequencyWindowSummaryTest {
     }
 
     @Test
+    fun `a window whose whole target was skipped is neutral, not satisfied`() {
+        val neutral = window(completedCount = 0, skippedCount = 1, targetCount = 1, effectiveTargetCount = 0)
+
+        assertThat(neutral.isNeutral).isTrue()
+        assertThat(neutral.isSatisfied).isTrue()
+        assertThat(window().isNeutral).isFalse()
+    }
+
+    @Test
     fun `the completion ratio divides completions by the effective target`() {
         assertThat(window(completedCount = 3, effectiveTargetCount = 4).completionRatio).isEqualTo(0.75)
         assertThat(window(completedCount = 0, effectiveTargetCount = 5).completionRatio).isEqualTo(0.0)

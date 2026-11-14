@@ -38,10 +38,12 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.TextUnit
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import kotlinx.coroutines.launch
@@ -152,7 +154,8 @@ fun OnboardingIntroScreen(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .height(56.dp),
+                            .height(56.dp)
+                            .testTag(TestTags.Onboarding.PRIMARY_BUTTON),
                     shape = MaterialTheme.shapes.large,
                 ) {
                     Text(
@@ -171,7 +174,10 @@ fun OnboardingIntroScreen(
                     enter = fadeIn(),
                     exit = fadeOut(),
                 ) {
-                    TextButton(onClick = onFinished) {
+                    TextButton(
+                        onClick = onFinished,
+                        modifier = Modifier.testTag(TestTags.Onboarding.SKIP_BUTTON),
+                    ) {
                         Text(
                             text = strings.onboardingActionSkip,
                             color = MaterialTheme.colorScheme.onSurfaceVariant,

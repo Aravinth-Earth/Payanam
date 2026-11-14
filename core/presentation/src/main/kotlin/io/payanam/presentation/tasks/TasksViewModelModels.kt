@@ -24,6 +24,7 @@ data class TaskCheckmarks(
  */
 data class TasksChromeUiState(
     val isLoading: Boolean = true,
+    val error: String? = null,
     val recurringTaskCount: Int = 0,
     val oneTimeTaskCount: Int = 0,
     val habitSortOption: HabitSortOption = HabitSortOption.SCORE_HIGH_LOW,

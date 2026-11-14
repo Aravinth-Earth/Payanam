@@ -139,7 +139,7 @@ data class RecurrenceConfig(
                 // Scheduled every N days from start date
                 val start = startDate ?: return true
                 val daysSinceStart = ChronoUnit.DAYS.between(start, date).toInt()
-                daysSinceStart >= 0 && daysSinceStart % intervalDays == 0
+                daysSinceStart >= 0 && daysSinceStart % intervalDays.coerceAtLeast(1) == 0
             }
             
             RecurrenceType.FREQUENCY -> {

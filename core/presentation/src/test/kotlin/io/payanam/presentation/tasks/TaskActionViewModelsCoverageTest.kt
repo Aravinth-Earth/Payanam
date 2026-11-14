@@ -17,6 +17,7 @@ import io.payanam.domain.repository.TaskRepository
 import io.payanam.domain.repository.TaskRescheduleRepository
 import io.payanam.presentation.flags.FeatureFlagsState
 import io.payanam.presentation.flags.PlatformFeatureFlags
+import io.payanam.presentation.lenses.FakeScoringConfigRepository
 import io.payanam.scoring.CompletionStats
 import io.payanam.scoring.port.TaskRecurrenceHandler
 import kotlinx.coroutines.CoroutineScope
@@ -258,6 +259,7 @@ class TaskActionViewModelsCoverageTest {
             tagRepository = tagRepo,
             notificationScheduler = scheduler,
             scoreCalculator = scoreCalc,
+            scoringConfigRepository = FakeScoringConfigRepository(),
             resultDispatcher = StandardTestDispatcher(testScheduler),
             scope = scope,
         )
@@ -271,6 +273,7 @@ class TaskActionViewModelsCoverageTest {
             notificationScheduler = scheduler,
             scoreRollupTrigger = scoreRollupTrigger,
             scoreCalculator = scoreCalc,
+            scoringConfigRepository = FakeScoringConfigRepository(),
             scope = scope,
         )
     }

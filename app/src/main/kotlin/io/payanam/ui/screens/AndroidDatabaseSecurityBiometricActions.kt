@@ -95,7 +95,17 @@ class AndroidDatabaseSecurityBiometricActions(
             onComplete(false)
             return
         }
-        onEnableBiometricRequested(activity, passphrase, onComplete)
+        // A verification that throws before the prompt opens must answer "cannot launch" through
+        // [onComplete], not unwind into the click handler that called this.
+        runCatching { onEnableBiometricRequested(activity, passphrase, onComplete) }
+            .onFailure { failure ->
+                logger.e(
+                    "DatabaseSecurityPreferencesSection.biometricEnable",
+                    "Biometric enable verification threw before the prompt launched; reporting failure",
+                    failure,
+                )
+                onComplete(false)
+            }
     }
 }
 

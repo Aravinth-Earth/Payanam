@@ -470,6 +470,13 @@ class LensViewModel(
             }
     }
 
+    /**
+     * Clears the failure banner the lens screen shows after a load or a reflection write fails.
+     */
+    fun clearError() {
+        _uiState.update { it.copy(hasError = false, errorMessage = null) }
+    }
+
     private suspend fun executeLensDataLoad() {
         val state = _uiState.value
         val resolvedRange =

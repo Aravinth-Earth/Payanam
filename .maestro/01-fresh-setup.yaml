@@ -1,0 +1,90 @@
+appId: io.payanam
+name: Fresh setup, unlock, enable debug logging
+---
+# clearState is `pm clear` on the installed app, so this flow destroys the real database.
+# The runner runs it only with RESET_APP=1; never point it at an install you care about.
+- launchApp:
+    clearState: true
+    permissions:
+      notifications: allow
+- takeScreenshot: 01-launch
+
+# Onboarding tour: one primary button advances each slide. Optional taps poll from the
+# last successful interaction, so wait for the button first or the tour stays on page 1.
+- extendedWaitUntil:
+    visible:
+      id: "onboarding.primary_button"
+    timeout: 30000
+- repeat:
+    times: 4
+    commands:
+      - tapOn:
+          id: "onboarding.primary_button"
+          optional: true
+- takeScreenshot: 02-after-onboarding
+
+# Focus-mode chooser (a preset is preselected).
+- tapOn:
+    id: "onboarding.focus_mode_continue_button"
+    optional: true
+- takeScreenshot: 03-focus-mode
+
+# Cold start with a cleared state: this wait covers the first database build.
+- extendedWaitUntil:
+    visible:
+      id: "db_init.create_database_button"
+    timeout: 30000
+- tapOn:
+    id: "db_init.create_database_button"
+- takeScreenshot: 04-db-gate
+
+# Passphrase setup (create form).
+- extendedWaitUntil:
+    visible:
+      id: "db_init.passphrase_field"
+- tapOn:
+    id: "db_init.passphrase_field"
+- inputText: "${PASS}"
+- tapOn:
+    id: "db_init.passphrase_confirm_field"
+- inputText: "${PASS}"
+- hideKeyboard
+- tapOn:
+    id: "db_init.passphrase_submit_button"
+- takeScreenshot: 05-passphrase-submitted
+
+# Dimension step loads its list first; the continue button appears after.
+- extendedWaitUntil:
+    visible:
+      id: "db_init.dimension_setup_continue_button"
+    timeout: 45000
+- takeScreenshot: 06-dimensions-loaded
+- tapOn:
+    id: "db_init.dimension_setup_continue_button"
+- takeScreenshot: 07-dimensions-continued
+
+# First run goes into the app and seeds the DB; the gate locks on the next launch.
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.settings"
+    timeout: 90000
+- takeScreenshot: 08-main-ui
+
+# Debug logging FIRST, so the whole run lands in the session log.
+- tapOn:
+    id: "nav.tab.settings"
+- scrollUntilVisible:
+    element:
+      id: "settings.debug_card"
+    direction: DOWN
+    timeout: 40000
+- takeScreenshot: 09-settings
+- tapOn:
+    id: "settings.debug_card"
+- extendedWaitUntil:
+    visible:
+      id: "settings.debug_logging_switch"
+- takeScreenshot: 10-debug-card
+- tapOn:
+    id: "settings.debug_logging_switch"
+- takeScreenshot: 11-debug-on

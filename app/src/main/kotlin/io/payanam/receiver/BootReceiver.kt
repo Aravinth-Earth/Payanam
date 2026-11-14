@@ -8,6 +8,7 @@ import android.content.Intent
 import dagger.hilt.android.AndroidEntryPoint
 import io.payanam.FeatureFlags
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.notification.NotificationScheduler
 import io.payanam.service.TrackingService
@@ -31,59 +32,105 @@ class BootReceiver : BroadcastReceiver() {
     @Inject
     lateinit var notificationScheduler: NotificationScheduler
 
+    @Inject
+    lateinit var sessionManager: DatabaseSessionManager
+
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
     /**
-     * On boot completion: restores any active tracking session + widget state
-     * and re-arms task reminders.
+     * Restores tracking and re-arms reminders on boot and package replace; re-arms reminders only on a
+     * clock or timezone change. Each step uses [runCatching] independently and the broadcast is held
+     * with [goAsync] until both finish.
      */
-    @Suppress("TooGenericExceptionCaught") // Intentional: multi-system-API catch in background component
     override fun onReceive(context: Context, intent: Intent) {
-        if (intent.action == Intent.ACTION_BOOT_COMPLETED) {
-            val logger = UnifiedLogger.getInstance()
-            logger.i("BootReceiver.onReceive", "Device boot completed, checking for active tracking")
+        val action = intent.action ?: return
+        if (action !in RE_ARM_ACTIONS) return
 
-            scope.launch {
-                try {
-                    // Check for active time entries
-                    val activeEntries = timeEntryRepository.getActiveTimeEntries().first()
-                    if (activeEntries.isNotEmpty()) {
-                        // Restore the most recent active entry's notification
-                        val entry = activeEntries.first()
+        val logger = UnifiedLogger.getInstance()
+        val restoresTracking = action == Intent.ACTION_BOOT_COMPLETED || action == Intent.ACTION_MY_PACKAGE_REPLACED
+        logger.i("BootReceiver.onReceive", "Handling $action")
 
-                        logger.i(
-                            "BootReceiver.onReceive",
-                            "Restoring active tracking notification",
-                            mapOf(
-                                "entryId" to entry.id,
-                                "dimensionId" to (entry.dimensionId ?: "unknown"),
-                            ),
-                        )
-
-                        TrackingService.startTracking(
-                            context = context,
-                            taskId = entry.taskId,
-                            taskTitle = entry.lifeIntentionCategory,
-                            dimension = entry.lifeIntentionCategory,
-                            startTime = entry.startedAt.toString(),
-                        )
-                        TimeTrackingWidgetProvider.requestUpdate(context)
-                        logger.i("BootReceiver.onReceive", "Requested widget refresh after restoring active tracking")
-                    } else {
-                        logger.d("BootReceiver.onReceive", "No active entries to restore")
-                        TimeTrackingWidgetProvider.requestUpdate(context)
-                        logger.d("BootReceiver.onReceive", "Requested widget refresh with idle state after boot")
+        val pendingResult = goAsync()
+        scope.launch {
+            try {
+                if (restoresTracking) {
+                    runCatching {
+                        restoreTracking(context)
+                    }.onFailure { failure ->
+                        logger.e("BootReceiver.onReceive", "Failed to restore tracking", failure)
                     }
-                    if (FeatureFlags.remindersEnabled) {
-                        notificationScheduler.scheduleAllPendingTasks()
-                        logger.i("BootReceiver.onReceive", "Scheduled task reminders after boot")
-                    } else {
-                        logger.i("BootReceiver.onReceive", "Skipped reminder schedule after boot; reminders disabled")
-                    }
-                } catch (e: Exception) {
-                    logger.e("BootReceiver.onReceive", "Failed to restore tracking after boot", e)
                 }
+
+                runCatching {
+                    reArmReminders(action)
+                }.onFailure { failure ->
+                    logger.e("BootReceiver.onReceive", "Failed to re-arm task reminders on $action", failure)
+                }
+            } finally {
+                pendingResult.finish()
             }
         }
+    }
+
+    /**
+     * Restores the active tracking notification and widget after boot or package replace, or the widget
+     * alone when the database session is still closed.
+     */
+    private suspend fun restoreTracking(context: Context) {
+        val logger = UnifiedLogger.getInstance()
+        if (!sessionManager.isDbOpen()) {
+            logger.d("BootReceiver.restoreTracking", "Skipping tracking restore; database session is closed")
+            TimeTrackingWidgetProvider.requestUpdate(context)
+            return
+        }
+        // Check for active time entries
+        val activeEntries = timeEntryRepository.getActiveTimeEntries().first()
+        if (activeEntries.isEmpty()) {
+            logger.d("BootReceiver.restoreTracking", "No active entries to restore")
+            TimeTrackingWidgetProvider.requestUpdate(context)
+            return
+        }
+        // Restore the most recent active entry's notification
+        val entry = activeEntries.first()
+
+        logger.i(
+            "BootReceiver.restoreTracking",
+            "Restoring active tracking notification",
+            mapOf(
+                "entryId" to entry.id,
+                "dimensionId" to (entry.dimensionId ?: "unknown"),
+            ),
+        )
+
+        TrackingService.startTracking(
+            context = context,
+            taskId = entry.taskId,
+            taskTitle = entry.lifeIntentionCategory,
+            dimension = entry.lifeIntentionCategory,
+            startTime = entry.startedAt.toString(),
+        )
+        TimeTrackingWidgetProvider.requestUpdate(context)
+        logger.i("BootReceiver.restoreTracking", "Requested widget refresh after restoring active tracking")
+    }
+
+    /** Re-arms every eligible task reminder; a closed session makes the repository read fail upward. */
+    private suspend fun reArmReminders(action: String) {
+        val logger = UnifiedLogger.getInstance()
+        if (!FeatureFlags.remindersEnabled) {
+            logger.i("BootReceiver.reArmReminders", "Skipped reminder schedule on $action; reminders disabled")
+            return
+        }
+        notificationScheduler.scheduleAllPendingTasks()
+        logger.i("BootReceiver.reArmReminders", "Scheduled task reminders on $action")
+    }
+
+    companion object {
+        /** Broadcasts after which no reminder alarm is armed, or the armed wall-clock time has moved. */
+        private val RE_ARM_ACTIONS = setOf(
+            Intent.ACTION_BOOT_COMPLETED,
+            Intent.ACTION_MY_PACKAGE_REPLACED,
+            Intent.ACTION_TIMEZONE_CHANGED,
+            Intent.ACTION_TIME_CHANGED,
+        )
     }
 }

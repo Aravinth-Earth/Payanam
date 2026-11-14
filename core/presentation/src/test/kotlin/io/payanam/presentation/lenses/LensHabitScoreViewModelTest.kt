@@ -17,6 +17,7 @@ import kotlinx.coroutines.test.runTest
 import kotlinx.coroutines.test.setMain
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
@@ -146,6 +147,68 @@ class LensHabitScoreViewModelTest {
                     scope = CoroutineScope(dispatcher),
                 )
             assertEquals(ScoreMetricColumn.PROGRESS, vm.uiState.value.selectedMetric)
+        }
+
+    @Test
+    fun `a load without an explicit metric follows the current selection`() =
+        runTest(dispatcher) {
+            // The score-change refresh and the first load take this path: no metric argument, so the load
+            // has to read the selection itself - under its own registration, not before it.
+            val vm =
+                LensHabitScoreViewModel(
+                    FakeScoreWindowRepository(sampleDims(), sampleDays()),
+                    FakeScoreChangeStream(),
+                    scope = CoroutineScope(dispatcher),
+                )
+            vm.selectMetric(ScoreMetricColumn.SCORE)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertEquals(ScoreMetricColumn.SCORE, vm.uiState.value.selectedMetric)
+            assertTrue(vm.uiState.value.rows.isNotEmpty())
+            assertTrue(vm.uiState.value.rankByKey.isNotEmpty())
+        }
+
+    @Test
+    fun `a score change event reloads the matrix`() =
+        runTest(dispatcher) {
+            // The stream is the refresh path the score roll-up drives; it reloads with the current
+            // selection, so the collector has to reach the same load the screen does.
+            val stream = FakeScoreChangeStream()
+            val vm =
+                LensHabitScoreViewModel(
+                    FakeScoreWindowRepository(sampleDims(), sampleDays()),
+                    stream,
+                    scope = CoroutineScope(dispatcher),
+                )
+            dispatcher.scheduler.advanceUntilIdle()
+
+            stream.emit(java.time.LocalDate.of(2026, 8, 14))
+            dispatcher.scheduler.advanceUntilIdle()
+
+            assertTrue(vm.uiState.value.rows.isNotEmpty())
+            assertTrue(vm.uiState.value.rankByKey.isNotEmpty())
+        }
+
+    @Test
+    fun `a disposed view model starts no further load`() =
+        runTest(dispatcher) {
+            val vm =
+                LensHabitScoreViewModel(
+                    FakeScoreWindowRepository(sampleDims(), sampleDays()),
+                    FakeScoreChangeStream(),
+                    scope = CoroutineScope(dispatcher),
+                )
+            vm.dispose()
+
+            vm.loadWindow(java.time.LocalDate.of(2026, 8, 14), days = 14)
+            dispatcher.scheduler.advanceUntilIdle()
+
+            // The scope is gone, so nothing ran: no rows, and no spinner left behind.
+            assertTrue(vm.uiState.value.rows.isEmpty())
+            assertFalse(vm.uiState.value.isLoading)
         }
 
     @Test

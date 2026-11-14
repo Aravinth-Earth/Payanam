@@ -81,7 +81,8 @@ class NotesTagsDimensionTest {
         // ([FreshSetup.runIfNeeded]), so anything it leaves behind is data the NEXT class reads. Deleting
         // what it created is what makes the shared app safe - the rule the CRUD journeys already follow.
         // The edit dialog is still open, so its own delete action is what removes the note.
-        h.click(l.ui.locDeleteNote)
+        h.click(l.ui.locDeleteNote) // opens the confirm dialog
+        h.click(l.ui.locDelete) // confirms - the dialog reuses the "Delete" label
         h.waitForGone(NOTE_TITLE)
         h.assertNotVisible(NOTE_TITLE)
         h.log("note=cleaned-up")
