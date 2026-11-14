@@ -1,0 +1,28 @@
+name: dependency review
+
+# Every pull request is diffed against the dependency graph, so a version that arrives with a known
+# advisory is refused before it is merged — not after a release. This is the check that catches the
+# one thing a lockfile bump cannot show a reviewer: what the new tree contains.
+#
+# It complements Dependabot rather than repeating it: Dependabot opens a PR when an advisory lands
+# on a dependency the repo already has, and this gate holds for everything a person adds by hand.
+
+on:
+  pull_request:
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/dependency-review-action@v5
+        with:
+          # A moderate advisory in a dev dependency is noted in the summary; only high and above
+          # stop the merge, so the gate keeps its authority for what actually ships.
+          fail-on-severity: high
+          comment-summary-in-pr: on-failure
