@@ -742,8 +742,6 @@
     <string name="preset_simple_tasks_desc">Manage tasks and to-dos</string>
     <string name="preset_simple_time_habits">Simple: Time + Habits</string>
     <string name="preset_simple_time_habits_desc">Track time and complete habits</string>
-    <string name="settings_about_codename_label">Codename</string>
-    <string name="settings_about_codename_value">Kotlin Compose Migration</string>
     <string name="settings_about_title">About</string>
     <string name="settings_about_version_label">Version</string>
     <string name="settings_about_version_value">%1$s</string>

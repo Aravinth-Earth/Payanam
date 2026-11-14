@@ -743,8 +743,6 @@
     <string name="preset_simple_tasks_desc">பணிகளை நிர்வகி</string>
     <string name="preset_simple_time_habits">எளிது: நேரம் + பழக்கங்கள்</string>
     <string name="preset_simple_time_habits_desc">நேரத்தை கண்காணி மற்றும் பழக்கங்களை முடி</string>
-    <string name="settings_about_codename_label">குறியீட்டு பெயர்</string>
-    <string name="settings_about_codename_value">கோட்லின் கம்போஸ் மைக்ரேஷன்</string>
     <string name="settings_about_title">பற்றி</string>
     <string name="settings_about_version_label">பதிப்பு</string>
     <string name="settings_about_version_value">%1$s</string>
