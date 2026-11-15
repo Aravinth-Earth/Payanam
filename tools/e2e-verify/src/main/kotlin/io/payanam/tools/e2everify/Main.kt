@@ -69,6 +69,12 @@ internal class Options(
     val expectOccurrence: String?,
     /** How many of the newest created entities the snapshot must contain. */
     val entityCount: Int,
+    /** The session deleted its note: the create and delete log lines must agree and the row be gone. */
+    val expectNoteDeleted: Boolean,
+    /** The session created a manual time entry: its logged id must exist in the snapshot. */
+    val expectTimeEntry: Boolean,
+    /** The session wrote today's journal: a response row created today must exist. */
+    val expectJournal: Boolean,
 )
 
 internal fun main(args: Array<String>) {
@@ -77,6 +83,7 @@ internal fun main(args: Array<String>) {
     checks += checkLog(options)
     checks += checkDatabase(options)
     checks += checkCorrelation(options)
+    checks += checkEntityTypes(options)
     checks += checkMedia(options)
     checks.forEach(::println)
     val failed = checks.count { !it.passed }
@@ -85,22 +92,27 @@ internal fun main(args: Array<String>) {
     exitProcess(if (failed == 0) EXIT_OK else EXIT_FAILED)
 }
 
+internal const val USAGE =
+    "usage: --log <file> --db <file> --passphrase <value> [--prefix <p>] [--maestro <dir>] " +
+        "[--min-screenshots <n>] [--entities <n>] [--expect-occurrence <status>] " +
+        "[--expect-note-deleted] [--expect-time-entry] [--expect-journal] [--allow-error <text>]"
+
 internal fun parseOptions(args: Array<String>): Options? {
     val values = HashMap<String, String>()
     val allowedErrors = ArrayList<String>()
     var index = 0
     while (index < args.size) {
         val key = args[index]
-        if (!key.startsWith("--") || index + 1 >= args.size) {
-            System.err.println(
-                "usage: --log <file> --db <file> --passphrase <value> " +
-                    "[--prefix <title-prefix>] [--maestro <dir>] [--min-screenshots <n>]",
-            )
+        if (!key.startsWith("--")) {
+            System.err.println(USAGE)
             return null
         }
         val name = key.removePrefix("--")
-        if (name == "allow-error") allowedErrors += args[index + 1] else values[name] = args[index + 1]
-        index += 2
+        // Boolean switches stand alone (--expect-journal); valued options take the next token.
+        val hasValue = index + 1 < args.size && !args[index + 1].startsWith("--")
+        val value = if (hasValue) args[index + 1] else "true"
+        if (name == "allow-error") allowedErrors += value else values[name] = value
+        index += if (hasValue) 2 else 1
     }
     val log = values["log"]?.let(::File) ?: return usage("--log is required")
     val database = values["db"]?.let(::File) ?: return usage("--db is required")
@@ -118,6 +130,9 @@ internal fun parseOptions(args: Array<String>): Options? {
         allowedErrors = allowedErrors,
         expectOccurrence = values["expect-occurrence"],
         entityCount = values["entities"]?.toIntOrNull() ?: 1,
+        expectNoteDeleted = values.containsKey("expect-note-deleted"),
+        expectTimeEntry = values.containsKey("expect-time-entry"),
+        expectJournal = values.containsKey("expect-journal"),
     )
 }
 
@@ -300,6 +315,11 @@ internal fun createdEntities(lines: List<LogLine>): List<CreatedEntity> {
  * stores, and it survives a rename.
  */
 internal fun checkCorrelation(options: Options): List<Check> {
+    if (options.entityCount == 0) {
+        // A session that creates no task/habit (notes, journal, time): the task-by-UUID layer is not
+        // part of this run, and its own entity checks carry the data assertions instead.
+        return listOf(Check("log/created-ids", true, "not asserted (--entities 0)"))
+    }
     val created = createdEntities(readLog(options.log))
     if (created.isEmpty()) {
         return listOf(Check("log/created-ids", false, "no AddTaskViewModel.createTask line carries a UUID"))
@@ -349,6 +369,107 @@ internal fun checkCorrelation(options: Options): List<Check> {
         opened.session.close()
     }
     return checks
+}
+
+/**
+ * Cross-layer checks for the entity types whose ids the app logs but whose rows the generic
+ * correlation cannot assume: a note that was deleted, a manual time entry, and today's journal.
+ */
+internal fun checkEntityTypes(options: Options): List<Check> {
+    if (!options.expectNoteDeleted && !options.expectTimeEntry && !options.expectJournal) {
+        return emptyList()
+    }
+    val lines = readLog(options.log)
+    val checks = ArrayList<Check>()
+    val opened =
+        PayanamDatabaseOpener.open(
+            Path.of(options.database.absolutePath),
+            options.passphrase,
+            DatabaseOpenMode.READ_ONLY,
+        )
+    if (opened is DatabaseOpenResult.Refused) {
+        return listOf(Check("db/entity-types", false, "refused: " + opened.issue.type))
+    }
+    val session = (opened as DatabaseOpenResult.Opened).session
+    try {
+        session.withSerializedAccess { connection ->
+            if (options.expectNoteDeleted) {
+                checks += noteLifecycleCheck(connection, lines)
+            }
+            if (options.expectTimeEntry) {
+                checks += timeEntryCheck(connection, lines)
+            }
+            if (options.expectJournal) {
+                checks += journalCheck(connection)
+            }
+        }
+    } finally {
+        session.close()
+    }
+    return checks
+}
+
+private fun noteLifecycleCheck(
+    connection: java.sql.Connection,
+    lines: List<LogLine>,
+): Check {
+    val pattern = Regex("""noteId="([^"]+)"""")
+    val created =
+        lines
+            .filter { it.tag == "NotesViewModel.createNote" && it.message.contains("Note created") }
+            .mapNotNull { pattern.find(it.message)?.groupValues?.get(1) }
+    val deleted =
+        lines
+            .filter { it.tag == "NotesViewModel.deleteNote" && it.message.contains("Note deleted") }
+            .mapNotNull { pattern.find(it.message)?.groupValues?.get(1) }
+    if (created.isEmpty() || deleted.isEmpty()) {
+        return Check(
+            "db/note-lifecycle",
+            false,
+            "create lines " + created.size + ", delete lines " + deleted.size,
+        )
+    }
+    val noteId = created.last()
+    val rowExists =
+        connection.prepareStatement("SELECT 1 FROM notes WHERE id = ?").use { statement ->
+            statement.setString(1, noteId)
+            statement.executeQuery().use { rows -> rows.next() }
+        }
+    return Check(
+        "db/note-lifecycle",
+        noteId in deleted && !rowExists,
+        noteId + if (rowExists) " still in the snapshot" else " created then deleted",
+    )
+}
+
+private fun timeEntryCheck(
+    connection: java.sql.Connection,
+    lines: List<LogLine>,
+): Check {
+    val pattern = Regex("""entryId="([^"]+)"""")
+    val entryId =
+        lines
+            .filter { it.tag == "TimeViewModel.createManualEntry" && it.message.contains("created") }
+            .mapNotNull { pattern.find(it.message)?.groupValues?.get(1) }
+            .lastOrNull()
+            ?: return Check("db/time-entry", false, "no createManualEntry line carries an entryId")
+    val exists =
+        connection.prepareStatement("SELECT 1 FROM time_entries WHERE id = ?").use { statement ->
+            statement.setString(1, entryId)
+            statement.executeQuery().use { rows -> rows.next() }
+        }
+    return Check("db/time-entry", exists, entryId + if (exists) " present" else " missing")
+}
+
+private fun journalCheck(connection: java.sql.Connection): Check {
+    val count =
+        scalarCount(
+            connection,
+            "SELECT count(*) FROM day_journal_responses " +
+                "WHERE date(createdAt) = date('now','localtime') " +
+                "AND responseText IS NOT NULL AND responseText <> ''",
+        )
+    return Check("db/journal-today", count > SEQUENCE_UNUSED, count.toString() + " response(s) today")
 }
 
 internal fun checkMedia(options: Options): List<Check> {

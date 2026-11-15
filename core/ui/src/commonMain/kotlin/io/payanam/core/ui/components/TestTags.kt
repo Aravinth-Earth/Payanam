@@ -172,6 +172,8 @@ object TestTags {
 
         const val SAVE_BUTTON = "notes.save_button"
 
+        const val DELETE_BUTTON = "notes.delete_button"
+
         const val DELETE_CONFIRM = "notes.delete_confirm"
     }
 

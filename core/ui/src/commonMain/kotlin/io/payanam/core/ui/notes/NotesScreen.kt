@@ -165,7 +165,8 @@ fun NotesScreen(viewModel: NotesViewModel) {
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .testTag(TestTags.Notes.SEARCH_FIELD),
                 singleLine = true,
             )
 
@@ -569,7 +570,7 @@ private fun NoteDialog(
                 if (onDelete != null) {
                     TextButton(
                         onClick = { showDeleteConfirm = true },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag(TestTags.Notes.DELETE_BUTTON),
                     ) {
                         Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(8.dp))
@@ -613,6 +614,7 @@ private fun NoteDialog(
             text = { Text(strings.locThisActionCannotBeUndone) },
             confirmButton = {
                 TextButton(
+                    modifier = Modifier.testTag(TestTags.Notes.DELETE_CONFIRM),
                     onClick = {
                         showDeleteConfirm = false
                         onDelete?.invoke()
