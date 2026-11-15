@@ -10,7 +10,6 @@ env:
   # other locale.
   ACTION_EXPAND: "(Expand|விரிவாக்கும்)"
   ACTION_COMPLETE: "(Complete|முடி)"
-  STATUS_COMPLETED: "(Completed|முடிக்கப்பட்டது)"
 ---
 # Complete tapped on the dead-process reminder is applied after the passphrase unlock.
 # The reminder fires 15 min before the due time and delivery can slip without SCHEDULE_EXACT_ALARM,
@@ -29,6 +28,9 @@ env:
 # A force-stop start, not `am kill`: a graceful kill lets Android restore the last destination on
 # relaunch (a form left open by an earlier flow), and this flow needs a clean list. The `am kill`
 # that matters is the one below, after the reminder is armed.
+# Home first: a run that failed inside the notification shade leaves it open, and a launched activity
+# behind it never becomes addressable.
+- pressKey: Home
 - launchApp
 # Cold start: the unlock screen comes up before the database opens.
 - runFlow:
@@ -81,15 +83,21 @@ env:
     id: "nav.tab.tasks"
 
 # The Completed filter is the assertion: a task that is only marked, never completed, cannot appear
-# under it. The chip renders its count ("Completed (1)"), so match on the prefix.
+# under it. Chips are addressed by tag (the row's own "Completed" marker would match the copy too) and
+# Completed lives on the Not Active layer.
 - extendedWaitUntil:
     visible:
       id: "tasks.add_button"
     timeout: 30000
 - tapOn:
-    text: "^${STATUS_COMPLETED}.*"
-    index: 0
-- extendedWaitUntil:
-    visible: ".*${output.task}.*"
+    id: "tasks.filter.all"
+- tapOn:
+    id: "tasks.filter.not_active"
+- tapOn:
+    id: "tasks.filter.completed"
+- scrollUntilVisible:
+    element:
+      text: ".*${output.task}.*"
+    direction: DOWN
     timeout: 60000
 - takeScreenshot: 115-complete-verified

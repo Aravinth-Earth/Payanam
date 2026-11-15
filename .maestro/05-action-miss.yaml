@@ -18,6 +18,9 @@ env:
 # A force-stop start, not `am kill`: a graceful kill lets Android restore the last destination on
 # relaunch (a form left open by an earlier flow), and this flow needs a clean list. The `am kill`
 # that matters is the one below, after the reminder is armed.
+# Home first: a run that failed inside the notification shade leaves it open, and a launched activity
+# behind it never becomes addressable.
+- pressKey: Home
 - launchApp
 # Cold start: the unlock screen comes up before the database opens.
 - runFlow:
