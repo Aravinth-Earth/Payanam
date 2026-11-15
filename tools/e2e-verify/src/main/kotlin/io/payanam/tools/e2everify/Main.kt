@@ -49,10 +49,8 @@ private const val MAX_REPORTED_FAILURES = 3
 /** A `--expect-pref key=value` pair is split once, into key and value. */
 private const val PREF_PAIR_PARTS = 2
 
-/** Column positions in the user_preferences preference read: string, int, bool. */
-private const val PREF_STRING_COLUMN = 1
-private const val PREF_INT_COLUMN = 2
-private const val PREF_BOOL_COLUMN = 3
+/** Column position of the value in the app_settings read. */
+private const val PREF_VALUE_COLUMN = 1
 
 /** One artefact check: a name, and whether it held, with the evidence that decided it. */
 internal class Check(
@@ -563,24 +561,16 @@ internal fun checkPreferences(options: Options): List<Check> {
     return checks
 }
 
+// Preferences are rows in app_settings(key, value): the same store the desktop writes, not
+// user_preferences (which holds per-user UI flags).
 private fun preferenceValue(
     connection: java.sql.Connection,
     key: String,
 ): String? =
-    connection
-        .prepareStatement("SELECT stringValue, intValue, boolValue FROM user_preferences WHERE key = ?")
-        .use { statement ->
-            statement.setString(1, key)
-            statement.executeQuery().use { rows ->
-                if (!rows.next()) {
-                    null
-                } else {
-                    rows.getString(PREF_STRING_COLUMN)
-                        ?: rows.getObject(PREF_INT_COLUMN)?.toString()
-                        ?: rows.getObject(PREF_BOOL_COLUMN)?.toString()
-                }
-            }
-        }
+    connection.prepareStatement("SELECT value FROM app_settings WHERE key = ?").use { statement ->
+        statement.setString(1, key)
+        statement.executeQuery().use { rows -> if (rows.next()) rows.getString(PREF_VALUE_COLUMN) else null }
+    }
 
 internal fun checkMedia(options: Options): List<Check> {
     val directory =

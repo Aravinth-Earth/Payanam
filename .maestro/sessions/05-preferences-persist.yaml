@@ -2,7 +2,6 @@ appId: io.payanam
 name: Session — a preference survives a cold start (theme and landing)
 tags:
   - session
-  - blocked
 env:
   PASS: E2ETestPass!2026
 ---
@@ -56,6 +55,12 @@ env:
 - tapOn:
     id: "settings.landing.notes"
 - takeScreenshot: 601-landing-notes
+# The preference write is asynchronous; a tab round-trip gives it a beat before the cold start, or the
+# launch can read the previous value and open on the old destination.
+- tapOn:
+    id: "nav.tab.notes"
+- tapOn:
+    id: "nav.tab.settings"
 
 # ---- cold start: the app must come back on Notes, not on the default Tasks ----
 - launchApp
