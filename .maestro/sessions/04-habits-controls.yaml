@@ -1,0 +1,170 @@
+appId: io.payanam
+name: Session — a habit's list controls and its deletion
+tags:
+  - session
+env:
+  PASS: E2ETestPass!2026
+---
+# Habits, the parts a habit list is actually used for: create a weekly habit, find it with search, sort
+# by name, toggle the due-today filter, then delete it from its detail screen. One launch, one unlock,
+# then the two export actions.
+#
+# Preconditions are the ones 01-fresh-setup establishes.
+
+- evalScript: ${output.stamp = Date.now(); output.habit = 'e2e-session-' + output.stamp + '-habit'}
+
+- launchApp
+- runFlow:
+    file: ../subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.habits"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 30000
+- takeScreenshot: 500-session-start
+
+# ---- create a WEEKLY habit ----
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${output.habit}"
+- hideKeyboard
+- tapOn:
+    id: "task_add.task_type.recurring"
+- extendedWaitUntil:
+    visible:
+      id: "recurrence.confirm_button"
+    timeout: 20000
+- tapOn:
+    id: "recurrence.preset.weekly"
+    optional: true
+- tapOn:
+    id: "recurrence.confirm_button"
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: ".*${output.habit}.*"
+    direction: DOWN
+    timeout: 60000
+- takeScreenshot: 501-habit-created
+
+# ---- search ----
+- tapOn:
+    id: "habits.search_button"
+- inputText: "${output.habit}"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ".*${output.habit}.*"
+    timeout: 20000
+- takeScreenshot: 502-habit-search
+# Clear the query: the field carries the habit's name, so a later `tapOn` on that name would hit the
+# field instead of the row.
+- tapOn:
+    id: "habits.search_field"
+- eraseText
+- hideKeyboard
+
+# ---- sort by name ----
+- tapOn:
+    id: "habits.sort_button"
+- extendedWaitUntil:
+    visible:
+      id: "habits.sort.BY_NAME"
+    timeout: 20000
+- tapOn:
+    id: "habits.sort.BY_NAME"
+- takeScreenshot: 503-habit-sorted
+
+# ---- the due-today filter toggles without changing the row set here, which is the point: the menu
+# must open, toggle and close without losing the list ----
+- tapOn:
+    id: "habits.filter_button"
+- extendedWaitUntil:
+    visible:
+      id: "habits.filter.due_today"
+    timeout: 20000
+- tapOn:
+    id: "habits.filter.due_today"
+- pressKey: Back
+- extendedWaitUntil:
+    visible: ".*${output.habit}.*"
+    timeout: 20000
+- takeScreenshot: 504-habit-filtered
+
+# ---- delete from the detail ----
+- tapOn: ".*${output.habit}.*"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail.delete_button"
+    timeout: 30000
+- tapOn:
+    id: "task_detail.delete_button"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail.delete_confirm"
+    timeout: 20000
+- tapOn:
+    id: "task_detail.delete_confirm"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 60000
+- extendedWaitUntil:
+    notVisible: ".*${output.habit}.*"
+    timeout: 30000
+- takeScreenshot: 505-habit-deleted
+
+# ---- epilogue: DB snapshot + current session log ----
+- tapOn:
+    id: "nav.tab.settings"
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.auto_backup_card"
+- scrollUntilVisible:
+    element:
+      id: "settings.run_backup_now"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings.run_backup_now"
+- extendedWaitUntil:
+    visible:
+      id: "settings.backup_last_run"
+    timeout: 120000
+- takeScreenshot: 506-backup-written
+- scrollUntilVisible:
+    element:
+      id: "settings.debug_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.debug_card"
+- extendedWaitUntil:
+    visible:
+      id: "log_export.export_latest_button"
+    timeout: 20000
+- tapOn:
+    id: "log_export.export_latest_button"
+- takeScreenshot: 507-log-export-tapped

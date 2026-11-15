@@ -180,6 +180,20 @@ object TestTags {
     object Habits {
         const val ROW_PREFIX = "habits.row."
 
+        const val SEARCH_BUTTON = "habits.search_button"
+
+        const val SEARCH_FIELD = "habits.search_field"
+
+        const val SORT_BUTTON = "habits.sort_button"
+
+        const val FILTER_BUTTON = "habits.filter_button"
+
+        /** One entry of the sort menu (HabitSortOption.name). */
+        fun sortOption(name: String): String = "habits.sort." + name
+
+        /** One row of the filter menu: hide_completed, hide_all_marked, due_today, show_archived. */
+        fun filterOption(key: String): String = "habits.filter." + key
+
         /** The tag for the habit row whose id is [taskId]. */
         fun row(taskId: String): String = ROW_PREFIX + taskId
     }

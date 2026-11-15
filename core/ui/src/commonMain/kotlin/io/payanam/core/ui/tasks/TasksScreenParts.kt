@@ -5,6 +5,7 @@ package io.payanam.core.ui.tasks
 import io.payanam.core.ui.text.formatArgs
 import androidx.compose.runtime.remember
 import io.payanam.core.ui.components.TestTags
+import io.payanam.core.ui.components.exposeTestTagsAsResourceIds
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.shared.logging.AppLogger
 import io.payanam.core.ui.flags.LocalFeatureFlags
@@ -97,9 +98,12 @@ internal fun TasksTopBar(
             if (effectiveTabIndex == 0) {
                 if (!habitSearchActive) {
                     Box {
-                        androidx.compose.material3.IconButton(onClick = {
-                            onToggleHabitSearch()
-                        }) {
+                        androidx.compose.material3.IconButton(
+                            onClick = {
+                                onToggleHabitSearch()
+                            },
+                            modifier = Modifier.testTag(TestTags.Habits.SEARCH_BUTTON),
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = strings.locSearchHabits,
@@ -109,20 +113,25 @@ internal fun TasksTopBar(
                 }
 
                 Box {
-                    androidx.compose.material3.IconButton(onClick = {
-                        logger.d("TasksScreen.sortMenuOpened", "Sort menu opened", mapOf("tab" to "habits"))
-                        onShowHabitSortMenuChange(true)
-                    }) {
+                    androidx.compose.material3.IconButton(
+                        onClick = {
+                            logger.d("TasksScreen.sortMenuOpened", "Sort menu opened", mapOf("tab" to "habits"))
+                            onShowHabitSortMenuChange(true)
+                        },
+                        modifier = Modifier.testTag(TestTags.Habits.SORT_BUTTON),
+                    ) {
                         Icon(Icons.Default.Sort, contentDescription = strings.locSortHabits)
                     }
                     DropdownMenu(
                         expanded = showHabitSortMenu,
                         onDismissRequest = { onShowHabitSortMenuChange(false) },
+                        modifier = Modifier.exposeTestTagsAsResourceIds(),
                     ) {
                         HabitSortOption.entries
                             .filter { LocalFeatureFlags.current.scoringEnabled || it.legacyCategory() }
                             .forEach { option ->
                                 DropdownMenuItem(
+                                    modifier = Modifier.testTag(TestTags.Habits.sortOption(option.name)),
                                     text = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             if (chromeState.habitSortOption == option) {
@@ -147,10 +156,13 @@ internal fun TasksTopBar(
                 }
 
                 Box {
-                    androidx.compose.material3.IconButton(onClick = {
-                        logger.d("TasksScreen.filterMenuOpened", "Filter menu opened", mapOf("tab" to "habits"))
-                        onShowHabitFilterMenuChange(true)
-                    }) {
+                    androidx.compose.material3.IconButton(
+                        onClick = {
+                            logger.d("TasksScreen.filterMenuOpened", "Filter menu opened", mapOf("tab" to "habits"))
+                            onShowHabitFilterMenuChange(true)
+                        },
+                        modifier = Modifier.testTag(TestTags.Habits.FILTER_BUTTON),
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Archive,
                             contentDescription = strings.locFilterHabits,
@@ -159,8 +171,10 @@ internal fun TasksTopBar(
                     DropdownMenu(
                         expanded = showHabitFilterMenu,
                         onDismissRequest = { onShowHabitFilterMenuChange(false) },
+                        modifier = Modifier.exposeTestTagsAsResourceIds(),
                     ) {
                         DropdownMenuItem(
+                            modifier = Modifier.testTag(TestTags.Habits.filterOption("hide_completed")),
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
@@ -177,6 +191,7 @@ internal fun TasksTopBar(
                             },
                         )
                         DropdownMenuItem(
+                            modifier = Modifier.testTag(TestTags.Habits.filterOption("hide_all_marked")),
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
@@ -193,6 +208,7 @@ internal fun TasksTopBar(
                             },
                         )
                         DropdownMenuItem(
+                            modifier = Modifier.testTag(TestTags.Habits.filterOption("due_today")),
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
@@ -209,6 +225,7 @@ internal fun TasksTopBar(
                             },
                         )
                         DropdownMenuItem(
+                            modifier = Modifier.testTag(TestTags.Habits.filterOption("show_archived")),
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
@@ -241,6 +258,7 @@ internal fun TasksTopBar(
                     DropdownMenu(
                         expanded = showTaskSortMenu,
                         onDismissRequest = { onShowTaskSortMenuChange(false) },
+                        modifier = Modifier.exposeTestTagsAsResourceIds(),
                     ) {
                         val scoringHiddenSorts = setOf(
                             TaskSortOption.SCORE_DESC,
