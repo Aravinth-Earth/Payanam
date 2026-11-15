@@ -1,9 +1,16 @@
 appId: io.payanam
 name: The exact-alarm affordance appears only when the permission is missing
+tags:
+  - manual
+  - permissions
+env:
+  PASS: E2ETestPass!2026
 ---
-# With SCHEDULE_EXACT_ALARM denied, Settings shows the Reminders card and its row
-# opens the system screen that grants it. The runner asserts the follow-up (row gone,
-# pending reminders re-armed), not this flow.
+# PRECONDITION: SCHEDULE_EXACT_ALARM must be DENIED for the app. An app-op is OS state that no flow
+# can set, so this file is out of the default suite and is run BY FILE after:
+#   adb shell appops set io.payanam SCHEDULE_EXACT_ALARM deny
+# With the app-op denied, Settings shows the Reminders card and its row opens the system screen that
+# grants it. The follow-up (row gone, pending reminders re-armed) is flow 07, which needs the grant.
 - launchApp
 - extendedWaitUntil:
     visible:

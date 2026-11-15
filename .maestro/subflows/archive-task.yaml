@@ -1,0 +1,21 @@
+appId: io.payanam
+---
+# Archives one task from the Tasks list, addressed by its title. Archive is the locale-free control
+# (`task_detail.archive_button`); deleting would need the localized delete icon and a confirm dialog.
+# Env the caller must set: TASK_NAME. Ends back on the Tasks list.
+- scrollUntilVisible:
+    element:
+      text: ".*${TASK_NAME}.*"
+    direction: DOWN
+    timeout: 30000
+- tapOn: ".*${TASK_NAME}.*"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail.archive_button"
+    timeout: 30000
+- tapOn:
+    id: "task_detail.archive_button"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 60000

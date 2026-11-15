@@ -1,0 +1,56 @@
+appId: io.payanam
+name: Archiving a habit from its detail screen removes it and cancels its reminder
+tags:
+  - reminders
+env:
+  PASS: E2ETestPass!2026
+---
+# One journey, two halves of the same regression: a habit armed with a reminder is archived, and the
+# habit must leave the list. The OS alarm the archive cancels is NOT observable from inside an app
+# flow, so the cancellation itself is asserted by the unit tiers (TaskReminderSchedulerTest /
+# NotificationSchedulerRegressionTest); to read it by hand around this flow, run
+#   adb shell dumpsys alarm | grep -c 'io.payanam'      before archiving  -> 1
+#   adb shell dumpsys alarm | grep -c 'io.payanam'      after archiving   -> 0
+# This flow used to be split in two so a shell script could read that count between them. Keeping it
+# as one self-contained journey is why the read above is manual.
+
+# +25 puts the fire time ~10 min past the save, so the reminder is armed at save time and does not
+# fire during the flow.
+- evalScript: ${output.habit = 'e2e-archive-' + Date.now(); output.due = new Date(Date.now() + 25*60000); output.dueHour = ('0'+output.due.getHours()).slice(-2); output.dueMinute = ('0'+output.due.getMinutes()).slice(-2)}
+
+- launchApp
+- runFlow:
+    file: subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+
+- runFlow:
+    file: subflows/create-habit-with-reminder.yaml
+    env:
+      HABIT_NAME: ${output.habit}
+      DUE_HOUR: ${output.dueHour}
+      DUE_MINUTE: ${output.dueMinute}
+- extendedWaitUntil:
+    visible: ".*${output.habit}.*"
+    timeout: 30000
+- takeScreenshot: 130-reminder-armed
+
+- tapOn: ".*${output.habit}.*"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail.archive_button"
+    timeout: 30000
+- takeScreenshot: 131-detail-before-archive
+
+# Archive taps the detail button; its handler archives the task and navigates back.
+- tapOn:
+    id: "task_detail.archive_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 60000
+# The today list does not keep an archived habit; if the row outlives the archive, this fails.
+- extendedWaitUntil:
+    notVisible: ".*${output.habit}.*"
+    timeout: 30000
+- takeScreenshot: 132-after-archive

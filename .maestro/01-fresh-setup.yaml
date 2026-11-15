@@ -1,8 +1,14 @@
 appId: io.payanam
-name: Fresh setup, unlock, enable debug logging
+name: Fresh setup — onboarding, passphrase, dimensions, debug logging
+tags:
+  - setup
+  - destructive
+env:
+  PASS: E2ETestPass!2026
 ---
-# clearState is `pm clear` on the installed app, so this flow destroys the real database.
-# The runner runs it only with RESET_APP=1; never point it at an install you care about.
+# clearState is `pm clear` on the installed app, so this flow destroys the real database. It is
+# excluded from the workspace's default flow list (.maestro/config.yaml) for that reason: run it BY
+# FILE, only against an install you are willing to wipe.
 - launchApp:
     clearState: true
     permissions:

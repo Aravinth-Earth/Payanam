@@ -1,0 +1,80 @@
+appId: io.payanam
+name: The timer notification offer appears while blocked and is withdrawn once granted
+tags:
+  - permissions
+  - tracking
+env:
+  PASS: E2ETestPass!2026
+  # Both shipped languages, as a regex; see 03-action-complete.yaml for why the values are grouped.
+  LOC_START: "(Start|தொடங்கு)"
+  NOTIF_TITLE: '(Turn on notifications\?|அறிவிப்புகளை இயக்கவா\?)'
+  NOTIF_TIMER_BODY: "(The tracking timer you started will not show up in your notifications.|நீங்கள் தொடங்கிய கண்காணிப்பு நேரம் உங்கள் அறிவிப்புகளில் தெரியாது.)"
+---
+# Covers #64, both halves in one journey: the offer is raised while notifications are blocked, and it
+# is withdrawn once they are granted outside the app. The grant is a `setPermissions` step here
+# rather than an adb command outside the suite, so the flow owns its own device state.
+# The launch pins notifications to denied: a bare launchApp grants every declared runtime
+# permission, which would undo the denial before the app ever reads it.
+
+- launchApp:
+    stopApp: true
+    permissions:
+      notifications: deny
+- runFlow:
+    file: subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.time"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.time"
+
+- runFlow:
+    file: subflows/stop-running-entry.yaml
+
+- tapOn:
+    id: "time.start_tracking_fab"
+- extendedWaitUntil:
+    visible: "^${LOC_START}$"
+    timeout: 20000
+- tapOn: "^${LOC_START}$"
+# The offer is raised on the transition into tracking, so it is on screen before the stop control is
+# reachable (a modal dialog hides the content behind it). Assert the offer first.
+- extendedWaitUntil:
+    visible: "${NOTIF_TITLE}"
+    timeout: 30000
+- assertVisible: "${NOTIF_TIMER_BODY}"
+- takeScreenshot: 150-timer-offer-visible
+
+# ---- grant notifications outside the app, then come back ----
+- pressKey: Home
+- setPermissions:
+    permissions:
+      notifications: allow
+- launchApp:
+    stopApp: false
+- extendedWaitUntil:
+    visible:
+      id: "time.stop_tracking_button"
+    timeout: 60000
+# The regression: a stale "declined" answer kept this dialog up after the grant.
+- extendedWaitUntil:
+    notVisible: "${NOTIF_TITLE}"
+    timeout: 20000
+- takeScreenshot: 151-timer-offer-withdrawn
+
+# Leave the device idle for the next flow: notifications are granted again, no session is running.
+- tapOn:
+    id: "time.stop_tracking_button"
+- extendedWaitUntil:
+    visible:
+      id: "edit_time_entry_confirm_button"
+    timeout: 20000
+- tapOn:
+    id: "edit_time_entry_confirm_button"
+- extendedWaitUntil:
+    visible:
+      id: "time.start_tracking_fab"
+    timeout: 30000

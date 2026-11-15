@@ -1,90 +1,48 @@
 appId: io.payanam
-name: Reminder Complete reaches the DB after the passphrase unlock
+name: Complete on a dead-process reminder reaches the database after the unlock
+tags:
+  - reminders
+env:
+  PASS: E2ETestPass!2026
+  # Labels come from the app's own copy, so every value carries BOTH shipped languages
+  # (core/strings values/ and values-ta/) and is a regular expression; parentheses keep the
+  # alternation safe when a flow composes two values into one matcher. Override with -e for any
+  # other locale.
+  ACTION_EXPAND: "(Expand|விரிவாக்கும்)"
+  ACTION_COMPLETE: "(Complete|முடி)"
+  STATUS_COMPLETED: "(Completed|முடிக்கப்பட்டது)"
 ---
 # Complete tapped on the dead-process reminder is applied after the passphrase unlock.
-# The reminder fires 15 min before the due time (the runner sets the due 22 min ahead)
-# and delivery can slip without SCHEDULE_EXACT_ALARM, so the shade wait is generous.
+# The reminder fires 15 min before the due time and delivery can slip without SCHEDULE_EXACT_ALARM,
+# so the shade wait is generous. Preconditions: the app is provisioned with PASS and
+# SCHEDULE_EXACT_ALARM is allowed (see .maestro/README.md; the flow cannot set an app-op).
+#
+# The row is a ONE-TIME task, not a habit: completing a habit advances its recurrence to the next day
+# and the user's "Hide completed today" preference can hide it, so neither the row nor its today cell
+# is assertable afterwards. A completed task keeps its place and moves to the Completed filter, which
+# is what proves the write landed.
 
-# killApp is `am kill`, which only kills BACKGROUND processes: Home first.
-- pressKey: Home
-- killApp
+# One task name and one due time per run: a re-run under the same name would match the previous
+# run's row. The due time is computed on the host, so the host and device clocks must agree.
+- evalScript: ${output.task = 'e2e-complete-' + Date.now(); output.due = new Date(Date.now() + 22*60000); output.dueHour = ('0'+output.due.getHours()).slice(-2); output.dueMinute = ('0'+output.due.getMinutes()).slice(-2)}
+
+# A force-stop start, not `am kill`: a graceful kill lets Android restore the last destination on
+# relaunch (a form left open by an earlier flow), and this flow needs a clean list. The `am kill`
+# that matters is the one below, after the reminder is armed.
 - launchApp
-# Cold start after the kill: the unlock screen comes up before the database opens.
-- extendedWaitUntil:
-    visible:
-      id: "passphrase_unlock.passphrase_field"
-    timeout: 60000
-- tapOn:
-    id: "passphrase_unlock.passphrase_field"
-- inputText: "${PASS}"
-- hideKeyboard
-- tapOn:
-    id: "passphrase_unlock.unlock_button"
-# The unlock decrypts the database; nothing renders until it finishes.
-- extendedWaitUntil:
-    visible:
-      id: "nav.tab.habits"
-    timeout: 60000
-- tapOn:
-    id: "nav.tab.habits"
+# Cold start: the unlock screen comes up before the database opens.
+- runFlow:
+    file: subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
 
-- extendedWaitUntil:
-    visible:
-      id: "tasks.add_button"
-- tapOn:
-    id: "tasks.add_button"
-- tapOn:
-    id: "task_add.title_field"
-- inputText: "${HABIT_NAME}"
-- hideKeyboard
-
-# Recurring makes it a habit; DAILY is preselected in the rule dialog.
-- tapOn:
-    id: "task_add.task_type.recurring"
-- extendedWaitUntil:
-    visible:
-      id: "recurrence.confirm_button"
-- tapOn:
-    id: "recurrence.preset.daily"
-    optional: true
-- tapOn:
-    id: "recurrence.confirm_button"
-
-# Due time by keyboard: the dial has no addressable elements.
-- tapOn:
-    id: "task_add.due_time_button"
-- extendedWaitUntil:
-    visible:
-      id: "task_add.due_time_input_toggle"
-- tapOn:
-    id: "task_add.due_time_input_toggle"
-- tapOn:
-    id: "task_add.due_time_hour_field"
-- eraseText
-- inputText: "${DUE_HOUR}"
-- tapOn:
-    id: "task_add.due_time_minute_field"
-- eraseText
-- inputText: "${DUE_MINUTE}"
-- hideKeyboard
-- tapOn:
-    id: "task_add.due_time_confirm_button"
-
-# Reminder mode stays at its default (auto) = 15 min before the due time.
-- scrollUntilVisible:
-    element:
-      id: "task_add.save_button"
-    direction: DOWN
-    timeout: 30000
-- tapOn:
-    id: "task_add.save_button"
-# The save is async and the bottom bar is visible on the add form too, so wait for the
-# list's own add action before Home + killApp can interrupt the write and the arming.
-- extendedWaitUntil:
-    visible:
-      id: "tasks.add_button"
-    timeout: 60000
-- takeScreenshot: 110-habit-created
+- runFlow:
+    file: subflows/create-task-with-reminder.yaml
+    env:
+      TASK_NAME: ${output.task}
+      DUE_HOUR: ${output.dueHour}
+      DUE_MINUTE: ${output.dueMinute}
+- takeScreenshot: 110-task-created
 
 - pressKey: Home
 - killApp
@@ -94,8 +52,8 @@ name: Reminder Complete reaches the DB after the passphrase unlock
     start: 50%, 0%
     end: 50%, 70%
 - extendedWaitUntil:
-    visible: "${HABIT_NAME}"
-    timeout: ${REMINDER_WAIT_MS}
+    visible: "${output.task}"
+    timeout: 480000
 - takeScreenshot: 112-reminder-in-shade
 
 - tapOn:
@@ -110,26 +68,28 @@ name: Reminder Complete reaches the DB after the passphrase unlock
 # The activity opens itself on the action tap; its cold start precedes the unlock.
 - launchApp:
     stopApp: false
-- extendedWaitUntil:
-    visible:
-      id: "passphrase_unlock.passphrase_field"
-    timeout: 60000
-- tapOn:
-    id: "passphrase_unlock.passphrase_field"
-- inputText: "${PASS}"
-- hideKeyboard
-- tapOn:
-    id: "passphrase_unlock.unlock_button"
+- runFlow:
+    file: subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
 # Decrypt plus the queued Complete write; the list renders after both.
 - extendedWaitUntil:
     visible:
-      id: "nav.tab.habits"
+      id: "nav.tab.tasks"
     timeout: 90000
 - tapOn:
-    id: "nav.tab.habits"
+    id: "nav.tab.tasks"
 
-# Completing the LAST habit replaces the list with the congratulation message, so
-# accept either that message or the row carrying today's date with the status.
+# The Completed filter is the assertion: a task that is only marked, never completed, cannot appear
+# under it. The chip renders its count ("Completed (1)"), so match on the prefix.
 - extendedWaitUntil:
-    visible: "${ALL_HABITS_DONE}|${HABIT_NAME}, ${TODAY}, ${STATUS_COMPLETED}"
+    visible:
+      id: "tasks.add_button"
+    timeout: 30000
+- tapOn:
+    text: "^${STATUS_COMPLETED}.*"
+    index: 0
+- extendedWaitUntil:
+    visible: ".*${output.task}.*"
+    timeout: 60000
 - takeScreenshot: 115-complete-verified
