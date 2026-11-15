@@ -7,6 +7,7 @@
 # them, so they are not discovered (and are not listed below).
 flows:
   - "*.yaml"
+  - "sessions/*.yaml"
   # DESTRUCTIVE: `pm clear` wipes the real database. Run it by file, deliberately.
   - "!01-fresh-setup.yaml"
   # MANUAL: these two need SCHEDULE_EXACT_ALARM flipped between them, which is an OS app-op no flow

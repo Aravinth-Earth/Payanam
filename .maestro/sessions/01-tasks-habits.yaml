@@ -1,0 +1,181 @@
+appId: io.payanam
+name: Session — tasks and habits, with logging, backup and log export
+tags:
+  - session
+env:
+  PASS: E2ETestPass!2026
+---
+# One app session, one launch and one unlock — the shape the migration targets. It creates a task and a
+# habit, completes the habit's occurrence from its detail screen, then runs the two harness epilogue
+# actions that make the data and log layers pullable: Run Backup Now (DB snapshot into
+# Documents/Payanam/data/export) and Export current session log (into Documents/Payanam/exported-logs).
+#
+# EVERY in-app interaction is addressed by testTag, never by copy: the app ships English and Tamil and
+# the suite must not depend on either. Only OS-drawn surfaces (the notification shade, the permission
+# dialog) are ever matched by text in this repo, and this session touches none of them.
+#
+# Preconditions (all established once, by 01-fresh-setup.yaml):
+#   * provisioned with PASS                    * debug logging ON (Debug card)
+#   * auto-backup ON                           * notifications + exact alarms allowed
+#
+# The UI assertions here are only the ones a user can see. The end state is checked afterwards by
+# :tools:e2e-verify over the pulled log (keyed by the entity UUID the app logs on create), the pulled DB
+# snapshot and the screenshots from this run.
+
+# Unique data per run, so a re-run never matches the previous run's rows.
+- evalScript: ${output.stamp = Date.now(); output.task = 'e2e-session-' + output.stamp + '-task'; output.habit = 'e2e-session-' + output.stamp + '-habit'}
+
+# ---- prologue: one launch, one unlock ----
+- launchApp
+- runFlow:
+    file: ../subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.tasks"
+    timeout: 90000
+- takeScreenshot: 200-session-start
+
+# ---- tasks: create one task with the default form values ----
+- tapOn:
+    id: "nav.tab.tasks"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 30000
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${output.task}"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 60000
+# The list accumulates a task per run, so this run's row may be below the fold.
+- scrollUntilVisible:
+    element:
+      text: ".*${output.task}.*"
+    direction: DOWN
+    timeout: 60000
+- takeScreenshot: 201-task-created
+
+# ---- habits: create a daily habit, complete today's occurrence from its detail screen ----
+- tapOn:
+    id: "nav.tab.habits"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 30000
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${output.habit}"
+- hideKeyboard
+- tapOn:
+    id: "task_add.task_type.recurring"
+- extendedWaitUntil:
+    visible:
+      id: "recurrence.confirm_button"
+    timeout: 20000
+- tapOn:
+    id: "recurrence.preset.daily"
+    optional: true
+- tapOn:
+    id: "recurrence.confirm_button"
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: ".*${output.habit}.*"
+    direction: DOWN
+    timeout: 30000
+- tapOn: ".*${output.habit}.*"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail.complete_button"
+    timeout: 30000
+- takeScreenshot: 202-habit-detail
+
+# Complete opens the status-note dialog; the dialog's confirm is tagged because it reuses the action's
+# copy. The write outlives this screen (the ViewModel job is NonCancellable), so navigating back here
+# cannot cancel it — that was the defect this session found.
+- tapOn:
+    id: "task_detail.complete_button"
+- extendedWaitUntil:
+    visible:
+      id: "status_note.confirm_button"
+    timeout: 20000
+- takeScreenshot: 203-complete-dialog
+- tapOn:
+    id: "status_note.confirm_button"
+- extendedWaitUntil:
+    notVisible:
+      id: "status_note.confirm_button"
+    timeout: 20000
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 30000
+- takeScreenshot: 204-habit-completed
+
+# ---- epilogue: DB snapshot + current session log, both into public Documents ----
+- tapOn:
+    id: "nav.tab.settings"
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.auto_backup_card"
+# Below the fold once the card is open: scroll rather than wait, or a taller card never passes.
+- scrollUntilVisible:
+    element:
+      id: "settings.run_backup_now"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings.run_backup_now"
+# The card's last-run line is the app's own confirmation that the snapshot landed; it is tagged, so
+# this wait never depends on the locale or on the timestamp's format.
+- extendedWaitUntil:
+    visible:
+      id: "settings.backup_last_run"
+    timeout: 120000
+- takeScreenshot: 205-backup-written
+- scrollUntilVisible:
+    element:
+      id: "settings.debug_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.debug_card"
+- extendedWaitUntil:
+    visible:
+      id: "log_export.export_latest_button"
+    timeout: 20000
+- tapOn:
+    id: "log_export.export_latest_button"
+# The export's success is verified from the artifact side: :tools:e2e-verify reads the pulled log. The
+# flow does not wait on a snackbar, because that copy is locale-dependent and transient.
+- takeScreenshot: 206-log-export-tapped

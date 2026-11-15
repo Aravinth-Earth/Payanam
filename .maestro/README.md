@@ -1,7 +1,18 @@
-# Maestro tier — user journeys that need the device, not just the app
+# Maestro e2e — user journeys on the shipped APK
 
-This is the **only** tier that can cross four boundaries the in-process Compose suite
-(`app/src/androidTest/java/io/payanam/e2e/`, see `docs/e2e/SPEC.md`) cannot:
+Two kinds of flow live here, and both run against the real build, not a test build:
+
+- **`sessions/`** — one long **user session** each: launch, unlock, drive several features, export, exit.
+  One launch and one unlock per session instead of one per feature.
+- **root `*.yaml`** — the journeys a session cannot contain: process death (reminder actions on a killed
+  app), the notification shade, an OS app-op, a reset that restarts the process.
+
+They are the migration target for the in-process Compose journeys; the migration and what stays behind
+are described in `docs/e2e/SPEC.md`. A session proves what a user can see. The other layers — the session
+log, the database, the media — are checked after the run by `:tools:e2e-verify` (see *The layered
+harness* below).
+
+What only this tier can reach:
 
 | Boundary | Example here |
 |---|---|
@@ -9,9 +20,6 @@ This is the **only** tier that can cross four boundaries the in-process Compose 
 | **System UI / OS state** | the notification shade, the permission dialog, the `SCHEDULE_EXACT_ALARM` app-op |
 | **Cross-app state** | notifications granted/denied outside the app, then read on resume |
 | **Persistence across a restart** | a row written before a kill, read back on a cold start |
-
-Anything drivable **inside** the app process belongs in the in-process tier, which is ~7× faster and
-does not need a phone. A flow is added here only when it needs one of the four.
 
 There is **no shell wrapper**. Everything runs through `maestro test`: device state a flow changes is
 changed with `launchApp.permissions` / `setPermissions`, order is Maestro's job, and each flow is
@@ -40,6 +48,68 @@ maestro test .maestro/01-fresh-setup.yaml
 Artifacts (screenshots, hierarchy dumps, per-flow logs) go to `~/.maestro/tests/<timestamp>/<flow>/`.
 Add `--test-output-dir build-logs/e2e` to keep them beside the repository instead.
 
+## The layered harness
+
+A session flow ends with two app actions that make the other layers pullable, then the run is verified
+outside Maestro:
+
+| Layer | Artifact | Where the app writes it | Read by |
+|---|---|---|---|
+| UI | step timeline (`commands.json`), screenshots, video | `~/.maestro/tests/<ts>/<flow>/` | Maestro, and a human on a failure |
+| Log | current session `.log` (**Settings → Debug → Export current session**) | `/sdcard/Documents/Payanam/exported-logs/` | `:tools:e2e-verify` |
+| Data | `payanam.db` snapshot (**Settings → Auto-Backup → Run Backup Now**) | `/sdcard/Documents/Payanam/data/export/auto_bk_…/payanam.db` | `:tools:e2e-verify` (SQLCipher, read-only) |
+
+Both folders are **public Documents**, so `adb pull` reads them on a release build — no SAF, no
+`run-as`. The debug package uses `Payanam-debug/` for both.
+
+```bash
+# 1. interact — one launch + one unlock for the whole session
+maestro test .maestro --include-tags session --test-output-dir build-logs/e2e
+
+# 2. pull the two artefacts the session exported
+adb pull /sdcard/Documents/Payanam/exported-logs build-logs/e2e/latest/logs
+adb pull /sdcard/Documents/Payanam/data/export  build-logs/e2e/latest/db
+
+# 3. verify log ∧ data ∧ media against each other
+./gradlew :tools:e2e-verify:run --args="\
+  --log build-logs/e2e/latest/logs/exported-logs/<newest>.log \
+  --db build-logs/e2e/latest/db/export/<newest>/payanam.db \
+  --passphrase 'E2ETestPass!2026' \
+  --maestro build-logs/e2e/<timestamp> \
+  --min-screenshots 5 \
+  --allow-error 'Failed to re-arm task reminders' \
+  --allow-error 'Database requested while session closed'"
+```
+
+The verifier checks: the log parsed and started a session; **zero unexplained `ERROR`/`FATAL` lines**;
+a backup confirmation is present (the worker's own line, or the Settings action's "Manual backup
+succeeded" — WorkManager can log after the export); the DB opens read-only through the same SQLCipher
+driver the desktop uses; the session's task rows exist and their occurrence statuses are reported; the
+dimension catalogue reads; the snapshot's folder timestamp is not older than the session's first log
+line; at least the expected screenshots were captured. Exit code 0 = every layer agrees.
+
+Two things the first real run proved about the design:
+
+- **Paths are redacted in logs** (`LogSanitizer`), so the log can name a backup event but never its
+  location. The snapshot is bound to the session by the timestamp window instead — that is what
+  `db/session-window` asserts.
+- **`ERROR` lines can be legitimate for the app and still be anomalies for a session.** The first run
+  logged a boot-time re-arm while the DB was locked; it is tracked with
+  `--allow-error 'Failed to re-arm task reminders'` / `--allow-error 'Database requested while session
+  closed'` rather than ignored. An unlisted error still fails the run.
+
+The first session also found a **cross-layer divergence**: completing a habit from its detail screen
+logged `TaskDetailViewModel.completeTask | Completion cancelled before it finished` and wrote **no**
+occurrence row, because the screen navigates back while the write is still in flight. The UI looked
+successful, the DB disagreed, the log named the cause. Until that is fixed, the session visits the
+detail but does not complete from it, and `db/occurrences` is reported rather than asserted.
+
+
+**Auto-Backup is left enabled on a test device by design** — periodic backups land in the same tree and
+are harmless. The epilogue turns it on only when it is off (the `Backups saved to Documents/Payanam`
+hint is the state probe), so re-runs are idempotent. Rotation, if it is ever enabled, prunes old
+snapshots — pull immediately after each run.
+
 ## Preconditions
 
 - **A provisioned app**: an installed build whose database was created with the passphrase in each
@@ -50,9 +120,11 @@ Add `--test-output-dir build-logs/e2e` to keep them beside the repository instea
   `adb shell appops set io.payanam SCHEDULE_EXACT_ALARM allow`. Without it the alarm is inexact,
   can arrive minutes late, and the 8-minute shade wait may expire. This is an app-op, so no flow can
   set it and no flow can assert it — it is a documented precondition.
+- **The screen stays awake.** A keyguard-free, always-on screen is a hard precondition — Maestro does
+  not dismiss the keyguard, and a session that loses the screen fails mid-flow:
+  `adb shell svc power stayon true`.
 - **Host clock ≈ device clock** (and no run within ~30 minutes of local midnight): the due time is
   computed with `evalScript` from the host clock, because a flow cannot read the device's clock.
-- **The screen is unlocked and the app is installed**; Maestro never dismisses the keyguard.
 
 ## Locale
 
@@ -77,9 +149,12 @@ maestro test .maestro/03-action-complete.yaml -e ACTION_COMPLETE="Complete"
 
 ```
 .maestro/
-  config.yaml                  # flows, exclusions, artifact dir
+  config.yaml                  # flows, exclusions
+  sessions/                    # ONE user session each: launch → features → export → exit
+    01-tasks-habits.yaml       # tasks + habits, debug logging, backup, log export
   subflows/                    # shared steps, run only when a flow calls them
     unlock.yaml
+    create-task-with-reminder.yaml
     create-habit-with-reminder.yaml
     stop-running-entry.yaml
     archive-task.yaml
@@ -94,6 +169,8 @@ maestro test .maestro/03-action-complete.yaml -e ACTION_COMPLETE="Complete"
   12     persistence across a kill
   13     Stop on the tracking notification
 ```
+
+`tools/e2e-verify/` is the post-run oracle for a session: log ∧ database ∧ media.
 
 ## Device findings worth knowing
 

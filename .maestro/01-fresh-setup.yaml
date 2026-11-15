@@ -94,3 +94,27 @@ env:
 - tapOn:
     id: "settings.debug_logging_switch"
 - takeScreenshot: 11-debug-on
+
+# Auto-Backup ON, once per install. Sessions rely on it for the DB snapshot they export, and a fresh
+# install always starts with it off. Enabling it also writes the first backup immediately.
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.auto_backup_card"
+- extendedWaitUntil:
+    visible:
+      id: "settings.auto_backup_switch"
+    timeout: 20000
+- tapOn:
+    id: "settings.auto_backup_switch"
+# Run-now renders only while Auto-Backup is on, so this is also the toggle's own assertion.
+# Below the fold once the card is open: scroll rather than wait, or a taller card never passes.
+- scrollUntilVisible:
+    element:
+      id: "settings.run_backup_now"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: 12-auto-backup-on
