@@ -125,6 +125,9 @@ object TestTags {
         const val SKIP_BUTTON = "task_detail.skip_button"
 
         const val MISS_BUTTON = "task_detail.miss_button"
+
+        /** Opens the edit screen. */
+        const val EDIT_BUTTON = "task_detail.edit_button"
     }
 
     /** The status note dialog the task detail screen opens for Complete, Skip, Miss, and the reminder's More action. */
@@ -181,6 +184,13 @@ object TestTags {
     }
 
     /** The recurrence-rule dialog, shared by the add and edit forms, so its prefix is screen-neutral. */
+    /** The edit form's own controls; the add form's tags do not apply to this screen. */
+    object TaskEdit {
+        const val TITLE_FIELD = "task_edit.title_field"
+
+        const val SAVE_BUTTON = "task_edit.save_button"
+    }
+
     object Recurrence {
         const val PRESET_DAILY = "recurrence.preset.daily"
 
