@@ -4,6 +4,7 @@ package io.payanam.core.ui.tasks
 
 import io.payanam.core.ui.text.formatArgs
 import androidx.compose.runtime.remember
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.shared.logging.AppLogger
 import io.payanam.core.ui.flags.LocalFeatureFlags
@@ -30,6 +31,7 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.payanam.presentation.tasks.HabitSortOption
 import io.payanam.presentation.tasks.TaskSortOption
@@ -227,10 +229,13 @@ internal fun TasksTopBar(
             }
             if (effectiveTabIndex == 1) {
                 Box {
-                    androidx.compose.material3.IconButton(onClick = {
-                        logger.d("TasksScreen.sortMenuOpened", "Sort menu opened", mapOf("tab" to "tasks"))
-                        onShowTaskSortMenuChange(true)
-                    }) {
+                    androidx.compose.material3.IconButton(
+                        onClick = {
+                            logger.d("TasksScreen.sortMenuOpened", "Sort menu opened", mapOf("tab" to "tasks"))
+                            onShowTaskSortMenuChange(true)
+                        },
+                        modifier = Modifier.testTag(TestTags.Tasks.SORT_BUTTON),
+                    ) {
                         Icon(Icons.Default.Sort, contentDescription = strings.locSortTasks)
                     }
                     DropdownMenu(
@@ -247,6 +252,7 @@ internal fun TasksTopBar(
                             .filter { LocalFeatureFlags.current.scoringEnabled || it !in scoringHiddenSorts }
                             .forEach { option ->
                                 DropdownMenuItem(
+                                    modifier = Modifier.testTag(TestTags.Tasks.sortOption(option.name)),
                                     text = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             if (chromeState.currentSort == option) {

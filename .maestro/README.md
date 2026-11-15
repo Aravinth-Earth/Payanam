@@ -73,7 +73,7 @@ adb pull /sdcard/Documents/Payanam/data/export  build-logs/e2e/latest/db
 # 3. verify log ∧ data ∧ media against each other
 ./gradlew :tools:e2e-verify:run --args="\
   --log build-logs/e2e/latest/logs/exported-logs/<newest>.log \
-  --db build-logs/e2e/latest/db/export/<newest>/payanam.db \
+  --db "$(ls -1d build-logs/e2e/latest/db/export/auto_bk_* | sort -t_ -k7,8 | tail -1)"/payanam.db \
   --passphrase 'E2ETestPass!2026' \
   --maestro build-logs/e2e/<timestamp> \
   --min-screenshots 5 \

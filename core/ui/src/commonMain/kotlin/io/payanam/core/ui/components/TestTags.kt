@@ -104,10 +104,24 @@ object TestTags {
         const val STOP_TRACKING_BUTTON = "time.stop_tracking_button"
 
         const val ENTRY_BLOCK = "time.entry_block"
+
+        /** The secondary FAB that opens the manual add-entry modal. */
+        const val ADD_ENTRY_FAB = "time.add_entry_fab"
     }
 
     /** The tasks list, also drawn in `HABITS_ONLY` mode by the Habits tab, so the add action is one id. */
-    object Tasks {        const val ADD_BUTTON = "tasks.add_button"
+    object Tasks {
+        const val ADD_BUTTON = "tasks.add_button"
+
+        const val SEARCH_FIELD = "tasks.search_field"
+
+        const val SORT_BUTTON = "tasks.sort_button"
+
+        /** The All/Active/… chip row, one tag per filter (TaskFilter.key). */
+        fun filterChip(key: String): String = "tasks.filter." + key
+
+        /** One entry of the sort menu (TaskSortOption.name). */
+        fun sortOption(name: String): String = "tasks.sort." + name
 
         const val ROW_PREFIX = "tasks.row."
 
@@ -117,6 +131,10 @@ object TestTags {
 
     /** The task detail screen: the Archive action a flow taps to archive the open task. */
     object TaskDetail {
+        /** Removes the task from the detail screen; the dialog's confirm is DELETE_CONFIRM. */
+        const val DELETE_BUTTON = "task_detail.delete_button"
+
+        const val DELETE_CONFIRM = "task_detail.delete_confirm"
         const val ARCHIVE_BUTTON = "task_detail.archive_button"
 
         /** The detail screen's three status actions; each opens the status-note dialog. */
@@ -141,6 +159,22 @@ object TestTags {
     }
 
     /** The habits list. */
+    object Notes {
+        const val ADD_BUTTON = "notes.add_button"
+
+        const val SEARCH_FIELD = "notes.search_field"
+
+        const val TITLE_FIELD = "notes.title_field"
+
+        const val DETAILS_FIELD = "notes.details_field"
+
+        const val TAGS_FIELD = "notes.tags_field"
+
+        const val SAVE_BUTTON = "notes.save_button"
+
+        const val DELETE_CONFIRM = "notes.delete_confirm"
+    }
+
     object Habits {
         const val ROW_PREFIX = "habits.row."
 

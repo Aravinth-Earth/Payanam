@@ -138,7 +138,10 @@ fun TaskDetailScreen(
                             contentDescription = strings.locEdit,
                         )
                     }
-                    IconButton(onClick = { showDeleteDialog = true }) {
+                    IconButton(
+                        onClick = { showDeleteDialog = true },
+                        modifier = Modifier.testTag(TestTags.TaskDetail.DELETE_BUTTON),
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = strings.locDelete,

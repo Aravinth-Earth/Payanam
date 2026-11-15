@@ -111,6 +111,34 @@ env:
     timeout: 60000
 - takeScreenshot: 202-task-edited
 
+# ---- tasks: search and filter, both addressed by tag (the chip row carries TaskFilter.key) ----
+# The search field only renders on the All layer, so the chip comes first.
+- tapOn:
+    id: "tasks.filter.all"
+- tapOn:
+    id: "tasks.search_field"
+- inputText: "${output.task}"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ".*${output.task}.*"
+    timeout: 30000
+- takeScreenshot: 203-task-search
+# Clearing the query restores the full list; leaving it typed would leak into the next run.
+- tapOn:
+    id: "tasks.search_field"
+- eraseText
+- hideKeyboard
+# The chip row is LAYERED: All shows the search field, an active layer (Active/Today/…) shows
+# Overdue/Today/Future, and Not Active shows Completed/Archived. Reaching Completed means leaving the
+# active layer first — the filters are not clipped, they are on another layer.
+- tapOn:
+    id: "tasks.filter.not_active"
+- tapOn:
+    id: "tasks.filter.completed"
+- takeScreenshot: 204-task-completed-filter
+- tapOn:
+    id: "tasks.filter.all"
+
 # ---- habits: create a daily habit, complete today's occurrence from its detail screen ----
 - tapOn:
     id: "nav.tab.habits"
@@ -156,7 +184,7 @@ env:
     visible:
       id: "task_detail.complete_button"
     timeout: 30000
-- takeScreenshot: 203-habit-detail
+- takeScreenshot: 205-habit-detail
 
 # Complete opens the status-note dialog; the dialog's confirm is tagged because it reuses the action's
 # copy. The write outlives this screen (the ViewModel job is NonCancellable), so navigating back here
@@ -167,7 +195,7 @@ env:
     visible:
       id: "status_note.confirm_button"
     timeout: 20000
-- takeScreenshot: 204-complete-dialog
+- takeScreenshot: 206-complete-dialog
 - tapOn:
     id: "status_note.confirm_button"
 - extendedWaitUntil:
@@ -178,7 +206,7 @@ env:
     visible:
       id: "nav.tab.habits"
     timeout: 30000
-- takeScreenshot: 205-habit-completed
+- takeScreenshot: 207-habit-completed
 
 # ---- epilogue: DB snapshot + current session log, both into public Documents ----
 - tapOn:
@@ -204,7 +232,7 @@ env:
     visible:
       id: "settings.backup_last_run"
     timeout: 120000
-- takeScreenshot: 206-backup-written
+- takeScreenshot: 208-backup-written
 - scrollUntilVisible:
     element:
       id: "settings.debug_card"
@@ -220,4 +248,4 @@ env:
     id: "log_export.export_latest_button"
 # The export's success is verified from the artifact side: :tools:e2e-verify reads the pulled log. The
 # flow does not wait on a snackbar, because that copy is locale-dependent and transient.
-- takeScreenshot: 207-log-export-tapped
+- takeScreenshot: 209-log-export-tapped
