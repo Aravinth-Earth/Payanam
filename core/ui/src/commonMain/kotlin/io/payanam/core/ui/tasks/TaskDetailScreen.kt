@@ -259,6 +259,7 @@ fun TaskDetailScreen(
                 text = { Text(strings.locThisActionCannotBeUndone) },
                 confirmButton = {
                     TextButton(
+                        modifier = Modifier.testTag(TestTags.TaskDetail.DELETE_CONFIRM),
                         onClick = {
                             showDeleteDialog = false
                             // Navigating before the delete lands hid a failed delete behind a screen the user

@@ -75,6 +75,10 @@ internal class Options(
     val expectTimeEntry: Boolean,
     /** The session wrote today's journal: a response row created today must exist. */
     val expectJournal: Boolean,
+    /** Index (0 = newest) of a created entity that must be archived in the snapshot. */
+    val expectArchivedIndex: Int?,
+    /** Index (0 = newest) of a created entity whose row must be absent from the snapshot. */
+    val expectDeletedIndex: Int?,
 )
 
 internal fun main(args: Array<String>) {
@@ -133,6 +137,8 @@ internal fun parseOptions(args: Array<String>): Options? {
         expectNoteDeleted = values.containsKey("expect-note-deleted"),
         expectTimeEntry = values.containsKey("expect-time-entry"),
         expectJournal = values.containsKey("expect-journal"),
+        expectArchivedIndex = values["expect-archived"]?.toIntOrNull(),
+        expectDeletedIndex = values["expect-deleted"]?.toIntOrNull(),
     )
 }
 
@@ -346,12 +352,37 @@ internal fun checkCorrelation(options: Options): List<Check> {
     try {
         opened.session.withSerializedAccess { connection ->
             newest.forEachIndexed { index, entity ->
+                // A row the session DELETED is expected to be gone; its absence is asserted by the
+                // dedicated deleted-index check, so the existence check would contradict it.
+                if (index == options.expectDeletedIndex) {
+                    return@forEachIndexed
+                }
                 val title = titleOf(connection, entity.id)
                 checks +=
                     Check(
                         "db/by-uuid[" + index + "]",
                         title != null && title.startsWith(options.titlePrefix),
                         if (title == null) "no task row for " + entity.id else entity.id + " = " + title,
+                    )
+            }
+            options.expectArchivedIndex?.let { index ->
+                val entity = newest.getOrNull(index)
+                val status = entity?.let { statusOf(connection, it.id) }
+                checks +=
+                    Check(
+                        "db/archived[" + index + "]",
+                        status == "archived",
+                        (entity?.id ?: "index out of range") + " status " + status,
+                    )
+            }
+            options.expectDeletedIndex?.let { index ->
+                val entity = newest.getOrNull(index)
+                val exists = entity?.let { titleOf(connection, it.id) != null }
+                checks +=
+                    Check(
+                        "db/deleted[" + index + "]",
+                        entity != null && exists == false,
+                        (entity?.id ?: "index out of range") + (if (exists == true) " still present" else " absent"),
                     )
             }
             val expected = options.expectOccurrence
@@ -539,6 +570,15 @@ private fun titleOf(
     id: String,
 ): String? =
     connection.prepareStatement("SELECT title FROM tasks WHERE id = ?").use { statement ->
+        statement.setString(1, id)
+        statement.executeQuery().use { rows -> if (rows.next()) rows.getString(1) else null }
+    }
+
+private fun statusOf(
+    connection: java.sql.Connection,
+    id: String,
+): String? =
+    connection.prepareStatement("SELECT status FROM tasks WHERE id = ?").use { statement ->
         statement.setString(1, id)
         statement.executeQuery().use { rows -> if (rows.next()) rows.getString(1) else null }
     }
