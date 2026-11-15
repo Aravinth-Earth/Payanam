@@ -139,6 +139,17 @@ env:
 - tapOn:
     id: "tasks.filter.all"
 
+# ---- tasks: sort by title A->Z through the menu ----
+- tapOn:
+    id: "tasks.sort_button"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.sort.TITLE_ASC"
+    timeout: 20000
+- tapOn:
+    id: "tasks.sort.TITLE_ASC"
+- takeScreenshot: 205-task-sorted
+
 # ---- habits: create a daily habit, complete today's occurrence from its detail screen ----
 - tapOn:
     id: "nav.tab.habits"
@@ -184,7 +195,7 @@ env:
     visible:
       id: "task_detail.complete_button"
     timeout: 30000
-- takeScreenshot: 205-habit-detail
+- takeScreenshot: 206-habit-detail
 
 # Complete opens the status-note dialog; the dialog's confirm is tagged because it reuses the action's
 # copy. The write outlives this screen (the ViewModel job is NonCancellable), so navigating back here
@@ -195,7 +206,7 @@ env:
     visible:
       id: "status_note.confirm_button"
     timeout: 20000
-- takeScreenshot: 206-complete-dialog
+- takeScreenshot: 207-complete-dialog
 - tapOn:
     id: "status_note.confirm_button"
 - extendedWaitUntil:
@@ -206,7 +217,7 @@ env:
     visible:
       id: "nav.tab.habits"
     timeout: 30000
-- takeScreenshot: 207-habit-completed
+- takeScreenshot: 208-habit-completed
 
 # ---- epilogue: DB snapshot + current session log, both into public Documents ----
 - tapOn:
@@ -232,7 +243,7 @@ env:
     visible:
       id: "settings.backup_last_run"
     timeout: 120000
-- takeScreenshot: 208-backup-written
+- takeScreenshot: 209-backup-written
 - scrollUntilVisible:
     element:
       id: "settings.debug_card"
@@ -248,4 +259,4 @@ env:
     id: "log_export.export_latest_button"
 # The export's success is verified from the artifact side: :tools:e2e-verify reads the pulled log. The
 # flow does not wait on a snackbar, because that copy is locale-dependent and transient.
-- takeScreenshot: 209-log-export-tapped
+- takeScreenshot: 210-log-export-tapped

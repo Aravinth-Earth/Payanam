@@ -166,6 +166,7 @@ maestro test .maestro/03-action-complete.yaml -e ACTION_COMPLETE="Complete"
     01-tasks-habits.yaml       # task create/edit/search/filter, habit create/complete
     02-notes-journal-time.yaml # note create/search/delete, journal write, manual time entry
     03-task-lifecycle.yaml     # archive one task, delete another
+    04-habits-controls.yaml    # habit create, search, sort, filter, delete
   subflows/                    # shared steps, run only when a flow calls them
     unlock.yaml
     create-task-with-reminder.yaml
@@ -204,6 +205,14 @@ Measured on SM-A176B / Android 16 / ta-IN against the 1.1.0 release build:
   matcher can never match. Any label with regex metacharacters must be escaped inside its `env` value.
 - **Screenshots land in `~/.maestro/tests/<timestamp>/<flow>/`**, not the repository, unless
   `--test-output-dir` is passed.
+- **A DropdownMenu is its own window**, so the app root's tag exposure does not reach it: menu-item
+  testTags compile and never publish until the menu itself calls
+  `Modifier.exposeTestTagsAsResourceIds()`. Measured on the habit sort menu.
+- **The Tasks filter is persisted across runs** (`currentFilter`), and `All` is deliberately
+  unfiltered — it still lists archived rows. Sessions normalise to All at the start and assert
+  "left the list" on the active layer.
+- **`<dir>/latest` shadows the artifact dir** in a `ls -td build-logs/e2e/*` pick; select
+  `build-logs/e2e/2026-*` when choosing the `--maestro` directory.
 
 ## Writing a flow
 
