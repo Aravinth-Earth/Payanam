@@ -30,6 +30,7 @@ import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.preferences.BackupInterval
 import io.payanam.core.ui.text.LocalUiStrings
@@ -106,9 +107,11 @@ fun SettingsAutoBackupSection(
                 // boundary moves the toggle's own node out of the unmerged semantics tree, and this screen's
                 // rendering test walks that tree by geometry.
                 modifier =
-                    Modifier.semantics {
-                        contentDescription = strings.settingsAutoBackupEnable
-                    },
+                    Modifier
+                        .testTag(TestTags.Settings.AUTO_BACKUP_SWITCH)
+                        .semantics {
+                            contentDescription = strings.settingsAutoBackupEnable
+                        },
                 onCheckedChange = { enabled ->
                     onAutoBackupEnabledChange(enabled)
                     logger.d("SettingsScreen.autoBackup", "Auto-backup toggled", mapOf("enabled" to enabled))
@@ -164,6 +167,7 @@ fun SettingsAutoBackupSection(
             prefsState.autoBackupLastRun?.let { lastRun ->
                 Text(
                     text = strings.settingsAutoBackupLastRun.formatArgs(lastRun),
+                    modifier = Modifier.testTag(TestTags.Settings.BACKUP_LAST_RUN),
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
@@ -173,7 +177,7 @@ fun SettingsAutoBackupSection(
                     onManualBackupNow()
                     logger.i("SettingsScreen.autoBackup", "Manual backup triggered")
                 },
-                modifier = Modifier.fillMaxWidth(),
+                modifier = Modifier.fillMaxWidth().testTag(TestTags.Settings.RUN_BACKUP_NOW),
                 enabled = !manualBackupInProgress,
             ) {
                 Text(

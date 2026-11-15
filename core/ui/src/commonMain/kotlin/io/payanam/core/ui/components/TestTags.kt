@@ -57,6 +57,15 @@ object TestTags {
         const val REMINDERS_CARD = "settings.reminders_card"
 
         const val EXACT_ALARM_ROW = "settings.exact_alarm_row"
+
+        /** Auto-Backup card: header, enable switch, run-now action and the last-run line. */
+        const val AUTO_BACKUP_CARD = "settings.auto_backup_card"
+
+        const val AUTO_BACKUP_SWITCH = "settings.auto_backup_switch"
+
+        const val RUN_BACKUP_NOW = "settings.run_backup_now"
+
+        const val BACKUP_LAST_RUN = "settings.backup_last_run"
     }
 
     /** The session-log export pair: the same two buttons are rendered by settings and by both DB gates. */
@@ -109,11 +118,23 @@ object TestTags {
     /** The task detail screen: the Archive action a flow taps to archive the open task. */
     object TaskDetail {
         const val ARCHIVE_BUTTON = "task_detail.archive_button"
+
+        /** The detail screen's three status actions; each opens the status-note dialog. */
+        const val COMPLETE_BUTTON = "task_detail.complete_button"
+
+        const val SKIP_BUTTON = "task_detail.skip_button"
+
+        const val MISS_BUTTON = "task_detail.miss_button"
     }
 
     /** The status note dialog the task detail screen opens for Complete, Skip, Miss, and the reminder's More action. */
     object StatusNote {
         const val DIALOG = "status_note.dialog"
+
+        /** The dialog's own confirm and cancel; the confirm reuses the action's copy, hence a tag. */
+        const val CONFIRM_BUTTON = "status_note.confirm_button"
+
+        const val DISMISS_BUTTON = "status_note.dismiss_button"
     }
 
     /** The habits list. */

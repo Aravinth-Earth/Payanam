@@ -1227,7 +1227,6 @@ class TimeViewModel(
                 "taskId" to taskId,
                 "dueDate" to dueDate.toString(),
                 "status" to status,
-                "note" to (note ?: "null"),
                 "actualCompletedAt" to (actualCompletedAt?.toString() ?: "null"),
                 "actualDurationMinutes" to (actualDurationMinutes?.toString() ?: "null"),
             ),

@@ -351,6 +351,7 @@ fun SettingsScreenContent(
             SettingsCard(
                 title = strings.settingsAutoBackupTitle,
                 icon = Icons.Default.Backup,
+                modifier = Modifier.testTag(TestTags.Settings.AUTO_BACKUP_CARD),
                 expanded = expandedSection == SettingsSection.AUTO_BACKUP,
                 onToggleExpanded = {
                     logSectionToggle(logger, expandedSection, "auto_backup", SettingsSection.AUTO_BACKUP)
