@@ -59,6 +59,16 @@ object TestTags {
         const val EXACT_ALARM_ROW = "settings.exact_alarm_row"
 
         /** Auto-Backup card: header, enable switch, run-now action and the last-run line. */
+        const val APPEARANCE_CARD = "settings.appearance_card"
+
+        const val DEFAULT_LANDING_CARD = "settings.default_landing_card"
+
+        /** One theme rung (ThemeModeOption.key). */
+        fun themeOption(key: String): String = "settings.theme." + key
+
+        /** One default-landing route (the route name, e.g. notes). */
+        fun landingOption(route: String): String = "settings.landing." + route
+
         const val AUTO_BACKUP_CARD = "settings.auto_backup_card"
 
         const val AUTO_BACKUP_SWITCH = "settings.auto_backup_switch"

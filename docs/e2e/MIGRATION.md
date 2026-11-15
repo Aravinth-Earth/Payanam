@@ -76,6 +76,7 @@ plus the root flows are their successors once the missing legs above are covered
 
 | Finding | Evidence | Effect |
 |---|---|---|
+| **Switching the theme crashes the app** | `FATAL EXCEPTION: java.lang.IllegalStateException: You cannot access the NavBackStackEntry's ViewModels after the NavBackStackEntry is destroyed` at `AndroidPayanamNavHostScreens.settings` (retraced from the release mapping); reproduced twice while setting Dark and restoring System | the Settings destination recomposes after the theme change recreates the activity and touches the destroyed entry's ViewModel. `sessions/05-preferences-persist.yaml` is committed and tagged `blocked`; `excludeTags: [blocked]` keeps it out of every run until this is fixed. The device may be left on Dark/Notes landing until the restore runs. |
 | Boot-time re-arm logs `ERROR` while the DB is locked (`BootReceiver.onReceive` → `DatabaseSessionManager.requireDatabase`) | the session log's two `ERROR` lines, allowlisted in the verify command | reminders are not re-armed until the user unlocks after a reboot; the error is real, not noise |
 
 ## Known, tracked behaviour the sessions encode

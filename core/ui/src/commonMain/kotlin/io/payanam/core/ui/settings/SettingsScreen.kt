@@ -149,6 +149,7 @@ fun SettingsScreenContent(
             SettingsCard(
                 title = strings.settingsAppearanceTitle,
                 icon = Icons.Default.Palette,
+                modifier = Modifier.testTag(TestTags.Settings.APPEARANCE_CARD),
                 expanded = expandedSection == SettingsSection.APPEARANCE,
                 onToggleExpanded = {
                     logSectionToggle(logger, expandedSection, "appearance", SettingsSection.APPEARANCE)
@@ -168,6 +169,7 @@ fun SettingsScreenContent(
             SettingsCard(
                 title = strings.settingsDefaultLandingTitle,
                 icon = Icons.Default.Timer,
+                modifier = Modifier.testTag(TestTags.Settings.DEFAULT_LANDING_CARD),
                 expanded = expandedSection == SettingsSection.DEFAULT_LANDING,
                 onToggleExpanded = {
                     logSectionToggle(logger, expandedSection, "default_landing", SettingsSection.DEFAULT_LANDING)

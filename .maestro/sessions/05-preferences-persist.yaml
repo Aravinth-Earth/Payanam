@@ -1,0 +1,136 @@
+appId: io.payanam
+name: Session — a preference survives a cold start (theme and landing)
+tags:
+  - session
+  - blocked
+env:
+  PASS: E2ETestPass!2026
+---
+# Preferences are persisted in the database, so they are the one place a session can prove that a
+# change outlives the process. This session sets the theme and the default landing screen, force-stops
+# the app, relaunches, and requires the app to come back on the chosen destination; then it restores
+# both so the next run starts from the documented state.
+#
+# Preconditions are the ones 01-fresh-setup establishes.
+
+- launchApp
+- runFlow:
+    file: ../subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.settings"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.settings"
+
+# ---- theme -> Dark ----
+- scrollUntilVisible:
+    element:
+      id: "settings.appearance_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.appearance_card"
+- extendedWaitUntil:
+    visible:
+      id: "settings.theme.dark"
+    timeout: 20000
+- tapOn:
+    id: "settings.theme.dark"
+- takeScreenshot: 600-theme-dark
+
+# ---- default landing -> Notes ----
+- scrollUntilVisible:
+    element:
+      id: "settings.default_landing_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.default_landing_card"
+- extendedWaitUntil:
+    visible:
+      id: "settings.landing.notes"
+    timeout: 20000
+- tapOn:
+    id: "settings.landing.notes"
+- takeScreenshot: 601-landing-notes
+
+# ---- cold start: the app must come back on Notes, not on the default Tasks ----
+- launchApp
+- runFlow:
+    file: ../subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+- extendedWaitUntil:
+    visible:
+      id: "notes.add_button"
+    timeout: 90000
+- takeScreenshot: 602-cold-start-notes
+
+# ---- restore the documented state: System theme, Tasks landing ----
+- tapOn:
+    id: "nav.tab.settings"
+- scrollUntilVisible:
+    element:
+      id: "settings.appearance_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.appearance_card"
+- extendedWaitUntil:
+    visible:
+      id: "settings.theme.system"
+    timeout: 20000
+- tapOn:
+    id: "settings.theme.system"
+- scrollUntilVisible:
+    element:
+      id: "settings.default_landing_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.default_landing_card"
+- extendedWaitUntil:
+    visible:
+      id: "settings.landing.tasks"
+    timeout: 20000
+- tapOn:
+    id: "settings.landing.tasks"
+- takeScreenshot: 603-preferences-restored
+
+# ---- epilogue: DB snapshot + current session log ----
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.auto_backup_card"
+- scrollUntilVisible:
+    element:
+      id: "settings.run_backup_now"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings.run_backup_now"
+- extendedWaitUntil:
+    visible:
+      id: "settings.backup_last_run"
+    timeout: 120000
+- takeScreenshot: 604-backup-written
+- scrollUntilVisible:
+    element:
+      id: "settings.debug_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.debug_card"
+- extendedWaitUntil:
+    visible:
+      id: "log_export.export_latest_button"
+    timeout: 20000
+- tapOn:
+    id: "log_export.export_latest_button"
+- takeScreenshot: 605-log-export-tapped

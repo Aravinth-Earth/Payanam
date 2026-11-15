@@ -46,6 +46,14 @@ private const val FIELD_MESSAGE_START = 5
 /** How many failing lines the report quotes before it stops; the count is always printed. */
 private const val MAX_REPORTED_FAILURES = 3
 
+/** A `--expect-pref key=value` pair is split once, into key and value. */
+private const val PREF_PAIR_PARTS = 2
+
+/** Column positions in the user_preferences preference read: string, int, bool. */
+private const val PREF_STRING_COLUMN = 1
+private const val PREF_INT_COLUMN = 2
+private const val PREF_BOOL_COLUMN = 3
+
 /** One artefact check: a name, and whether it held, with the evidence that decided it. */
 internal class Check(
     val name: String,
@@ -79,6 +87,8 @@ internal class Options(
     val expectArchivedIndex: Int?,
     /** Index (0 = newest) of a created entity whose row must be absent from the snapshot. */
     val expectDeletedIndex: Int?,
+    /** Persisted preferences (key=value) the snapshot must hold, e.g. theme_mode=system. */
+    val expectPrefs: List<Pair<String, String>>,
 )
 
 internal fun main(args: Array<String>) {
@@ -88,6 +98,7 @@ internal fun main(args: Array<String>) {
     checks += checkDatabase(options)
     checks += checkCorrelation(options)
     checks += checkEntityTypes(options)
+    checks += checkPreferences(options)
     checks += checkMedia(options)
     checks.forEach(::println)
     val failed = checks.count { !it.passed }
@@ -104,6 +115,7 @@ internal const val USAGE =
 internal fun parseOptions(args: Array<String>): Options? {
     val values = HashMap<String, String>()
     val allowedErrors = ArrayList<String>()
+    val expectPrefs = ArrayList<Pair<String, String>>()
     var index = 0
     while (index < args.size) {
         val key = args[index]
@@ -115,7 +127,21 @@ internal fun parseOptions(args: Array<String>): Options? {
         // Boolean switches stand alone (--expect-journal); valued options take the next token.
         val hasValue = index + 1 < args.size && !args[index + 1].startsWith("--")
         val value = if (hasValue) args[index + 1] else "true"
-        if (name == "allow-error") allowedErrors += value else values[name] = value
+        when (name) {
+            "allow-error" -> {
+                allowedErrors += value
+            }
+
+            "expect-pref" -> {
+                value.split("=", limit = PREF_PAIR_PARTS).takeIf { it.size == PREF_PAIR_PARTS }?.let {
+                    expectPrefs += it[0] to it[1]
+                }
+            }
+
+            else -> {
+                values[name] = value
+            }
+        }
         index += if (hasValue) 2 else 1
     }
     val log = values["log"]?.let(::File) ?: return usage("--log is required")
@@ -139,6 +165,7 @@ internal fun parseOptions(args: Array<String>): Options? {
         expectJournal = values.containsKey("expect-journal"),
         expectArchivedIndex = values["expect-archived"]?.toIntOrNull(),
         expectDeletedIndex = values["expect-deleted"]?.toIntOrNull(),
+        expectPrefs = expectPrefs,
     )
 }
 
@@ -502,6 +529,58 @@ private fun journalCheck(connection: java.sql.Connection): Check {
         )
     return Check("db/journal-today", count > SEQUENCE_UNUSED, count.toString() + " response(s) today")
 }
+
+/**
+ * Preferences are the one store a session can prove a cold-start change against: the value the app
+ * wrote must be the value the snapshot holds. The session restores the documented defaults at the end,
+ * so this asserts the restored pair rather than the temporary ones.
+ */
+internal fun checkPreferences(options: Options): List<Check> {
+    if (options.expectPrefs.isEmpty()) {
+        return emptyList()
+    }
+    val opened =
+        PayanamDatabaseOpener.open(
+            Path.of(options.database.absolutePath),
+            options.passphrase,
+            DatabaseOpenMode.READ_ONLY,
+        )
+    if (opened is DatabaseOpenResult.Refused) {
+        return listOf(Check("db/preferences", false, "refused: " + opened.issue.type))
+    }
+    val session = (opened as DatabaseOpenResult.Opened).session
+    val checks = ArrayList<Check>()
+    try {
+        session.withSerializedAccess { connection ->
+            options.expectPrefs.forEach { (key, expected) ->
+                val actual = preferenceValue(connection, key)
+                checks += Check("db/pref[" + key + "]", actual == expected, key + "=" + actual)
+            }
+        }
+    } finally {
+        session.close()
+    }
+    return checks
+}
+
+private fun preferenceValue(
+    connection: java.sql.Connection,
+    key: String,
+): String? =
+    connection
+        .prepareStatement("SELECT stringValue, intValue, boolValue FROM user_preferences WHERE key = ?")
+        .use { statement ->
+            statement.setString(1, key)
+            statement.executeQuery().use { rows ->
+                if (!rows.next()) {
+                    null
+                } else {
+                    rows.getString(PREF_STRING_COLUMN)
+                        ?: rows.getObject(PREF_INT_COLUMN)?.toString()
+                        ?: rows.getObject(PREF_BOOL_COLUMN)?.toString()
+                }
+            }
+        }
 
 internal fun checkMedia(options: Options): List<Check> {
     val directory =

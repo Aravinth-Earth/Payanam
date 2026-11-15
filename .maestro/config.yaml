@@ -14,5 +14,10 @@ flows:
   # can set. Run them by file with the documented appop in place.
   - "!06-exact-alarm-offered.yaml"
   - "!07-exact-alarm-hidden.yaml"
+# A flow tagged `blocked` is committed with its finding but kept out of every run until the app
+# defect it exposes is fixed (see docs/e2e/MIGRATION.md, open defects).
+excludeTags:
+  - blocked
+
 # Artifacts (screenshots, hierarchy dumps, per-flow logs) go to ~/.maestro/tests/<timestamp>/<flow>/.
 # To keep them beside the repository instead, pass the CLI flag: --test-output-dir build-logs/e2e
