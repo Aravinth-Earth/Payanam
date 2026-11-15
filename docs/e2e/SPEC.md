@@ -168,6 +168,9 @@ need a phone.
 | `12` | a task written before a process kill is on disk after the cold start (SCENARIOS L1) |
 | `13` | Stop on the tracking notification lands on Time with the entry modal already open |
 
+**The migration has its own ledger.** `docs/e2e/MIGRATION.md` maps every in-process class to the
+session that replaces it, and names what still blocks each deletion.
+
 **No shell wrapper.** `maestro test .maestro` is the whole runner: `.maestro/config.yaml` lists the flows and
 the deliberate exclusions (`01` is destructive, `06`/`07` need a manual app-op), and per-flow `tags` select
 subsets (`--include-tags reminders|tracking|permissions|persistence`). Device state a flow changes is changed
