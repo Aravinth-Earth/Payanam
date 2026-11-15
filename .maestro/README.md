@@ -88,6 +88,18 @@ driver the desktop uses; the session's task rows exist and their occurrence stat
 dimension catalogue reads; the snapshot's folder timestamp is not older than the session's first log
 line; at least the expected screenshots were captured. Exit code 0 = every layer agrees.
 
+Flags select the assertions for the session:
+
+| Flag | Assertion |
+|---|---|
+| `--entities N` | the newest N created task/habit ids must exist in the snapshot with the run's title (`0` for a session that creates none) |
+| `--expect-occurrence <status>` | the newest created entity must own an occurrence with that status |
+| `--expect-archived <i>` / `--expect-deleted <i>` | index *i* (0 = newest) is archived / absent in the snapshot |
+| `--expect-note-deleted` | the note's create and delete log lines name the same id and the row is gone |
+| `--expect-time-entry` | the manual entry's logged id exists in `time_entries` |
+| `--expect-journal` | today has a non-empty journal response |
+| `--allow-error <text>` | a known, filed anomaly (matched against the line's tag or message); anything unlisted still fails |
+
 Two things the first real run proved about the design:
 
 - **Paths are redacted in logs** (`LogSanitizer`), so the log can name a backup event but never its
@@ -151,7 +163,9 @@ maestro test .maestro/03-action-complete.yaml -e ACTION_COMPLETE="Complete"
 .maestro/
   config.yaml                  # flows, exclusions
   sessions/                    # ONE user session each: launch → features → export → exit
-    01-tasks-habits.yaml       # tasks + habits, debug logging, backup, log export
+    01-tasks-habits.yaml       # task create/edit/search/filter, habit create/complete
+    02-notes-journal-time.yaml # note create/search/delete, journal write, manual time entry
+    03-task-lifecycle.yaml     # archive one task, delete another
   subflows/                    # shared steps, run only when a flow calls them
     unlock.yaml
     create-task-with-reminder.yaml

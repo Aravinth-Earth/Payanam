@@ -26,6 +26,10 @@ env:
     timeout: 90000
 - tapOn:
     id: "nav.tab.tasks"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 30000
 # The selected filter is persisted, so a previous run can leave the list on Archived. Normalise to All
 # before anything is created: every later chip tap assumes the All layer as its starting point.
 - tapOn:
