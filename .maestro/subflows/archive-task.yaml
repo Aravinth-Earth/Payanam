@@ -3,6 +3,15 @@ appId: io.payanam
 # Archives one task from the Tasks list, addressed by its title. Archive is the locale-free control
 # (`task_detail.archive_button`); deleting would need the localized delete icon and a confirm dialog.
 # Env the caller must set: TASK_NAME. Ends back on the Tasks list.
+# The selected filter is persisted, so a previous flow can leave the list on Completed or Archived;
+# normalise to All or the row this flow just created is simply not rendered.
+- runFlow:
+    when:
+      visible:
+        id: "tasks.filter.all"
+    commands:
+      - tapOn:
+          id: "tasks.filter.all"
 - scrollUntilVisible:
     element:
       text: ".*${TASK_NAME}.*"

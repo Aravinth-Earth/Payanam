@@ -56,10 +56,12 @@ env:
       id: "tasks.add_button"
     timeout: 60000
 # The list is visible before the row is committed, so wait on the row itself: a kill that lands
-# between the two would otherwise test the wrong thing.
-- extendedWaitUntil:
-    visible: ".*${output.task}.*"
-    timeout: 30000
+# between the two would otherwise test the wrong thing. The list grows a row per run, so scroll.
+- scrollUntilVisible:
+    element:
+      text: ".*${output.task}.*"
+    direction: DOWN
+    timeout: 60000
 - takeScreenshot: 150-task-created
 
 # killApp is `am kill`, which only kills BACKGROUND processes: Home first.
@@ -82,9 +84,12 @@ env:
 # The All chip renders its count ("All (2)"), so match on the prefix; it also proves the list was
 # rebuilt from disk rather than restored from the screen the kill interrupted.
 - tapOn:
-    text: "^${LOC_ALL}.*"
+    id: "tasks.filter.all"
     optional: true
-- extendedWaitUntil:
-    visible: ".*${output.task}.*"
+# The list accumulates a task per run, so this run's row can be below the fold.
+- scrollUntilVisible:
+    element:
+      text: ".*${output.task}.*"
+    direction: DOWN
     timeout: 60000
 - takeScreenshot: 152-task-survived-cold-start
