@@ -45,6 +45,15 @@ maestro check-syntax .maestro/03-action-complete.yaml
 maestro test .maestro/01-fresh-setup.yaml
 ```
 
+**Nightly recipe.** A session creates rows and does not remove them, so the database grows a little
+every run and the lists get long enough that scrolls matter. Start the night with the reset — it
+re-establishes the passphrase, debug logging and auto-backup in one flow — then run everything:
+
+```bash
+maestro test .maestro/01-fresh-setup.yaml                      # pm clear + provision (~4 min)
+maestro test .maestro --test-output-dir build-logs/e2e         # root flows + sessions
+```
+
 Artifacts (screenshots, hierarchy dumps, per-flow logs) go to `~/.maestro/tests/<timestamp>/<flow>/`.
 Add `--test-output-dir build-logs/e2e` to keep them beside the repository instead.
 
