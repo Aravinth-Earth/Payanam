@@ -107,6 +107,7 @@ Flags select the assertions for the session:
 | `--expect-note-deleted` | the note's create and delete log lines name the same id and the row is gone |
 | `--expect-time-entry` | the manual entry's logged id exists in `time_entries` |
 | `--expect-journal` | today has a non-empty journal response |
+| `--expect-logged-pref <key>` | the stored value equals the LAST value the session logged writing it — state-independent, for a toggle whose starting value a previous run may have left either way |
 | `--allow-error <text>` | a known, filed anomaly (matched against the line's tag or message); anything unlisted still fails |
 
 Two things the first real run proved about the design:
@@ -176,6 +177,8 @@ maestro test .maestro/03-action-complete.yaml -e ACTION_COMPLETE="Complete"
     02-notes-journal-time.yaml # note create/search/delete, journal write, manual time entry
     03-task-lifecycle.yaml     # archive one task, delete another
     04-habits-controls.yaml    # habit create, search, sort, filter, delete
+    05-preferences-persist.yaml # theme + landing survive a cold start
+    06-focus-insights.yaml     # focus-mode preset and an insights switch
   subflows/                    # shared steps, run only when a flow calls them
     unlock.yaml
     create-task-with-reminder.yaml

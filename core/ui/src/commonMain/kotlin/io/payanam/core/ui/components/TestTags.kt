@@ -61,6 +61,19 @@ object TestTags {
         /** Auto-Backup card: header, enable switch, run-now action and the last-run line. */
         const val APPEARANCE_CARD = "settings.appearance_card"
 
+        const val FOCUS_MODE_CARD = "settings.focus_mode_card"
+
+        const val TIME_INSIGHTS_CARD = "settings.time_insights_card"
+
+        /** One focus-mode preset (FocusModePreset.presetId). */
+        fun focusPreset(presetId: String): String = "settings.focus.preset." + presetId
+
+        /** One tab-visibility switch in the focus-mode card (the tab's route). */
+        fun focusTab(route: String): String = "settings.focus.tab." + route
+
+        /** One insights-visibility switch (its chart preference key). */
+        fun insight(key: String): String = "settings.insights." + key
+
         const val DEFAULT_LANDING_CARD = "settings.default_landing_card"
 
         /** One theme rung (ThemeModeOption.key). */

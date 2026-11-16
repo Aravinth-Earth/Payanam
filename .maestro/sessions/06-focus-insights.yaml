@@ -1,0 +1,121 @@
+appId: io.payanam
+name: Session — focus mode and insights visibility
+tags:
+  - session
+env:
+  PASS: E2ETestPass!2026
+---
+# Two settings that change what the rest of the app shows, each exercised as a user would: pick a
+# focus-mode preset and watch the bottom bar lose the tabs it excludes, then restore the full suite;
+# toggle one insights switch off and back on so the preference round-trips.
+#
+# Preconditions are the ones 01-fresh-setup establishes.
+
+- launchApp
+- runFlow:
+    file: ../subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.settings"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.settings"
+- takeScreenshot: 700-session-start
+
+# ---- focus mode: a preset that hides Tasks and Time ----
+- scrollUntilVisible:
+    element:
+      id: "settings.focus_mode_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.focus_mode_card"
+- extendedWaitUntil:
+    visible:
+      id: "settings.focus.preset.simple_journal"
+    timeout: 20000
+- tapOn:
+    id: "settings.focus.preset.simple_journal"
+# The preset's own definition: journal, notes, lenses and settings stay; tasks and time go.
+- extendedWaitUntil:
+    notVisible:
+      id: "nav.tab.tasks"
+    timeout: 20000
+- takeScreenshot: 701-focus-simple-journal
+
+# ---- restore the full suite: every tab comes back ----
+- tapOn:
+    id: "settings.focus.preset.full_suite"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.tasks"
+    timeout: 30000
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.time"
+    timeout: 20000
+- takeScreenshot: 702-focus-full-suite
+
+# ---- insights: toggle the Journal module off and back on ----
+# Module rows WITH children are expandable headers with no switch of their own; the Journal and Note
+# modules are leaves, so their module switch is the one a user toggles.
+- scrollUntilVisible:
+    element:
+      id: "settings.time_insights_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.time_insights_card"
+- scrollUntilVisible:
+    element:
+      id: "settings.insights.chart_journal_module_enabled"
+    direction: DOWN
+    timeout: 40000
+# retryTapIfNoChange: the switch is a small target inside a long scrolling section, and a tap that
+# lands while the list settles is a no-op — the second toggle of this pair silently did nothing on the
+# first run and the verifier caught the preference left false.
+- tapOn:
+    id: "settings.insights.chart_journal_module_enabled"
+    retryTapIfNoChange: true
+- takeScreenshot: 703-insights-journal-off
+- tapOn:
+    id: "settings.insights.chart_journal_module_enabled"
+    retryTapIfNoChange: true
+- takeScreenshot: 704-insights-journal-on
+
+# ---- epilogue: DB snapshot + current session log ----
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.auto_backup_card"
+- scrollUntilVisible:
+    element:
+      id: "settings.run_backup_now"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "settings.run_backup_now"
+- extendedWaitUntil:
+    visible:
+      id: "settings.backup_last_run"
+    timeout: 120000
+- takeScreenshot: 705-backup-written
+- scrollUntilVisible:
+    element:
+      id: "settings.debug_card"
+    direction: DOWN
+    timeout: 40000
+- tapOn:
+    id: "settings.debug_card"
+- extendedWaitUntil:
+    visible:
+      id: "log_export.export_latest_button"
+    timeout: 20000
+- tapOn:
+    id: "log_export.export_latest_button"
+- takeScreenshot: 706-log-export-tapped

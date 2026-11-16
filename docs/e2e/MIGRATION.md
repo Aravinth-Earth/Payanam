@@ -32,6 +32,8 @@ title, which is redacted on purpose.
 | `02-notes-journal-time` | note create with a tag, search, delete through the editor; one overall journal reflection that survives a tab change; one manual time entry |
 | `03-task-lifecycle` | archive a task (leaves Today, listed under Archived); delete a second task through the confirmation |
 | `04-habits-controls` | weekly habit create, search, sort by name, due-today filter toggle, delete from the detail |
+| `05-preferences-persist` | theme Dark + landing Notes, force-stop, relaunch on Notes, restore System/Tasks |
+| `06-focus-insights` | a focus-mode preset hides Tasks/Time and the full suite restores them; an insights switch round-trips |
 
 ## In-process classes and what is still missing
 
@@ -53,7 +55,8 @@ missing leg is a session step.
 | `LensesDataTest` / `LensesChartsTest` | — | module cards, habit matrix drill-in, charts |
 | `SettingsTogglesTest` | — | the settings sweep (needs control tags) |
 | `SettingsBackupRunTest` | 01/02/03/04 epilogue (Run Backup Now) | the card's last-backup assertion is implicit |
-| `FocusModeTest` / `InsightsVisibilityTest` | — | presets and tab-visibility switches |
+| `FocusModeTest` | 06 (a preset hides its tabs, full suite restores them) | individual tab-visibility toggles |
+| `InsightsVisibilityTest` | 06 (a module switch round-trips, proved from the log + snapshot) | the nested chart switches and the Lenses effect |
 | `DimensionSetupTest` / `PassphraseLifecycleTest` | 01 leads setup | validation negatives, change-passphrase screen |
 | `UnlockTest` / `UnlockNegativeTest` | every session's unlock subflow | wrong-passphrase and lockout (needs real time) |
 | `ResetJourneyTest` | — | Delete All Data (session must ride the process restart) |

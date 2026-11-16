@@ -187,6 +187,7 @@ fun SettingsScreenContent(
                 SettingsCard(
                     title = strings.focusModeTitle,
                     icon = Icons.Default.Visibility,
+                    modifier = Modifier.testTag(TestTags.Settings.FOCUS_MODE_CARD),
                     expanded = expandedSection == SettingsSection.FOCUS_MODE,
                     onToggleExpanded = {
                         logSectionToggle(logger, expandedSection, "focus_mode", SettingsSection.FOCUS_MODE)
@@ -338,6 +339,7 @@ fun SettingsScreenContent(
             }
             SettingsCard(
                 title = strings.settingsInsightsChartsVisibilityTitle,
+                modifier = Modifier.testTag(TestTags.Settings.TIME_INSIGHTS_CARD),
                 icon = Icons.Default.TrendingUp,
                 expanded = expandedSection == SettingsSection.TIME_INSIGHTS,
                 onToggleExpanded = {

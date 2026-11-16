@@ -87,6 +87,8 @@ internal class Options(
     val expectDeletedIndex: Int?,
     /** Persisted preferences (key=value) the snapshot must hold, e.g. theme_mode=system. */
     val expectPrefs: List<Pair<String, String>>,
+    /** Preferences whose snapshot value must equal the LAST value the session log recorded. */
+    val expectLoggedPrefs: List<String>,
 )
 
 internal fun main(args: Array<String>) {
@@ -114,6 +116,7 @@ internal fun parseOptions(args: Array<String>): Options? {
     val values = HashMap<String, String>()
     val allowedErrors = ArrayList<String>()
     val expectPrefs = ArrayList<Pair<String, String>>()
+    val expectLoggedPrefs = ArrayList<String>()
     var index = 0
     while (index < args.size) {
         val key = args[index]
@@ -134,6 +137,10 @@ internal fun parseOptions(args: Array<String>): Options? {
                 value.split("=", limit = PREF_PAIR_PARTS).takeIf { it.size == PREF_PAIR_PARTS }?.let {
                     expectPrefs += it[0] to it[1]
                 }
+            }
+
+            "expect-logged-pref" -> {
+                expectLoggedPrefs += value
             }
 
             else -> {
@@ -164,6 +171,7 @@ internal fun parseOptions(args: Array<String>): Options? {
         expectArchivedIndex = values["expect-archived"]?.toIntOrNull(),
         expectDeletedIndex = values["expect-deleted"]?.toIntOrNull(),
         expectPrefs = expectPrefs,
+        expectLoggedPrefs = expectLoggedPrefs,
     )
 }
 
@@ -534,7 +542,7 @@ private fun journalCheck(connection: java.sql.Connection): Check {
  * so this asserts the restored pair rather than the temporary ones.
  */
 internal fun checkPreferences(options: Options): List<Check> {
-    if (options.expectPrefs.isEmpty()) {
+    if (options.expectPrefs.isEmpty() && options.expectLoggedPrefs.isEmpty()) {
         return emptyList()
     }
     val opened =
@@ -554,6 +562,20 @@ internal fun checkPreferences(options: Options): List<Check> {
                 val actual = preferenceValue(connection, key)
                 checks += Check("db/pref[" + key + "]", actual == expected, key + "=" + actual)
             }
+            options.expectLoggedPrefs.forEach { key ->
+                val logged = loggedPreferenceValues(options.log, key)
+                val actual = preferenceValue(connection, key)
+                checks +=
+                    Check(
+                        "db/pref-logged[" + key + "]",
+                        logged.isNotEmpty() && logged.last() == actual,
+                        if (logged.isEmpty()) {
+                            "the session logged no change for " + key
+                        } else {
+                            "logged " + logged + ", stored " + actual
+                        },
+                    )
+            }
         }
     } finally {
         session.close()
@@ -563,6 +585,27 @@ internal fun checkPreferences(options: Options): List<Check> {
 
 // Preferences are rows in app_settings(key, value): the same store the desktop writes, not
 // user_preferences (which holds per-user UI flags).
+
+/**
+ * The values the session wrote for [key], in order, read from the writer's own lines. This is what
+ * makes a toggle assertion independent of the state a previous run left behind: whatever the switch
+ * started as, the stored value must equal the LAST value the app recorded writing.
+ */
+private fun loggedPreferenceValues(
+    log: File,
+    key: String,
+): List<String> {
+    val keyPattern = Regex("""key="""" + Regex.escape(key) + """"""")
+    val enabledPattern = Regex("""enabled=(true|false)""")
+    return readLog(log)
+        .filter { it.tag.startsWith("AppPreferencesWriter.") || it.tag.startsWith("AppSettingsRepositoryImpl.") }
+        .filter { it.message.contains("key=\"" + key + "\"") }
+        .mapNotNull { line ->
+            val values = enabledPattern.findAll(line.message).map { it.groupValues[1] }.toList()
+            values.lastOrNull()
+        }.also { keyPattern.hashCode() }
+}
+
 private fun preferenceValue(
     connection: java.sql.Connection,
     key: String,
