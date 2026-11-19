@@ -79,24 +79,72 @@ instead — pulling the `Payanam/` tree there leaves an empty directory.
 # 1. interact — one launch + one unlock for the whole session
 maestro test .maestro --include-tags session --test-output-dir build-logs/e2e
 
-# 1b. the pull destinations must exist first: a missing dest is created by adb and gets the source's
-#     CONTENTS one level shallower than step 2's paths expect, so --log/--db would match nothing.
-mkdir -p build-logs/e2e/latest/logs build-logs/e2e/latest/db
+# 2. pull the two artefacts each session exported, into a tree of this pull's own: the log and
+#    snapshot folders accumulate across runs, and the six pairs below are picked by position, so a
+#    stale file must not be in the list.
+#    The destinations must exist first — a missing dest is created by adb and gets the source's
+#    CONTENTS one level shallower than step 3's paths expect, so --log/--db would match nothing.
+#    `Payanam/` is the release path; a `.debug` install writes `Payanam-debug/` (see above).
+pull=build-logs/e2e/pull-$(date +%Y%m%d_%H%M%S)
+mkdir -p "$pull/logs" "$pull/db"
+adb pull /sdcard/Documents/Payanam/exported-logs "$pull/logs"
+adb pull /sdcard/Documents/Payanam/data/export  "$pull/db"
 
-# 2. pull the two artefacts the session exported
-adb pull /sdcard/Documents/Payanam/exported-logs build-logs/e2e/latest/logs
-adb pull /sdcard/Documents/Payanam/data/export  build-logs/e2e/latest/db
+# 3. verify log ∧ data ∧ media, one session at a time. The one launch wrote six of each artefact,
+#    so each pair is selected rather than taken as "the newest":
+#      --log     the log whose filename stamp is that session's start (the file's own `Session:`
+#                header repeats it). Sorting the six ascending puts them in 01..06 order;
+#      --db      the auto_bk_ folder stamped inside that log's window — a session backs up and then
+#                exports its log before the next one starts, so that same order holds;
+#      --maestro the flow's own output dir, which Maestro names after the flow's `name:`.
+#    The pairing is checked, not trusted: db/session-window re-derives the window from the log and
+#    fails a snapshot before the log's first line or more than 5 s after its last.
+run=$(ls -1d build-logs/e2e/20* | tail -1)   # `latest` would shadow the stamp-named dir in the glob
+mapfile -t logs  < <(ls -1  "$pull"/logs/exported-logs/*.log | sort)
+mapfile -t snaps < <(ls -1d "$pull"/db/export/auto_bk_* | sort)
 
-# 3. verify log ∧ data ∧ media against each other
-./gradlew :tools:e2e-verify:run --args="\
-  --log build-logs/e2e/latest/logs/exported-logs/<newest>.log \
-  --db "$(ls -1d build-logs/e2e/latest/db/export/auto_bk_* | sort -t_ -k7,8 | tail -1)"/payanam.db \
-  --passphrase 'E2ETestPass!2026' \
-  --maestro build-logs/e2e/<timestamp> \
-  --min-screenshots 5 \
-  --allow-error 'Failed to re-arm task reminders' \
-  --allow-error 'Database requested while session closed'"
+sessions=(
+  "Session — tasks and habits, with logging, backup and log export|--entities 2 --expect-occurrence completed"
+  "Session — notes, journal and a manual time entry|--entities 0 --expect-note-deleted --expect-time-entry --expect-journal"
+  "Session — archive one task and delete another|--entities 2 --expect-archived 1 --expect-deleted 0"
+  "Session — a habit's list controls and its deletion|--entities 1 --expect-deleted 0"
+  "Session — a preference survives a cold start (theme and landing)|--entities 0 --expect-logged-pref theme_mode --expect-logged-pref launch_destination_route"
+  "Session — focus mode and insights visibility|--entities 0 --expect-logged-pref chart_journal_module_enabled --expect-pref focus_mode_active_preset=full_suite"
+)
+
+fail=0
+for i in "${!sessions[@]}"; do
+  IFS='|' read -r flow flags <<< "${sessions[$i]}"
+  ./gradlew :tools:e2e-verify:run --args="\
+    --log ${logs[$i]} \
+    --db ${snaps[$i]}/payanam.db \
+    --passphrase 'E2ETestPass!2026' \
+    --maestro \"${run}/${flow}\" \
+    --min-screenshots 5 \
+    --allow-error 'Failed to re-arm task reminders' \
+    --allow-error 'Database requested while session closed' \
+    ${flags}" || fail=$((fail + 1))
+done
+echo "sessions failed: ${fail}"
 ```
+
+`--entities` defaults to **1** (`Main.kt:190`), so every session states its count — a session that
+creates no task or habit passes `--entities 0` rather than inheriting the default:
+
+| # | Session | Flags for `:tools:e2e-verify` |
+|---|---|---|
+| 01 | tasks and habits | `--entities 2 --expect-occurrence completed` |
+| 02 | notes, journal, time | `--entities 0 --expect-note-deleted --expect-time-entry --expect-journal` |
+| 03 | task lifecycle | `--entities 2 --expect-archived 1 --expect-deleted 0` |
+| 04 | habit controls | `--entities 1 --expect-deleted 0` |
+| 05 | preferences | `--entities 0 --expect-logged-pref theme_mode --expect-logged-pref launch_destination_route` |
+| 06 | focus and insights | `--entities 0 --expect-logged-pref chart_journal_module_enabled --expect-pref focus_mode_active_preset=full_suite` |
+
+`--entities 0` is a stated non-assertion, not a silent one: `db/session-tasks` and `log/created-ids` print
+`not asserted (--entities 0)` instead of failing on an empty prefix, and the session's own checks carry
+the data side — 02 the note, the time entry and the journal; 05 and 06 the preferences they wrote. In
+03 the creation order **is** the assertion: the deleted task is made second, so index 0 is the deleted
+one and index 1 the archived one (`03-task-lifecycle.yaml:11`–`:12`).
 
 The verifier checks: the log parsed and started a session; **zero unexplained `ERROR`/`FATAL` lines**;
 a backup confirmation is present (the worker's own line, or the Settings action's "Manual backup
@@ -117,6 +165,7 @@ Flags select the assertions for the session:
 | `--expect-note-deleted` | the note's create and delete log lines name the same id and the row is gone |
 | `--expect-time-entry` | the manual entry's logged id exists in `time_entries` |
 | `--expect-journal` | a non-empty journal response exists on a date the session's own log spans (first..last line, so a midnight-crossing run or a host in another timezone still passes — the verifier's date is not an oracle), and matches the log's `e2e-journal-<digits>` marker when a line carries one |
+| `--expect-pref <key=value>` | the stored value must equal the literal given — for a preference the session restores to a known value |
 | `--expect-logged-pref <key>` | the stored value equals the LAST value the session logged writing it — state-independent, for a toggle whose starting value a previous run may have left either way |
 | `--allow-error <text>` | a known, filed anomaly (matched against the line's tag or message); anything unlisted still fails |
 
