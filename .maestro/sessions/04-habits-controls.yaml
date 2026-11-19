@@ -145,6 +145,7 @@ env:
       id: "settings.auto_backup_card"
     direction: DOWN
     timeout: 40000
+    centerElement: true
 - tapOn:
     id: "settings.auto_backup_card"
 - scrollUntilVisible:
@@ -152,6 +153,7 @@ env:
       id: "settings.run_backup_now"
     direction: DOWN
     timeout: 30000
+    centerElement: true
 - tapOn:
     id: "settings.run_backup_now"
 # In-flight only: this tag is absent whenever no manual run is executing, so a re-run can never be
@@ -166,17 +168,30 @@ env:
       id: "settings.backup_in_progress"
     timeout: 120000
 - takeScreenshot: 506-backup-written
+# The Debug card sits below the fold of the settings column: measured on the A17 it reported
+# `[84,2039][996,2091]` — a 52 px sliver ending under the bottom bar — and a tap at y=2065 expanded
+# nothing, so the export buttons inside it were never composed at all. Centring is what makes its row a
+# real target (the same class as `settings.auto_backup_switch` above).
 - scrollUntilVisible:
     element:
       id: "settings.debug_card"
     direction: DOWN
     timeout: 40000
+    centerElement: true
 - tapOn:
     id: "settings.debug_card"
 - extendedWaitUntil:
     visible:
       id: "log_export.export_latest_button"
     timeout: 20000
+# The card's LAST row, composed only while it is expanded: centre it rather than trust the expansion to
+# have left it inside the viewport.
+- scrollUntilVisible:
+    element:
+      id: "log_export.export_latest_button"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
 - tapOn:
     id: "log_export.export_latest_button"
 - takeScreenshot: 507-log-export-tapped

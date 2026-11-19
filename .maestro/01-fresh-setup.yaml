@@ -79,11 +79,15 @@ env:
 # Debug logging FIRST, so the whole run lands in the session log.
 - tapOn:
     id: "nav.tab.settings"
+# Measured on the A17: this scroll reported `[84,2039][996,2091]` for the card — a 52 px sliver under the
+# bottom bar — and the following tap expanded nothing, so the debug switch and the export buttons were
+# never composed. Centring is what makes the header a real target.
 - scrollUntilVisible:
     element:
       id: "settings.debug_card"
     direction: DOWN
     timeout: 40000
+    centerElement: true
 - takeScreenshot: 09-settings
 - tapOn:
     id: "settings.debug_card"
@@ -102,12 +106,23 @@ env:
       id: "settings.auto_backup_card"
     direction: DOWN
     timeout: 40000
+    centerElement: true
 - tapOn:
     id: "settings.auto_backup_card"
 - extendedWaitUntil:
     visible:
       id: "settings.auto_backup_switch"
     timeout: 20000
+# The switch row is the last thing in the card and sat exactly on the measured edge (`[84,2059][996,2091]`
+# against a viewport ending at 2052): the tap landed at (540,2075) on dead space and the app logged no
+# toggle. Scroll the ROW to the middle before tapping it — the same shape as
+# `subflows/ensure-auto-backup.yaml`, which is the proven fix for this site.
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_switch"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
 - tapOn:
     id: "settings.auto_backup_switch"
 # Run-now renders only while Auto-Backup is on, so this is also the toggle's own assertion.

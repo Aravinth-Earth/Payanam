@@ -89,6 +89,8 @@ env:
     timeout: 30000
 # Append a marker rather than replace: `tapOn` places the caret where it lands, and erasing from
 # there leaves a prefix behind. An appended marker proves the same thing - the edit reached the store.
+# Aim at the trailing edge: the title is ~30 chars in a single-line field, so a centre tap puts the
+# caret INSIDE it and `-edited` would be spliced mid-title, no longer contiguous with `${output.task}`.
 - tapOn:
     id: "task_edit.title_field"
     point: "95%,50%"
@@ -234,6 +236,7 @@ env:
       id: "settings.auto_backup_card"
     direction: DOWN
     timeout: 40000
+    centerElement: true
 - tapOn:
     id: "settings.auto_backup_card"
 # Below the fold once the card is open: scroll rather than wait, or a taller card never passes.
@@ -242,6 +245,7 @@ env:
       id: "settings.run_backup_now"
     direction: DOWN
     timeout: 30000
+    centerElement: true
 - tapOn:
     id: "settings.run_backup_now"
 # In-flight only: this tag is absent whenever no manual run is executing, so a re-run can never be
@@ -256,17 +260,30 @@ env:
       id: "settings.backup_in_progress"
     timeout: 120000
 - takeScreenshot: 209-backup-written
+# The Debug card sits below the fold of the settings column: measured on the A17 it reported
+# `[84,2039][996,2091]` — a 52 px sliver ending under the bottom bar — and a tap at y=2065 expanded
+# nothing, so the export buttons inside it were never composed at all. Centring is what makes its row a
+# real target (the same class as `settings.auto_backup_switch` above).
 - scrollUntilVisible:
     element:
       id: "settings.debug_card"
     direction: DOWN
     timeout: 40000
+    centerElement: true
 - tapOn:
     id: "settings.debug_card"
 - extendedWaitUntil:
     visible:
       id: "log_export.export_latest_button"
     timeout: 20000
+# The card's LAST row, composed only while it is expanded: centre it rather than trust the expansion to
+# have left it inside the viewport.
+- scrollUntilVisible:
+    element:
+      id: "log_export.export_latest_button"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
 - tapOn:
     id: "log_export.export_latest_button"
 # The export's success is verified from the artifact side: :tools:e2e-verify reads the pulled log. The

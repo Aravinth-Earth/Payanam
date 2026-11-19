@@ -34,6 +34,7 @@ env:
       id: "settings.reminders_card"
     direction: DOWN
     timeout: 60000
+    centerElement: true
 - tapOn:
     id: "settings.reminders_card"
 - extendedWaitUntil:

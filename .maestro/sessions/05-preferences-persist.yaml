@@ -32,11 +32,15 @@ env:
     file: ../subflows/ensure-auto-backup.yaml
 
 # ---- theme -> Dark ----
+# Every card below the fold is scrolled to from a position above it, and the scroll stops as soon as the
+# collapsed header's bounds enter the viewport — measured on the A17 as a sliver under the bottom bar.
+# Centre it so the header is a tap target, not a node that only exists in the semantics tree.
 - scrollUntilVisible:
     element:
       id: "settings.appearance_card"
     direction: DOWN
     timeout: 40000
+    centerElement: true
 - tapOn:
     id: "settings.appearance_card"
 - extendedWaitUntil:
@@ -48,13 +52,47 @@ env:
 - takeScreenshot: 600-theme-dark
 
 # ---- default landing -> Notes ----
+# Only one section is open at a time, and the theme rows on screen above prove the appearance card is
+# the open one: tapping its header again closes it, which is what makes the layout short. This is not
+# cosmetic. Measured on the A17 with the appearance body in the layout, the landing header sat at
+# `[84,1627][996,1753]` - fully visible - and asking Maestro to re-centre a node that is already in
+# view makes it scroll anyway: the gesture's fling carried the list to the very bottom (the tail of the
+# column, `settings.reminders_card` at y=583), leaving the header above the viewport. The tap still
+# expanded the card - it was open in the hierarchy afterwards - but `settings.landing.notes` never
+# entered the screen, so `extendedWaitUntil` could not see it. Guarded on the theme rows, so a re-run
+# that starts already collapsed skips this instead of re-opening the card.
+- runFlow:
+    when:
+      visible:
+        id: "settings.theme.dark"
+    commands:
+      - tapOn:
+          id: "settings.appearance_card"
+# With every card collapsed the whole column is shorter than the viewport and this header is a
+# full-size target near the top. Direction UP is a no-op in that case and recovers the position if an
+# earlier step left the list deep; deliberately no `centerElement`, because the corrective scroll is
+# the failure above, not a fix for it.
 - scrollUntilVisible:
     element:
       id: "settings.default_landing_card"
-    direction: DOWN
+    direction: UP
     timeout: 40000
+# A previous killed run can leave this section open, and a tap on an open card COLLAPSES it (the same
+# trap the auto-backup card carries in session 06). `settings.landing.tasks` is one of the six options
+# that compose together while the section is expanded, so its presence is the "already open" signal;
+# normalise to closed first, then the tap below always expands.
+- runFlow:
+    when:
+      visible:
+        id: "settings.landing.tasks"
+    commands:
+      - tapOn:
+          id: "settings.default_landing_card"
 - tapOn:
     id: "settings.default_landing_card"
+# The options row composes only while the card is open, and with the appearance card closed it lands at
+# y~899 inside the viewport, so this waits on a node that is genuinely on screen rather than scrolling
+# to one that is only in the semantics tree.
 - extendedWaitUntil:
     visible:
       id: "settings.landing.notes"
@@ -89,6 +127,7 @@ env:
       id: "settings.appearance_card"
     direction: DOWN
     timeout: 40000
+    centerElement: true
 - tapOn:
     id: "settings.appearance_card"
 - extendedWaitUntil:
@@ -97,11 +136,28 @@ env:
     timeout: 20000
 - tapOn:
     id: "settings.theme.system"
+# Same two-step as the first leg: close the appearance card the theme step above left open (it is the
+# only section the screen can have open), then open the landing card from the short layout. Guarded on
+# the theme rows, so nothing here depends on how the previous leg ended.
+- runFlow:
+    when:
+      visible:
+        id: "settings.theme.system"
+    commands:
+      - tapOn:
+          id: "settings.appearance_card"
 - scrollUntilVisible:
     element:
       id: "settings.default_landing_card"
-    direction: DOWN
+    direction: UP
     timeout: 40000
+- runFlow:
+    when:
+      visible:
+        id: "settings.landing.tasks"
+    commands:
+      - tapOn:
+          id: "settings.default_landing_card"
 - tapOn:
     id: "settings.default_landing_card"
 - extendedWaitUntil:
@@ -118,6 +174,7 @@ env:
       id: "settings.auto_backup_card"
     direction: DOWN
     timeout: 40000
+    centerElement: true
 - tapOn:
     id: "settings.auto_backup_card"
 - scrollUntilVisible:
@@ -125,6 +182,7 @@ env:
       id: "settings.run_backup_now"
     direction: DOWN
     timeout: 30000
+    centerElement: true
 - tapOn:
     id: "settings.run_backup_now"
 # In-flight only: this tag is absent whenever no manual run is executing, so a re-run can never be
@@ -139,17 +197,30 @@ env:
       id: "settings.backup_in_progress"
     timeout: 120000
 - takeScreenshot: 604-backup-written
+# The Debug card sits below the fold of the settings column: measured on the A17 it reported
+# `[84,2039][996,2091]` — a 52 px sliver ending under the bottom bar — and a tap at y=2065 expanded
+# nothing, so the export buttons inside it were never composed at all. Centring is what makes its row a
+# real target (the same class as `settings.auto_backup_switch` above).
 - scrollUntilVisible:
     element:
       id: "settings.debug_card"
     direction: DOWN
     timeout: 40000
+    centerElement: true
 - tapOn:
     id: "settings.debug_card"
 - extendedWaitUntil:
     visible:
       id: "log_export.export_latest_button"
     timeout: 20000
+# The card's LAST row, composed only while it is expanded: centre it rather than trust the expansion to
+# have left it inside the viewport.
+- scrollUntilVisible:
+    element:
+      id: "log_export.export_latest_button"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
 - tapOn:
     id: "log_export.export_latest_button"
 - takeScreenshot: 605-log-export-tapped
