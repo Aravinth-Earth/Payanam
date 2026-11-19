@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
+import androidx.compose.foundation.selection.toggleable
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -27,6 +29,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
@@ -78,8 +81,35 @@ fun SettingsAutoBackupSection(
     val strings = LocalUiStrings.current
     val logger = remember { AppLogger.current }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        // THE ROW IS THE CONTROL, NOT THE SWITCH. On device the Switch's own semantics node reported a 32 px
+        // sliver at the card's bottom edge, so a Maestro tap aimed at its centre landed outside the card and
+        // toggled nothing - the app logged "Auto-backup disabled in settings; cancelling worker" and never
+        // the toggle below. `toggleable` on the row moves the gesture, the tag and the description onto a
+        // node whose bounds cover the label and the thumb, which is also the surface a user aims at: the
+        // visible label becomes the target instead of a 32 dp thumb.
         Row(
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    // A tap target under 48 dp is not one a thumb reliably hits, and the row's own content
+                    // (two text rungs plus a 32 dp switch) can land under it at a small font scale.
+                    .heightIn(min = 48.dp)
+                    .toggleable(
+                        value = prefsState.autoBackupEnabled,
+                        role = Role.Switch,
+                        onValueChange = { enabled ->
+                            onAutoBackupEnabledChange(enabled)
+                            logger.d("SettingsScreen.autoBackup", "Auto-backup toggled", mapOf("enabled" to enabled))
+                        },
+                    )
+                    // Exactly ONE node carries this tag: the row. The Switch below keeps no tag of its own,
+                    // because two nodes with one id make the Maestro selector ambiguous.
+                    .testTag(TestTags.Settings.AUTO_BACKUP_SWITCH)
+                    // The row's title is its own visible text, and `toggleable` merges the descendants into
+                    // this node, so the description and the drawn label cannot disagree.
+                    .semantics {
+                        contentDescription = strings.settingsAutoBackupEnable
+                    },
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -99,25 +129,14 @@ fun SettingsAutoBackupSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant,
                 )
             }
+            // Appearance and state only: `onCheckedChange = null` leaves the gesture with the row above, so
+            // there is one toggleable node rather than two, and the row's description is the only one read.
             Switch(
                 checked = prefsState.autoBackupEnabled,
-                // The row's title is a SIBLING Text, so without this the toggle announces as its state and
-                // nothing else. The description is that same visible title from the copy table, so the
-                // announcement cannot disagree with the label the user can see. Deliberately no merge: a merge
-                // boundary moves the toggle's own node out of the unmerged semantics tree, and this screen's
-                // rendering test walks that tree by geometry.
-                modifier =
-                    Modifier
-                        .testTag(TestTags.Settings.AUTO_BACKUP_SWITCH)
-                        .semantics {
-                            contentDescription = strings.settingsAutoBackupEnable
-                        },
-                onCheckedChange = { enabled ->
-                    onAutoBackupEnabledChange(enabled)
-                    logger.d("SettingsScreen.autoBackup", "Auto-backup toggled", mapOf("enabled" to enabled))
-                },
+                onCheckedChange = null,
             )
         }
+
         autoBackupFailureMessageCard(
             errorMessage = prefsState.autoBackupLastErrorMessage,
             errorAt = prefsState.autoBackupLastErrorAt,
@@ -177,7 +196,20 @@ fun SettingsAutoBackupSection(
                     onManualBackupNow()
                     logger.i("SettingsScreen.autoBackup", "Manual backup triggered")
                 },
-                modifier = Modifier.fillMaxWidth().testTag(TestTags.Settings.RUN_BACKUP_NOW),
+                // Two ids, never both: `backup_in_progress` exists ONLY while a manual run is executing,
+                // `run_backup_now` the rest of the time. The persisted "last run" line above stays on
+                // screen between runs, so the maestro sessions wait on THIS id appearing and then
+                // disappearing - a repeat run can never satisfy that with a stale node.
+                modifier =
+                    Modifier
+                        .fillMaxWidth()
+                        .testTag(
+                            if (manualBackupInProgress) {
+                                TestTags.Settings.BACKUP_IN_PROGRESS
+                            } else {
+                                TestTags.Settings.RUN_BACKUP_NOW
+                            },
+                        ),
                 enabled = !manualBackupInProgress,
             ) {
                 Text(

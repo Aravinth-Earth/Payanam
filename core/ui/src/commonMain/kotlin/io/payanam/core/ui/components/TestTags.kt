@@ -89,6 +89,10 @@ object TestTags {
         const val RUN_BACKUP_NOW = "settings.run_backup_now"
 
         const val BACKUP_LAST_RUN = "settings.backup_last_run"
+
+        /** Rendered ONLY while a manual backup is in flight; absent whenever the card is idle, so a wait
+         *  on it can never be satisfied by a persisted last-run line from an earlier run. */
+        const val BACKUP_IN_PROGRESS = "settings.backup_in_progress"
     }
 
     /** The session-log export pair: the same two buttons are rendered by settings and by both DB gates. */

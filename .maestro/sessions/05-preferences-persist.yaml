@@ -24,6 +24,13 @@ env:
 - tapOn:
     id: "nav.tab.settings"
 
+# ---- preflight: auto-backup ON, so the epilogue (reached again after the cold start, from the same
+# persisted preference) has a Run-Backup-Now to tap. Settings is already this session's first
+# destination, so the subflow's own nav tap re-selects the current tab and its scroll-back-to-top is what
+# the appearance-card scroll below starts from.
+- runFlow:
+    file: ../subflows/ensure-auto-backup.yaml
+
 # ---- theme -> Dark ----
 - scrollUntilVisible:
     element:
@@ -120,9 +127,16 @@ env:
     timeout: 30000
 - tapOn:
     id: "settings.run_backup_now"
+# In-flight only: this tag is absent whenever no manual run is executing, so a re-run can never be
+# satisfied by a stale node. Appearance proves the tap started a run; disappearance is the app's
+# completion signal (the persisted "last run" line is still on screen from the previous run).
 - extendedWaitUntil:
     visible:
-      id: "settings.backup_last_run"
+      id: "settings.backup_in_progress"
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: "settings.backup_in_progress"
     timeout: 120000
 - takeScreenshot: 604-backup-written
 - scrollUntilVisible:

@@ -24,6 +24,11 @@ env:
     visible:
       id: "nav.tab.tasks"
     timeout: 90000
+
+# ---- preflight: auto-backup ON, or the epilogue has no Run-Backup-Now. The next step selects Tasks,
+# which restores the screen this session's own ladder starts from.
+- runFlow:
+    file: ../subflows/ensure-auto-backup.yaml
 - tapOn:
     id: "nav.tab.tasks"
 - extendedWaitUntil:
@@ -167,9 +172,16 @@ env:
     timeout: 30000
 - tapOn:
     id: "settings.run_backup_now"
+# In-flight only: this tag is absent whenever no manual run is executing, so a re-run can never be
+# satisfied by a stale node. Appearance proves the tap started a run; disappearance is the app's
+# completion signal (the persisted "last run" line is still on screen from the previous run).
 - extendedWaitUntil:
     visible:
-      id: "settings.backup_last_run"
+      id: "settings.backup_in_progress"
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: "settings.backup_in_progress"
     timeout: 120000
 - takeScreenshot: 406-backup-written
 - scrollUntilVisible:

@@ -24,6 +24,11 @@ env:
     timeout: 90000
 - takeScreenshot: 300-session-start
 
+# ---- preflight: auto-backup ON, so the epilogue has a Run-Backup-Now to tap. The next step re-selects
+# Notes, which is where this session expects to start after the subflow leaves Settings.
+- runFlow:
+    file: ../subflows/ensure-auto-backup.yaml
+
 # ---- notes: create with a tag, find it by search, then delete it through the editor ----
 - tapOn:
     id: "nav.tab.notes"
@@ -148,9 +153,16 @@ env:
     timeout: 30000
 - tapOn:
     id: "settings.run_backup_now"
+# In-flight only: this tag is absent whenever no manual run is executing, so a re-run can never be
+# satisfied by a stale node. Appearance proves the tap started a run; disappearance is the app's
+# completion signal (the persisted "last run" line is still on screen from the previous run).
 - extendedWaitUntil:
     visible:
-      id: "settings.backup_last_run"
+      id: "settings.backup_in_progress"
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: "settings.backup_in_progress"
     timeout: 120000
 - takeScreenshot: 309-backup-written
 - scrollUntilVisible:

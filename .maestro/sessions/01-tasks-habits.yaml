@@ -37,6 +37,12 @@ env:
     timeout: 90000
 - takeScreenshot: 200-session-start
 
+# ---- preflight: auto-backup ON. Without it the epilogue's `settings.run_backup_now` does not exist, and
+# the verifier hard-fails a run with no snapshot. The next step re-selects the Tasks tab, which is where
+# this session expects to start after the subflow leaves Settings.
+- runFlow:
+    file: ../subflows/ensure-auto-backup.yaml
+
 # ---- tasks: create one task with the default form values ----
 - tapOn:
     id: "nav.tab.tasks"
@@ -85,6 +91,7 @@ env:
 # there leaves a prefix behind. An appended marker proves the same thing - the edit reached the store.
 - tapOn:
     id: "task_edit.title_field"
+    point: "95%,50%"
 - inputText: "-edited"
 - hideKeyboard
 - scrollUntilVisible:
@@ -106,7 +113,7 @@ env:
     timeout: 60000
 - scrollUntilVisible:
     element:
-      text: ".*-edited.*"
+      text: ".*${output.task}-edited.*"
     direction: DOWN
     timeout: 60000
 - takeScreenshot: 202-task-edited
@@ -237,11 +244,16 @@ env:
     timeout: 30000
 - tapOn:
     id: "settings.run_backup_now"
-# The card's last-run line is the app's own confirmation that the snapshot landed; it is tagged, so
-# this wait never depends on the locale or on the timestamp's format.
+# In-flight only: this tag is absent whenever no manual run is executing, so a re-run can never be
+# satisfied by a stale node. Appearance proves the tap started a run; disappearance is the app's
+# completion signal (the persisted "last run" line is still on screen from the previous run).
 - extendedWaitUntil:
     visible:
-      id: "settings.backup_last_run"
+      id: "settings.backup_in_progress"
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: "settings.backup_in_progress"
     timeout: 120000
 - takeScreenshot: 209-backup-written
 - scrollUntilVisible:
