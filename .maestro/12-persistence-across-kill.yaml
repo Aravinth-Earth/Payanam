@@ -36,6 +36,17 @@ env:
 - extendedWaitUntil:
     visible:
       id: "tasks.add_button"
+# The selected filter is persisted (KEY_TASK_FILTER_OPTION), so the list can still be on Completed
+# from an earlier flow and this run's own row is then not rendered. Normalise to All up front rather
+# than rely on a later flow having done it.
+- runFlow:
+    when:
+      visible:
+        id: "tasks.filter.all"
+    commands:
+      - tapOn:
+          id: "tasks.filter.all"
+
 - tapOn:
     id: "tasks.add_button"
 - tapOn:

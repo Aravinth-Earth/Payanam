@@ -30,8 +30,12 @@ env:
       HABIT_NAME: ${output.habit}
       DUE_HOUR: ${output.dueHour}
       DUE_MINUTE: ${output.dueMinute}
-- extendedWaitUntil:
-    visible: ".*${output.habit}.*"
+# The habits list is a LazyColumn sorted score-high-low, and a habit created seconds ago has score
+# 0.0, so it sorts to the bottom: once the list exceeds one screen a plain wait can never see it.
+- scrollUntilVisible:
+    element:
+      text: ".*${output.habit}.*"
+    direction: DOWN
     timeout: 30000
 - takeScreenshot: 130-reminder-armed
 
@@ -49,6 +53,25 @@ env:
     visible:
       id: "nav.tab.habits"
     timeout: 60000
+# showArchivedHabits is persisted (KEY_SHOW_ARCHIVED_HABITS) and survives process death, and no flow
+# sets it back: one manual tap on Show archived would keep the archived row in this list and the
+# assertion below would then time out for a reason that is not the defect under test. Normalise it
+# off first — same conditional shape as subflows/archive-task.yaml's filter normaliser.
+- tapOn:
+    id: "habits.filter_button"
+- extendedWaitUntil:
+    visible:
+      id: "habits.filter.show_archived"
+    timeout: 20000
+- runFlow:
+    when:
+      visible:
+        id: "habits.filter.show_archived"
+        checked: true
+    commands:
+      - tapOn:
+          id: "habits.filter.show_archived"
+- pressKey: Back
 # The today list does not keep an archived habit; if the row outlives the archive, this fails.
 - extendedWaitUntil:
     notVisible: ".*${output.habit}.*"
