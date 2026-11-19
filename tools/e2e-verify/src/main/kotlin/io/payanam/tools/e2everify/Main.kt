@@ -52,6 +52,19 @@ private const val PREF_PAIR_PARTS = 2
 /** Column position of the value in the app_settings read. */
 private const val PREF_VALUE_COLUMN = 1
 
+/** Slack on the snapshot window's upper bound: the folder stamp truncates to whole seconds. */
+private const val SESSION_END_TOLERANCE_SECONDS = 5L
+
+/** Unified-log timestamps: `yyyy-MM-dd HH:mm:ss.SSS`, the device's local wall clock. */
+private val logTimestampFormat =
+    java.time.format.DateTimeFormatter
+        .ofPattern("yyyy-MM-dd HH:mm:ss.SSS")
+
+/** Snapshot folder suffix: `…_yyyyMMdd_HHmmss`, second precision. */
+private val snapshotTimestampFormat =
+    java.time.format.DateTimeFormatter
+        .ofPattern("yyyyMMdd_HHmmss")
+
 /** One artefact check: a name, and whether it held, with the evidence that decided it. */
 internal class Check(
     val name: String,
@@ -290,13 +303,20 @@ internal fun checkDatabase(options: Options): List<Check> {
     val opened = result as DatabaseOpenResult.Opened
     try {
         opened.session.withSerializedAccess { connection ->
-            val tasks = countTasksWithPrefix(connection, options.titlePrefix)
-            checks +=
-                Check(
-                    "db/session-tasks",
-                    tasks > SEQUENCE_UNUSED,
-                    tasks.toString() + " task(s) titled " + options.titlePrefix + "*",
-                )
+            if (options.entityCount == 0) {
+                // A session that creates no task/habit (notes, journal, time) owns no task rows to
+                // count; its absence is the point, so report the same non-assertion shape the
+                // UUID correlation uses instead of failing on an empty prefix.
+                checks += Check("db/session-tasks", true, "not asserted (--entities 0)")
+            } else {
+                val tasks = countTasksWithPrefix(connection, options.titlePrefix)
+                checks +=
+                    Check(
+                        "db/session-tasks",
+                        tasks > SEQUENCE_UNUSED,
+                        tasks.toString() + " task(s) titled " + options.titlePrefix + "*",
+                    )
+            }
             val statuses = occurrenceStatuses(connection, options.titlePrefix)
             val expected = options.expectOccurrence
             checks +=
@@ -464,7 +484,7 @@ internal fun checkEntityTypes(options: Options): List<Check> {
                 checks += timeEntryCheck(connection, lines)
             }
             if (options.expectJournal) {
-                checks += journalCheck(connection)
+                checks += journalCheck(connection, lines, options.log)
             }
         }
     } finally {
@@ -525,15 +545,50 @@ private fun timeEntryCheck(
     return Check("db/time-entry", exists, entryId + if (exists) " present" else " missing")
 }
 
-private fun journalCheck(connection: java.sql.Connection): Check {
-    val count =
-        scalarCount(
-            connection,
+private fun journalCheck(
+    connection: java.sql.Connection,
+    lines: List<LogLine>,
+    log: File,
+): Check {
+    val window =
+        sessionLogWindow(log)
+            ?: return Check("db/journal-today", false, "log has no timestamped line to date the session by")
+    // The row's createdAt is the DEVICE's local wall clock, so the verifier host's date is not an
+    // oracle. The session's own log timestamps are; a run that crosses midnight covers both dates.
+    val firstDate = window.first.toLocalDate()
+    val lastDate = window.second.toLocalDate()
+    // Maestro's journal text is the session's own marker. The app does not log response text (only
+    // its length), but bind on it when a line does carry it, so a stale same-day row cannot pass.
+    val journalPattern = Regex("""e2e-journal-\d+""")
+    val journalText =
+        lines
+            .asSequence()
+            .map { it.message }
+            .mapNotNull { journalPattern.find(it)?.value }
+            .firstOrNull()
+    val sql =
+        StringBuilder(
             "SELECT count(*) FROM day_journal_responses " +
-                "WHERE date(createdAt) = date('now','localtime') " +
+                "WHERE date(createdAt) BETWEEN ? AND ? " +
                 "AND responseText IS NOT NULL AND responseText <> ''",
         )
-    return Check("db/journal-today", count > SEQUENCE_UNUSED, count.toString() + " response(s) today")
+    if (journalText != null) {
+        sql.append(" AND responseText LIKE ?")
+    }
+    val count =
+        connection.prepareStatement(sql.toString()).use { statement ->
+            statement.setString(1, firstDate.toString())
+            statement.setString(2, lastDate.toString())
+            if (journalText != null) {
+                statement.setString(3, "%" + journalText + "%")
+            }
+            statement.executeQuery().use { rows -> if (rows.next()) rows.getInt(1) else SEQUENCE_UNUSED }
+        }
+    val dates = if (firstDate == lastDate) firstDate.toString() else firstDate.toString() + ".." + lastDate
+    val detail =
+        count.toString() + " response(s) on session date(s) " + dates +
+            (journalText?.let { " matching " + it } ?: "")
+    return Check("db/journal-today", count > SEQUENCE_UNUSED, detail)
 }
 
 /**
@@ -632,8 +687,10 @@ internal fun checkMedia(options: Options): List<Check> {
 
 /**
  * Binds the snapshot file to the session without trusting a path: the backup folder name ends with the
- * moment it was written (`…_yyyyMMdd_HHmmss`), and that moment must not precede the session's first log
- * line. Run order is one session = one flow, so a snapshot older than the session is another run's file.
+ * moment it was written (`…_yyyyMMdd_HHmmss`), and that moment must fall inside the session's log
+ * window. Run order is one session = one flow, so a snapshot older than the session is another run's
+ * file — and a later periodic auto-backup holds every session row, so it must fail the upper bound
+ * rather than silently bind itself to this session.
  */
 internal fun sessionWindowCheck(options: Options): Check {
     val folder =
@@ -646,26 +703,49 @@ internal fun sessionWindowCheck(options: Options): Check {
     val stamp =
         Regex("""(\d{8}_\d{6})$""").find(folder)?.groupValues?.get(1)
             ?: return Check("db/session-window", false, "folder name carries no timestamp: " + folder)
-    val snapshotAt =
-        java.time.LocalDateTime.parse(
-            stamp,
-            java.time.format.DateTimeFormatter
-                .ofPattern("yyyyMMdd_HHmmss"),
-        )
-    val firstLine =
-        options.log.useLines { it.firstOrNull { line -> line.firstOrNull()?.isDigit() == true } }
+    val snapshotAt = java.time.LocalDateTime.parse(stamp, snapshotTimestampFormat)
+    val window =
+        sessionLogWindow(options.log)
             ?: return Check("db/session-window", false, "log has no timestamped line")
-    val sessionStart =
-        java.time.LocalDateTime.parse(
-            firstLine.substringBefore(" | ").trim(),
-            java.time.format.DateTimeFormatter
-                .ofPattern("yyyy-MM-dd HH:mm:ss.SSS"),
-        )
-    return Check(
-        "db/session-window",
-        !snapshotAt.isBefore(sessionStart),
-        "snapshot " + snapshotAt + " vs session start " + sessionStart,
-    )
+    val sessionStart = window.first
+    val sessionEnd = window.second
+    // The flow takes its backup BEFORE exporting the log, so the log's last timestamp is a sound upper
+    // bound. The folder name is second-precision and truncates the write's milliseconds, hence the 5s
+    // slack; that is far below any auto-backup interval, so a later periodic backup still fails closed.
+    val latestAllowed = sessionEnd.plusSeconds(SESSION_END_TOLERANCE_SECONDS)
+    val inWindow = !snapshotAt.isBefore(sessionStart) && !snapshotAt.isAfter(latestAllowed)
+    val detail =
+        if (snapshotAt.isAfter(latestAllowed)) {
+            "snapshot " + snapshotAt + " is after session end " + sessionEnd +
+                " + " + SESSION_END_TOLERANCE_SECONDS + "s"
+        } else {
+            "snapshot " + snapshotAt + " vs session " + sessionStart + ".." + sessionEnd
+        }
+    return Check("db/session-window", inWindow, detail)
+}
+
+/**
+ * The first and last timestamps the session log carries. Both are the DEVICE's local wall clock, the
+ * only clock the log and the snapshot share; anything that needs "when did this session run" reads
+ * them instead of the verifier host's clock.
+ */
+internal fun sessionLogWindow(log: File): Pair<java.time.LocalDateTime, java.time.LocalDateTime>? {
+    var first: java.time.LocalDateTime? = null
+    var last: java.time.LocalDateTime? = null
+    log.forEachLine { raw ->
+        if (raw.firstOrNull()?.isDigit() != true) return@forEachLine
+        val timestamp =
+            runCatching {
+                java.time.LocalDateTime.parse(raw.substringBefore(" | ").trim(), logTimestampFormat)
+            }.getOrNull() ?: return@forEachLine
+        if (first == null) {
+            first = timestamp
+        }
+        last = timestamp
+    }
+    val start = first ?: return null
+    val end = last ?: return null
+    return start to end
 }
 
 private fun countTasksWithPrefix(
