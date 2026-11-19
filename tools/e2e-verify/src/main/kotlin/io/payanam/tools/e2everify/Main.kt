@@ -52,6 +52,16 @@ private const val PREF_PAIR_PARTS = 2
 /** Column position of the value in the app_settings read. */
 private const val PREF_VALUE_COLUMN = 1
 
+/** LogSanitizer's marker for a value it removed; it is not a preference value to compare. */
+private const val REDACTED_LOG_VALUE = "<redacted>"
+
+/**
+ * The field `AppPreferencesWriter.setSetting` adds for a preference whose value domain is a closed set of
+ * enum literals, a Boolean or a number. Named `enumLiteral`, not `enumValue`: LogSanitizer redacts a
+ * value whose KEY contains the content token `"value"`, and `"enumvalue"` contains it.
+ */
+private const val NON_CONTENT_LITERAL_FIELD = "enumLiteral"
+
 /** Slack on the snapshot window's upper bound: the folder stamp truncates to whole seconds. */
 private const val SESSION_END_TOLERANCE_SECONDS = 5L
 
@@ -650,15 +660,30 @@ private fun loggedPreferenceValues(
     log: File,
     key: String,
 ): List<String> {
-    val keyPattern = Regex("""key="""" + Regex.escape(key) + """"""")
+    // Three writer fields can carry a value: a chart toggle logs `enabled=true|false`; the generic
+    // setSetting path logs `value=…`, which LogSanitizer redacts for EVERY row; and the same path logs
+    // `enumLiteral="…"` for the rows whose declared domain is a closed set of enum literals, a Boolean or
+    // a number (nothing there can be user text). UnifiedLogger quotes strings, so both `x="dark"` and a
+    // bare `x=dark` are accepted. `enabled=` wins when present, which keeps chart keys' values
+    // byte-identical; `value=` is read last, and LogSanitizer's `<redacted>` marker never counts as
+    // evidence.
     val enabledPattern = Regex("""enabled=(true|false)""")
+    val literalPattern = Regex("""\b""" + NON_CONTENT_LITERAL_FIELD + """=(?:"([^"]*)"|([^,\s\]]+))""")
+    val valuePattern = Regex("""value=(?:"([^"]*)"|([^,\s\]]+))""")
     return readLog(log)
         .filter { it.tag.startsWith("AppPreferencesWriter.") || it.tag.startsWith("AppSettingsRepositoryImpl.") }
         .filter { it.message.contains("key=\"" + key + "\"") }
         .mapNotNull { line ->
-            val values = enabledPattern.findAll(line.message).map { it.groupValues[1] }.toList()
-            values.lastOrNull()
-        }.also { keyPattern.hashCode() }
+            val value =
+                enabledPattern.find(line.message)?.groupValues?.get(1)
+                    ?: literalPattern.find(line.message)?.let { match ->
+                        match.groupValues[1].ifEmpty { match.groupValues[2] }
+                    }
+                    ?: valuePattern.find(line.message)?.let { match ->
+                        match.groupValues[1].ifEmpty { match.groupValues[2] }
+                    }
+            value?.takeIf { it != REDACTED_LOG_VALUE }
+        }.toList()
 }
 
 private fun preferenceValue(
