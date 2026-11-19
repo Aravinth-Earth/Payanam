@@ -69,11 +69,19 @@ outside Maestro:
 | Data | `payanam.db` snapshot (**Settings → Auto-Backup → Run Backup Now**) | `/sdcard/Documents/Payanam/data/export/auto_bk_…/payanam.db` | `:tools:e2e-verify` (SQLCipher, read-only) |
 
 Both folders are **public Documents**, so `adb pull` reads them on a release build — no SAF, no
-`run-as`. The debug package uses `Payanam-debug/` for both.
+`run-as`. The paths above are the **release** package's: the logger and the backup coordinator append
+`-debug` when the application id ends in `.debug` (`UnifiedLogger.kt:372`,
+`DatabaseBackupCoordinator.kt:152`), so a session run against `io.payanam.debug` writes
+`Documents/Payanam-debug/exported-logs/` and `Documents/Payanam-debug/data/export/auto_bk_…/`
+instead — pulling the `Payanam/` tree there leaves an empty directory.
 
 ```bash
 # 1. interact — one launch + one unlock for the whole session
 maestro test .maestro --include-tags session --test-output-dir build-logs/e2e
+
+# 1b. the pull destinations must exist first: a missing dest is created by adb and gets the source's
+#     CONTENTS one level shallower than step 2's paths expect, so --log/--db would match nothing.
+mkdir -p build-logs/e2e/latest/logs build-logs/e2e/latest/db
 
 # 2. pull the two artefacts the session exported
 adb pull /sdcard/Documents/Payanam/exported-logs build-logs/e2e/latest/logs
@@ -94,19 +102,21 @@ The verifier checks: the log parsed and started a session; **zero unexplained `E
 a backup confirmation is present (the worker's own line, or the Settings action's "Manual backup
 succeeded" — WorkManager can log after the export); the DB opens read-only through the same SQLCipher
 driver the desktop uses; the session's task rows exist and their occurrence statuses are reported; the
-dimension catalogue reads; the snapshot's folder timestamp is not older than the session's first log
-line; at least the expected screenshots were captured. Exit code 0 = every layer agrees.
+dimension catalogue reads; the snapshot's folder timestamp falls **inside** the session's log window —
+not before its first line, and not more than 5 s after its last (a later periodic auto-backup holds
+every session row, so it must fail rather than bind itself to this run); at least the expected
+screenshots were captured. Exit code 0 = every layer agrees.
 
 Flags select the assertions for the session:
 
 | Flag | Assertion |
 |---|---|
-| `--entities N` | the newest N created task/habit ids must exist in the snapshot with the run's title (`0` for a session that creates none) |
+| `--entities N` | the newest N created task/habit ids must exist in the snapshot with the run's title. `0` is for a session that creates none: `db/session-tasks` and `log/created-ids` then report `not asserted (--entities 0)` instead of failing on an empty prefix |
 | `--expect-occurrence <status>` | the newest created entity must own an occurrence with that status |
 | `--expect-archived <i>` / `--expect-deleted <i>` | index *i* (0 = newest) is archived / absent in the snapshot |
 | `--expect-note-deleted` | the note's create and delete log lines name the same id and the row is gone |
 | `--expect-time-entry` | the manual entry's logged id exists in `time_entries` |
-| `--expect-journal` | today has a non-empty journal response |
+| `--expect-journal` | a non-empty journal response exists on a date the session's own log spans (first..last line, so a midnight-crossing run or a host in another timezone still passes — the verifier's date is not an oracle), and matches the log's `e2e-journal-<digits>` marker when a line carries one |
 | `--expect-logged-pref <key>` | the stored value equals the LAST value the session logged writing it — state-independent, for a toggle whose starting value a previous run may have left either way |
 | `--allow-error <text>` | a known, filed anomaly (matched against the line's tag or message); anything unlisted still fails |
 
@@ -114,7 +124,8 @@ Two things the first real run proved about the design:
 
 - **Paths are redacted in logs** (`LogSanitizer`), so the log can name a backup event but never its
   location. The snapshot is bound to the session by the timestamp window instead — that is what
-  `db/session-window` asserts.
+  `db/session-window` asserts, with a bound on each side: the folder stamp must be `>=` the first log
+  line and `<=` the last one plus 5 s.
 - **`ERROR` lines can be legitimate for the app and still be anomalies for a session.** The first run
   logged a boot-time re-arm while the DB was locked; it is tracked with
   `--allow-error 'Failed to re-arm task reminders'` / `--allow-error 'Database requested while session
@@ -127,10 +138,21 @@ successful, the DB disagreed, the log named the cause. Until that is fixed, the 
 detail but does not complete from it, and `db/occurrences` is reported rather than asserted.
 
 
+**The backup epilogue waits for the run, not for the last-run line.** It taps
+`settings.run_backup_now`, waits for `settings.backup_in_progress` to appear (30 s), then for it to
+disappear (120 s), and only then exports the log. The button carries one id at a time —
+`run_backup_now` when idle, `backup_in_progress` only while a manual run executes — so a stale node can
+never satisfy the wait. `settings.backup_last_run` is rendered from the persisted last *successful*
+timestamp and is already on screen from the previous run, so waiting on it returned instantly and let
+the log export beat the backup, which hard-failed `log/backup` on a correct run. The node is
+observable only because the flag is held for a 3 s display floor measured from the tap
+(`AppPreferencesViewModel.kt:506`–`:521`, `MIN_MANUAL_BACKUP_IN_PROGRESS_MS = 3_000L` at `:1038`) —
+the `Manual backup succeeded` line is written *before* that delay (`:490`–`:498` precedes `:515`), so
+its timestamp is not evidence the floor elapsed.
+
 **Auto-Backup is left enabled on a test device by design** — periodic backups land in the same tree and
-are harmless. The epilogue turns it on only when it is off (the `Backups saved to Documents/Payanam`
-hint is the state probe), so re-runs are idempotent. Rotation, if it is ever enabled, prunes old
-snapshots — pull immediately after each run.
+are harmless, and the preflight turns the setting on only when it is off, so re-runs are idempotent.
+Rotation, if it is ever enabled, prunes old snapshots — pull immediately after each run.
 
 ## Preconditions
 
@@ -145,8 +167,19 @@ snapshots — pull immediately after each run.
 - **The screen stays awake.** A keyguard-free, always-on screen is a hard precondition — Maestro does
   not dismiss the keyguard, and a session that loses the screen fails mid-flow:
   `adb shell svc power stayon true`.
+- **Auto-backup ON before a session runs.** The switch row is outside the guard, but the interval and
+  last-run rows and the Run Backup Now button all sit behind `prefsState.autoBackupEnabled`
+  (`SettingsAutoBackupSection.kt:145`), so on a device where the setting is off the epilogue has no
+  `settings.run_backup_now` to tap and the session fails at its last step. This is a flow step now:
+  every session runs `subflows/ensure-auto-backup.yaml` as its first step after the boot gate. That
+  subflow is idempotent — it taps the row only when it is `checked: false` — and then waits for
+  `settings.run_backup_now` to appear, which is the proof the toggle took; a device already on pays
+  only for the navigation. It leaves the app at the top of Settings, and the sessions that start
+  elsewhere re-select their tab from there. `01-fresh-setup.yaml` still provisions the setting at
+  first run.
 - **Host clock ≈ device clock** (and no run within ~30 minutes of local midnight): the due time is
-  computed with `evalScript` from the host clock, because a flow cannot read the device's clock.
+  computed with `evalScript` from the host clock, because a flow cannot read the device's clock. The
+  verifier has no such dependency — it dates a session by the log's own timestamps.
 
 ## Locale
 
@@ -185,6 +218,7 @@ maestro test .maestro/03-action-complete.yaml -e ACTION_COMPLETE="Complete"
     create-habit-with-reminder.yaml
     stop-running-entry.yaml
     archive-task.yaml
+    ensure-auto-backup.yaml     # preflight: toggle auto-backup on (no-op when already on)
   01-fresh-setup.yaml          # destructive; run by file
   02-date-tag-publishes.yaml   # smoke: a dialog window publishes its tag
   03…05  reminder shade actions on a dead process
@@ -236,5 +270,20 @@ Measured on SM-A176B / Android 16 / ta-IN against the 1.1.0 release build:
 - **Unique data per run.** `evalScript` a name from `Date.now()`; a re-run must not match the last
   run's row.
 - **No coordinates.** A tap by position is a defect in the app's selectors, not a flow technique.
+- **`scrollUntilVisible` returning COMPLETED is not "on screen".** It means Compose put the node in
+  the semantics tree, and a node there can sit below the scroll viewport. Measured on the Galaxy A17
+  (2026-11-19): `settings.auto_backup_switch` reported bounds `[84,2059][996,2091]` against a viewport
+  ending at y=2052, the following `tapOn` aimed at (540,2075), landed on dead space, and the app
+  logged no toggle; `settings.debug_card` failed the same way and its export buttons were never
+  composed at all. So a scroll whose next step taps or waits on its target carries
+  `centerElement: true` (`subflows/ensure-auto-backup.yaml:20`), and a control that only composes
+  after the container expands or a toggle flips gets its own centred scroll before anything waits on
+  it (`:41`–`:50`).
+- **Why Settings and not the add form.** The class needs a scroll container whose last row can sit
+  under a bar: `SettingsScreen` ends its scrolling `Column` with `.padding(paddingValues)` and no
+  `navigationBarsPadding()`, so its viewport runs to the window bottom, under the app's bottom bar and
+  the system bar alike. `AddTaskScreen` does call `.navigationBarsPadding()`, so its save button cannot
+  be occluded and is left without `centerElement`. `EditTaskScreen` is the odd one out — it scrolls
+  without consuming the inset — so its save button is the next candidate if a session ever fails there.
 - **Comment the why.** The long comments are the reason a flow is shaped the way it is; keep them
   accurate when you change a step.
