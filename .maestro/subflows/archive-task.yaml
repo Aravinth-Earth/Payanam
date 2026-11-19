@@ -4,14 +4,15 @@ appId: io.payanam
 # (`task_detail.archive_button`); deleting would need the localized delete icon and a confirm dialog.
 # Env the caller must set: TASK_NAME. Ends back on the Tasks list.
 # The selected filter is persisted, so a previous flow can leave the list on Completed or Archived;
-# normalise to All or the row this flow just created is simply not rendered.
-- runFlow:
-    when:
-      visible:
-        id: "tasks.filter.all"
-    commands:
-      - tapOn:
-          id: "tasks.filter.all"
+# normalise to All or the row this flow just created is simply not rendered. Unconditional on
+# purpose: callers enter this subflow while the list is still composing, and a `when:` guard would
+# skip the tap exactly then, leaving the wrong layer in place for the scroll below.
+- extendedWaitUntil:
+    visible:
+      id: "tasks.filter.all"
+    timeout: 30000
+- tapOn:
+    id: "tasks.filter.all"
 - scrollUntilVisible:
     element:
       text: ".*${TASK_NAME}.*"
