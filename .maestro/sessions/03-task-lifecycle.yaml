@@ -74,6 +74,14 @@ env:
       id: "task_detail.archive_button"
     timeout: 30000
 - takeScreenshot: 401-archive-detail
+# The actions row is below the properties and status cards in a verticalScroll: the node can be in the
+# semantics tree while it is under the fold, so centre it before the tap.
+- scrollUntilVisible:
+    element:
+      id: "task_detail.archive_button"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
 - tapOn:
     id: "task_detail.archive_button"
 - extendedWaitUntil:
