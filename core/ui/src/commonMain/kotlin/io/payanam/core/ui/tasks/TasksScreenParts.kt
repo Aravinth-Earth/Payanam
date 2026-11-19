@@ -33,10 +33,26 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import io.payanam.presentation.tasks.HabitSortOption
 import io.payanam.presentation.tasks.TaskSortOption
 import io.payanam.presentation.tasks.TasksChromeUiState
+
+/**
+ * Marks a filter-menu row as checked/unchecked in the semantics tree.
+ *
+ * The visual state lives in the `Checkbox` inside the row's `text` slot, and a
+ * `Checkbox(onCheckedChange = null)` is inert by design: it draws itself but contributes no
+ * toggleable state. That left the tagged `DropdownMenuItem` reporting `checked = false` forever,
+ * which is wrong for screen readers and for UI automation. Declaring the state on the tagged row
+ * keeps the row's existing click/touch target untouched.
+ */
+private fun Modifier.filterRowChecked(checked: Boolean): Modifier = semantics {
+    toggleableState = if (checked) ToggleableState.On else ToggleableState.Off
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -174,7 +190,9 @@ internal fun TasksTopBar(
                         modifier = Modifier.exposeTestTagsAsResourceIds(),
                     ) {
                         DropdownMenuItem(
-                            modifier = Modifier.testTag(TestTags.Habits.filterOption("hide_completed")),
+                            modifier = Modifier
+                                .testTag(TestTags.Habits.filterOption("hide_completed"))
+                                .filterRowChecked(!chromeState.showCompletedHabits),
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
@@ -191,7 +209,9 @@ internal fun TasksTopBar(
                             },
                         )
                         DropdownMenuItem(
-                            modifier = Modifier.testTag(TestTags.Habits.filterOption("hide_all_marked")),
+                            modifier = Modifier
+                                .testTag(TestTags.Habits.filterOption("hide_all_marked"))
+                                .filterRowChecked(chromeState.hideAllMarkedToday),
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
@@ -208,7 +228,9 @@ internal fun TasksTopBar(
                             },
                         )
                         DropdownMenuItem(
-                            modifier = Modifier.testTag(TestTags.Habits.filterOption("due_today")),
+                            modifier = Modifier
+                                .testTag(TestTags.Habits.filterOption("due_today"))
+                                .filterRowChecked(chromeState.dueTodayOnly),
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
@@ -225,7 +247,9 @@ internal fun TasksTopBar(
                             },
                         )
                         DropdownMenuItem(
-                            modifier = Modifier.testTag(TestTags.Habits.filterOption("show_archived")),
+                            modifier = Modifier
+                                .testTag(TestTags.Habits.filterOption("show_archived"))
+                                .filterRowChecked(chromeState.showArchivedHabits),
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
