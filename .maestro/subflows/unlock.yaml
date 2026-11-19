@@ -1,0 +1,17 @@
+appId: io.payanam
+---
+# Unlocks only when the gate is showing. On an already-unlocked app this is a no-op, which is what
+# makes it safe to call from any starting state; an unconditional tap would land on whatever screen
+# is up and a bare hideKeyboard would press Back. Env the caller must pass: PASS — passed explicitly
+# rather than inherited, so an -e override on the command line reaches the unlock either way.
+- runFlow:
+    when:
+      visible:
+        id: "passphrase_unlock.passphrase_field"
+    commands:
+      - tapOn:
+          id: "passphrase_unlock.passphrase_field"
+      - inputText: "${PASS}"
+      - hideKeyboard
+      - tapOn:
+          id: "passphrase_unlock.unlock_button"

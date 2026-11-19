@@ -1,5 +1,9 @@
 appId: io.payanam
 name: The date dialog confirm button is reachable by id
+tags:
+  - smoke
+env:
+  PASS: E2ETestPass!2026
 ---
 # Regression guard for a tag that compiled, linted and did nothing: the confirm
 # button lives in a material3 DatePickerDialog, which draws in its own window.
@@ -40,3 +44,10 @@ name: The date dialog confirm button is reachable by id
 - tapOn:
     id: "task_add.due_date_confirm_button"
 - takeScreenshot: 61-date-confirmed
+# Leave the list, not the add form: the next flow may be launched after a graceful kill, and Android
+# would restore that form as the starting destination.
+- pressKey: Back
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 30000

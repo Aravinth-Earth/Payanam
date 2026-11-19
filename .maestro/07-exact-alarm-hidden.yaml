@@ -1,6 +1,15 @@
 appId: io.payanam
-name: The affordance is gone once the permission is granted
+name: The exact-alarm affordance is gone once the permission is granted
+tags:
+  - manual
+  - permissions
+env:
+  PASS: E2ETestPass!2026
 ---
+# PRECONDITION: SCHEDULE_EXACT_ALARM must be ALLOWED for the app; this file is out of the default
+# suite and is run BY FILE after:
+#   adb shell appops set io.payanam SCHEDULE_EXACT_ALARM allow
+# It is the second half of 06: with the app-op granted, Settings must not offer the row at all.
 - launchApp:
     stopApp: false
 # The focus-mode chooser can reappear on a relaunch; dismiss it if present.

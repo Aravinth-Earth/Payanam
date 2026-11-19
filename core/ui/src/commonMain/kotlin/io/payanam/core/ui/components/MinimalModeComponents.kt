@@ -3,6 +3,8 @@
 package io.payanam.core.ui.components
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -14,6 +16,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
 import io.payanam.presentation.tasks.TaskFilterCounts
 import io.payanam.shared.logging.AppLogger
@@ -21,6 +24,7 @@ import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.presentation.tasks.TaskFilter
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun MinimalModeTaskFilterRow(
     filterCounts: TaskFilterCounts,
@@ -53,6 +57,7 @@ fun MinimalModeTaskFilterRow(
         horizontalArrangement = Arrangement.spacedBy(8.dp),
     ) {
         FilterChip(
+            modifier = Modifier.testTag(TestTags.Tasks.filterChip(TaskFilter.ALL.key)),
             selected = isAllLayer,
             onClick = {
                 logger.d("TasksScreen.filterChipSelected", "Filter chip selected", mapOf("filter" to TaskFilter.ALL.name))
@@ -69,6 +74,7 @@ fun MinimalModeTaskFilterRow(
             ),
         )
         FilterChip(
+            modifier = Modifier.testTag(TestTags.Tasks.filterChip("active")),
             selected = isActiveLayer,
             onClick = {
                 logger.d("TasksScreen.filterChipSelected", "Filter chip selected", mapOf("filter" to TaskFilter.TODAY.name))
@@ -85,6 +91,7 @@ fun MinimalModeTaskFilterRow(
             ),
         )
         FilterChip(
+            modifier = Modifier.testTag(TestTags.Tasks.filterChip(TaskFilter.NOT_ACTIVE.key)),
             selected = !isActiveLayer,
             onClick = {
                 logger.d("TasksScreen.filterChipSelected", "Filter chip selected", mapOf("filter" to TaskFilter.NOT_ACTIVE.name))
@@ -107,20 +114,25 @@ fun MinimalModeTaskFilterRow(
             onValueChange = onSearchQueryChange,
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 4.dp),
+                .padding(horizontal = 16.dp, vertical = 4.dp)
+                .testTag(TestTags.Tasks.SEARCH_FIELD),
             singleLine = true,
             label = { Text(strings.locSearchTasks) },
             placeholder = { Text(strings.locSearchTasksPlaceholder) },
         )
     } else {
-        Row(
+        // Wrapped, not scrolled: four chips do not fit a phone's width, and the scrolled version
+        // clipped Completed and Archived off-screen, so those filters were unreachable.
+        FlowRow(
             modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 16.dp, vertical = 4.dp),
             horizontalArrangement = Arrangement.spacedBy(8.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             if (isActiveLayer) {
             FilterChip(
+                modifier = Modifier.testTag(TestTags.Tasks.filterChip(TaskFilter.OVERDUE.key)),
                 selected = currentFilter == TaskFilter.OVERDUE,
                 onClick = {
                     logger.d("TasksScreen.filterChipSelected", "Filter chip selected", mapOf("filter" to TaskFilter.OVERDUE.name))
@@ -137,6 +149,7 @@ fun MinimalModeTaskFilterRow(
                 ),
             )
             FilterChip(
+                modifier = Modifier.testTag(TestTags.Tasks.filterChip(TaskFilter.TODAY.key)),
                 selected = currentFilter == TaskFilter.TODAY || currentFilter == TaskFilter.ACTIVE || currentFilter == TaskFilter.ALL,
                 onClick = {
                     logger.d("TasksScreen.filterChipSelected", "Filter chip selected", mapOf("filter" to TaskFilter.TODAY.name))
@@ -153,6 +166,7 @@ fun MinimalModeTaskFilterRow(
                 ),
             )
             FilterChip(
+                modifier = Modifier.testTag(TestTags.Tasks.filterChip(TaskFilter.FUTURE.key)),
                 selected = currentFilter == TaskFilter.FUTURE,
                 onClick = {
                     logger.d("TasksScreen.filterChipSelected", "Filter chip selected", mapOf("filter" to TaskFilter.FUTURE.name))
@@ -170,6 +184,7 @@ fun MinimalModeTaskFilterRow(
             )
             } else {
                 FilterChip(
+                    modifier = Modifier.testTag(TestTags.Tasks.filterChip(TaskFilter.COMPLETED.key)),
                     selected = currentFilter == TaskFilter.COMPLETED || currentFilter == TaskFilter.NOT_ACTIVE,
                     onClick = {
                         logger.d("TasksScreen.filterChipSelected", "Filter chip selected", mapOf("filter" to TaskFilter.COMPLETED.name))
@@ -186,6 +201,7 @@ fun MinimalModeTaskFilterRow(
                     ),
                 )
                 FilterChip(
+                    modifier = Modifier.testTag(TestTags.Tasks.filterChip(TaskFilter.ARCHIVED.key)),
                     selected = currentFilter == TaskFilter.ARCHIVED,
                     onClick = {
                         logger.d("TasksScreen.filterChipSelected", "Filter chip selected", mapOf("filter" to TaskFilter.ARCHIVED.name))

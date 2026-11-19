@@ -1,0 +1,113 @@
+appId: io.payanam
+name: A task created before a process kill is still there on the cold start
+tags:
+  - persistence
+env:
+  PASS: E2ETestPass!2026
+  # Both shipped languages, as a regex; see 03-action-complete.yaml for why the values are grouped.
+  LOC_ALL: "(All|அனைத்து)"
+---
+# Covers SCENARIOS L1 (persistence across a kill). The in-process tier cannot prove this: it never
+# outlives the process that wrote, so a write that only landed in memory would still read back green
+# there. Here the process dies and the row has to come off disk. killApp is `am kill`, so Home first.
+
+- evalScript: ${output.task = 'e2e-persist-' + Date.now()}
+
+- launchApp
+- runFlow:
+    file: subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+# A form left open by an earlier flow survives even a process kill (Android restores the last
+# destination), and tapping the tab that is already selected does not dismiss it: close it first.
+- runFlow:
+    when:
+      visible:
+        id: "task_add.title_field"
+    commands:
+      - pressKey: Back
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.tasks"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.tasks"
+
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+# The selected filter is persisted (KEY_TASK_FILTER_OPTION), so the list can still be on Completed
+# from an earlier flow and this run's own row is then not rendered. Normalise to All up front rather
+# than rely on a later flow having done it. The tap is deliberately NOT conditional: tasks.add_button
+# renders before the chip row composes, so a `when: visible` guard evaluates false on a slow compose
+# and silently skips the tap, leaving the filter wrong and reintroducing the bug this normalises for.
+# Waiting for the chip and then tapping it on every run is the only form that cannot be skipped.
+- extendedWaitUntil:
+    visible:
+      id: "tasks.filter.all"
+    timeout: 30000
+- tapOn:
+    id: "tasks.filter.all"
+
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${output.task}"
+- hideKeyboard
+# Due date and time keep their defaults (today, now), so no dialog work is needed and the task
+# belongs to the list's default Today filter after the relaunch.
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 60000
+# The list is visible before the row is committed, so wait on the row itself: a kill that lands
+# between the two would otherwise test the wrong thing. The list grows a row per run, so scroll.
+- scrollUntilVisible:
+    element:
+      text: ".*${output.task}.*"
+    direction: DOWN
+    timeout: 60000
+- takeScreenshot: 150-task-created
+
+# killApp is `am kill`, which only kills BACKGROUND processes: Home first.
+- pressKey: Home
+- killApp
+- takeScreenshot: 151-app-killed
+
+# Cold start: the unlock screen precedes the database open.
+- launchApp
+- runFlow:
+    file: subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.tasks"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.tasks"
+# The All chip renders its count ("All (2)"), so match on the prefix; it also proves the list was
+# rebuilt from disk rather than restored from the screen the kill interrupted. Not `optional: true`:
+# that lets the step pass without ever touching the chip, so a list that came back on the wrong layer
+# would look the same as a normalised one. Same rule as the normaliser above — wait, then tap.
+- extendedWaitUntil:
+    visible:
+      id: "tasks.filter.all"
+    timeout: 60000
+- tapOn:
+    id: "tasks.filter.all"
+# The list accumulates a task per run, so this run's row can be below the fold.
+- scrollUntilVisible:
+    element:
+      text: ".*${output.task}.*"
+    direction: DOWN
+    timeout: 60000
+- takeScreenshot: 152-task-survived-cold-start

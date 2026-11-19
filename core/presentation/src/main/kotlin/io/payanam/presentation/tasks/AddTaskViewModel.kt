@@ -106,7 +106,6 @@ class AddTaskViewModel(
             "AddTaskViewModel.createTask",
             "Creating new task",
             mapOf(
-                "title" to title,
                 "dimensionId" to dimensionId,
                 "hasDueDate" to (dueDate != null),
                 "dueDate" to (dueDate?.toString() ?: "none"),
@@ -193,12 +192,10 @@ class AddTaskViewModel(
                     "Task created successfully",
                     mapOf(
                         "id" to task.id,
-                        "title" to title,
                         "tagCount" to tags.size,
                         "remindersEnabled" to PlatformFeatureFlags.current.remindersEnabled,
                     ),
                 )
-                logger.d("AddTaskViewModel.createTask", "Task created", mapOf("title" to title))
                 launch(resultDispatcher) { onResult(Result.success(Unit)) }
             } catch (e: CancellationException) {
                 throw e

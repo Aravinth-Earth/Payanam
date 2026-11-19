@@ -111,7 +111,6 @@ class TaskRepositoryImpl
                 "TaskRepositoryImpl.createTask",
                 "Creating task",
                 mapOf(
-                    "title" to input.title,
                     "status" to (input.status ?: "pending"),
                     "dueDate" to (input.dueDate?.toString() ?: "none"),
                     "recurrenceEnabled" to (input.recurrenceEnabled ?: false),
@@ -166,7 +165,6 @@ class TaskRepositoryImpl
                 "Task created successfully",
                 mapOf(
                     "id" to id,
-                    "title" to task.title,
                 ),
             )
             return task
@@ -189,7 +187,6 @@ class TaskRepositoryImpl
                 "Updating task",
                 mapOf(
                     "id" to id,
-                    "title" to input.title,
                     "status" to (input.status ?: "keep_existing"),
                     "hasDueDate" to (input.dueDate != null),
                 ),

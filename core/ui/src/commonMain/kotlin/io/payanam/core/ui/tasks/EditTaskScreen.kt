@@ -2,6 +2,7 @@
 //  SPDX-License-Identifier: AGPL-3.0-or-later
 package io.payanam.core.ui.tasks
 
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.formatArgs
 import io.payanam.shared.logging.AppLogger
@@ -59,6 +60,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.TagEditorField
@@ -368,7 +370,7 @@ private fun EditTaskContent(
             value = title,
             onValueChange = { title = it },
             label = { Text(strings.locTaskTitle) },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag(TestTags.TaskEdit.TITLE_FIELD),
             singleLine = true,
         )
         OutlinedTextField(
@@ -706,7 +708,7 @@ private fun EditTaskContent(
                     ),
                 )
             },
-            modifier = Modifier.fillMaxWidth(),
+            modifier = Modifier.fillMaxWidth().testTag(TestTags.TaskEdit.SAVE_BUTTON),
             enabled = title.isNotBlank() && !saving,
         ) {
             Text(strings.locSaveChanges)
