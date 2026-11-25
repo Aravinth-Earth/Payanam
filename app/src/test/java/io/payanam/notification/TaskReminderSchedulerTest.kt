@@ -91,6 +91,65 @@ class TaskReminderSchedulerTest {
     }
 
     @Test
+    fun reArmPendingReminders_keepsASnoozeTargetThatIsStillAhead() = runTest {
+        // The clock or zone changed while a reminder was snoozed. Recomputing the original reminder time would
+        // drop the snooze on the floor; the stored target is what the person chose.
+        val dueDate = LocalDateTime.now().minusMinutes(5)
+        val snoozeTarget = LocalDateTime.now().plusMinutes(10)
+        val task =
+            Task(
+                id = "task-snoozed",
+                title = "Snoozed task",
+                status = "pending",
+                dueDate = dueDate,
+                createdAt = LocalDateTime.now(),
+                updatedAt = LocalDateTime.now(),
+            )
+        whenever(taskRepository.getAllTasks()).thenReturn(kotlinx.coroutines.flow.flowOf(listOf(task)))
+        org.mockito.kotlin.wheneverBlocking {
+            notificationRepository.getNotificationsForTask("task-snoozed")
+        }.thenReturn(
+            listOf(
+                io.payanam.domain.repository.ScheduledNotification(
+                    id = "notif-snooze",
+                    taskId = "task-snoozed",
+                    scheduledAt = snoozeTarget,
+                    notificationType = "task_reminder",
+                    title = "Snoozed task",
+                    body = "snoozed",
+                    isDelivered = false,
+                ),
+            ),
+        )
+        whenever(
+            notificationRepository.scheduleNotification(
+                taskId = org.mockito.kotlin.eq("task-snoozed"),
+                scheduledAt = org.mockito.kotlin.eq(snoozeTarget),
+                notificationType = org.mockito.kotlin.any(),
+                title = org.mockito.kotlin.any(),
+                body = org.mockito.kotlin.any(),
+            ),
+        ).thenReturn("notif-rearmed")
+
+        val scheduler =
+            NotificationScheduler(
+                context = ApplicationProvider.getApplicationContext<Application>(),
+                taskRepository = taskRepository,
+                notificationRepository = notificationRepository,
+            )
+
+        scheduler.reArmPendingReminders()
+
+        verify(notificationRepository).scheduleNotification(
+            taskId = org.mockito.kotlin.eq("task-snoozed"),
+            scheduledAt = org.mockito.kotlin.eq(snoozeTarget),
+            notificationType = org.mockito.kotlin.any(),
+            title = org.mockito.kotlin.any(),
+            body = org.mockito.kotlin.any(),
+        )
+    }
+
+    @Test
     fun scheduleForTask_withOverrideScheduledAt_usesOverrideTime() = runTest {
         val taskId = "task-override"
         val overrideTime = LocalDateTime.now().plusMinutes(30)

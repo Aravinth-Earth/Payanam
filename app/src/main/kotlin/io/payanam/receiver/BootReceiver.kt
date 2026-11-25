@@ -120,7 +120,11 @@ class BootReceiver : BroadcastReceiver() {
             logger.i("BootReceiver.reArmReminders", "Skipped reminder schedule on $action; reminders disabled")
             return
         }
-        notificationScheduler.scheduleAllPendingTasks()
+        if (action == Intent.ACTION_TIME_CHANGED || action == Intent.ACTION_TIMEZONE_CHANGED) {
+            notificationScheduler.reArmPendingReminders()
+        } else {
+            notificationScheduler.scheduleAllPendingTasks()
+        }
         logger.i("BootReceiver.reArmReminders", "Scheduled task reminders on $action")
     }
 
