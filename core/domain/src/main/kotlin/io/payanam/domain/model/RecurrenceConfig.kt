@@ -16,6 +16,7 @@ private const val THURSDAY = 4
 private const val FRIDAY = 5
 private const val SATURDAY = 6
 private const val SUNDAY = 7
+private const val LAST_DAY_OF_MONTH = 32
 
 /**
  * Flexible recurrence configuration supporting weekdays, dates, intervals, and frequency patterns.
@@ -39,11 +40,22 @@ data class RecurrenceConfig(
     // Start date for tracking (first scheduled occurrence)
     val startDate: LocalDate? = null
 ) {
+    /** Whether any day can ever match this configuration; an unmatched one would advance forever. */
+    val isSchedulable: Boolean
+        get() =
+            when (type) {
+                RecurrenceType.SPECIFIC_WEEKDAYS -> weekdays.any { it in MONDAY..SUNDAY }
+                RecurrenceType.MONTHLY_DATES -> monthlyDates.any { it in 1..31 || it == LAST_DAY_OF_MONTH }
+                RecurrenceType.INTERVAL -> intervalDays > 0
+                RecurrenceType.FREQUENCY -> frequencyNumerator > 0 && frequencyDenominator > 0
+                else -> true
+            }
+
     /**
      * Human-readable display name for this recurrence configuration.
      */
     val displayName: String
-        get() = when (type) {
+        get() = if (!isSchedulable) "Invalid schedule" else when (type) {
             RecurrenceType.DAILY -> "Daily"
             RecurrenceType.WEEKDAYS_ONLY -> "Weekdays"
             RecurrenceType.SPECIFIC_WEEKDAYS -> {

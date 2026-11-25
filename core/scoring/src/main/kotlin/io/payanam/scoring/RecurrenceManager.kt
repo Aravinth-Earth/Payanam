@@ -446,6 +446,16 @@ class RecurrenceManager(
 
         // Parse recurrence rule into flexible config
         val recurrenceConfig = RecurrenceConfig.parse(task.recurrenceRule)
+        if (!recurrenceConfig.isSchedulable) {
+            // An unmatched schedule would move the due date one day per completion with no day ever matching.
+            logger.e(
+                "RecurrenceManager.calculateNextDueDate",
+                "Recurrence rule matches no day; due date left unchanged",
+                null,
+                mapOf("taskId" to task.id, "recurrenceRule" to task.recurrenceRule),
+            )
+            return task.dueDate ?: LocalDateTime.now()
+        }
 
         // Determine the base date and search range based on strategy
         val strategy = overrideStrategy ?: task.recurrenceStrategy
