@@ -11,6 +11,7 @@ class UnlockRestore(
     private val opens: Flow<Boolean>,
     private val onOpen: suspend () -> Unit,
 ) {
+    /** Collects [opens] for as long as [scope] lives, running [onOpen] on every open session. */
     fun start(scope: CoroutineScope) {
         scope.launch {
             opens.collect { open ->

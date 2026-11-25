@@ -19,6 +19,7 @@ constructor(
     private val sessionManager: DatabaseSessionManager,
     private val timeEntryRepository: TimeEntryRepository,
 ) {
+    /** Re-posts the tracking notification and refreshes the widget for the active entry, if any. */
     suspend fun restore(context: Context) {
         val logger = UnifiedLogger.getInstance()
         if (!sessionManager.isDbOpen()) {
