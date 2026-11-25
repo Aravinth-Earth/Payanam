@@ -1286,8 +1286,7 @@ private const val KEY_EXTERNAL_DELETION_PENDING = "external_deletion_pending"
  * The deletion notice cannot be derived on a later start: the reset that follows it clears the
  * passphrase-verifier predicate that raises it, so a stored flag is the only surviving evidence.
  */
-internal fun isExternalDeletionNoticePending(prefs: SharedPreferences): Boolean =
-    prefs.getBoolean(KEY_EXTERNAL_DELETION_PENDING, false)
+internal fun isExternalDeletionNoticePending(prefs: SharedPreferences): Boolean = prefs.getBoolean(KEY_EXTERNAL_DELETION_PENDING, false)
 
 internal fun markExternalDeletionNoticePending(prefs: SharedPreferences) {
     // commit(), not apply(): the reset that follows must not outrun the note that explains it.

@@ -253,46 +253,44 @@ class AndroidApkUpdateSourceTest {
     }
 
     /** A release read whose verdict was actually established: the newest release is not newer than this install. */
-    private fun upToDate(): UpdateCheckResult =
-        resolveUpdateResult(INSTALLED_VERSION_CODE, listOf(release(INSTALLED_VERSION_NAME)))
+    private fun upToDate(): UpdateCheckResult = resolveUpdateResult(INSTALLED_VERSION_CODE, listOf(release(INSTALLED_VERSION_NAME)))
 
     /** A release read that found a newer release carrying a downloadable artifact. */
-    private fun availableUpdate(): UpdateCheckResult =
-        resolveUpdateResult(INSTALLED_VERSION_CODE, listOf(release(NEWEST_VERSION_NAME, apk = NEWEST_APK_URL)))
+    private fun availableUpdate(): UpdateCheckResult = resolveUpdateResult(INSTALLED_VERSION_CODE, listOf(release(NEWEST_VERSION_NAME, apk = NEWEST_APK_URL)))
 
     /**
      * A release read that ended on [outcome] without reaching a verdict, built the way a genuine check
      * produces it rather than as a bare enum.
      */
-    private fun couldNotConclude(outcome: UpdateOutcome): UpdateCheckResult =
-        when (outcome) {
-            UpdateOutcome.TYPE_MISMATCH ->
-                resolveUpdateResult(INSTALLED_VERSION_CODE, listOf(release(NEWEST_VERSION_NAME, typeMismatch = true)))
+    private fun couldNotConclude(outcome: UpdateOutcome): UpdateCheckResult = when (outcome) {
+        UpdateOutcome.TYPE_MISMATCH ->
+            resolveUpdateResult(INSTALLED_VERSION_CODE, listOf(release(NEWEST_VERSION_NAME, typeMismatch = true)))
 
-            UpdateOutcome.NO_RELEASE -> resolveUpdateResult(INSTALLED_VERSION_CODE, emptyList())
-            UpdateOutcome.INDETERMINATE -> resolveUpdateResult(INSTALLED_VERSION_CODE, emptyList(), scanComplete = false)
-            UpdateOutcome.FAILED ->
-                UpdateCheckResult(
-                    outcome = UpdateOutcome.FAILED,
-                    latestVersionName = null,
-                    latestVersionCode = null,
-                    releaseUrl = null,
-                    error = UpdateCheckError.NO_INTERNET,
-                )
+        UpdateOutcome.NO_RELEASE -> resolveUpdateResult(INSTALLED_VERSION_CODE, emptyList())
 
-            else -> error("$outcome is a verdict, not a could-not-conclude outcome")
-        }
+        UpdateOutcome.INDETERMINATE -> resolveUpdateResult(INSTALLED_VERSION_CODE, emptyList(), scanComplete = false)
+
+        UpdateOutcome.FAILED ->
+            UpdateCheckResult(
+                outcome = UpdateOutcome.FAILED,
+                latestVersionName = null,
+                latestVersionCode = null,
+                releaseUrl = null,
+                error = UpdateCheckError.NO_INTERNET,
+            )
+
+        else -> error("$outcome is a verdict, not a could-not-conclude outcome")
+    }
 
     /** An available-update verdict whose release carries no artifact — the defensive shape the mapping guards. */
-    private fun verdictWithNoArtifact(): UpdateCheckResult =
-        UpdateCheckResult(
-            outcome = UpdateOutcome.UPDATE_AVAILABLE,
-            latestVersionName = NEWEST_VERSION_NAME,
-            latestVersionCode = NEWEST_VERSION_CODE,
-            releaseUrl = "https://example.invalid/releases/next",
-            error = null,
-            apkDownloadUrl = null,
-        )
+    private fun verdictWithNoArtifact(): UpdateCheckResult = UpdateCheckResult(
+        outcome = UpdateOutcome.UPDATE_AVAILABLE,
+        latestVersionName = NEWEST_VERSION_NAME,
+        latestVersionCode = NEWEST_VERSION_CODE,
+        releaseUrl = "https://example.invalid/releases/next",
+        error = null,
+        apkDownloadUrl = null,
+    )
 
     /**
      * A real, non-empty file inside the directory this app publishes to the installer.

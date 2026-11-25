@@ -331,16 +331,14 @@ class TimeTrackingWidgetProvider : AppWidgetProvider() {
         }
     }
 
-    private suspend fun resolveThemePalette(context: Context): WidgetThemePalette =
-        when (appSettingsRepository.getSetting(KEY_THEME_MODE)) {
-            THEME_DARK -> darkThemePalette()
-            THEME_LIGHT -> lightThemePalette()
-            else -> fallbackThemePalette(context)
-        }
+    private suspend fun resolveThemePalette(context: Context): WidgetThemePalette = when (appSettingsRepository.getSetting(KEY_THEME_MODE)) {
+        THEME_DARK -> darkThemePalette()
+        THEME_LIGHT -> lightThemePalette()
+        else -> fallbackThemePalette(context)
+    }
 
     /** Palette for paths that cannot read settings, which includes a closed database session. */
-    private fun fallbackThemePalette(context: Context): WidgetThemePalette =
-        if (isSystemDarkMode(context)) darkThemePalette() else lightThemePalette()
+    private fun fallbackThemePalette(context: Context): WidgetThemePalette = if (isSystemDarkMode(context)) darkThemePalette() else lightThemePalette()
 
     private fun darkThemePalette(): WidgetThemePalette = WidgetThemePalette(
         backgroundDrawableRes = R.drawable.widget_background_dark,
