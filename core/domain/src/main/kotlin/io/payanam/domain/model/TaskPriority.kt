@@ -10,6 +10,7 @@ object TaskPriority {
     const val HIGH_SCORE = 0.8
     const val MEDIUM_SCORE = 0.5
 
+    /** The band a score on the 0.0-1.0 scale falls in. */
     fun of(score: Double): String =
         when {
             score >= HIGH_SCORE -> "High"
