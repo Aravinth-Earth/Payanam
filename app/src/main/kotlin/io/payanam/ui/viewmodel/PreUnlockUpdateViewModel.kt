@@ -18,9 +18,9 @@ import io.payanam.presentation.updates.ApkDownloader
 import io.payanam.presentation.updates.ApkInstaller
 import io.payanam.presentation.updates.InstallSourceReader
 import io.payanam.presentation.updates.UpdateChecker
+import io.payanam.shared.version.BuildLabel
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateOutcome
-import io.payanam.shared.version.BuildLabel
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay

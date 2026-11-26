@@ -154,12 +154,13 @@ class DeclaredVersionTest {
     }
 
     /** The file's non-blank, non-comment lines, trimmed. */
-    private fun versionFileLines(): List<String> = repoRoot()
-        .resolve("gradle/version.properties")
-        .toFile()
-        .readLines()
-        .map(String::trim)
-        .filter { it.isNotEmpty() && !it.startsWith("#") }
+    private fun versionFileLines(): List<String> =
+        repoRoot()
+            .resolve("gradle/version.properties")
+            .toFile()
+            .readLines()
+            .map(String::trim)
+            .filter { it.isNotEmpty() && !it.startsWith("#") }
 
     private fun readDeclaredVersion(): Declared {
         val lines = versionFileLines()

@@ -34,12 +34,12 @@ import io.payanam.presentation.updates.UpdateChecker
 import io.payanam.presentation.updates.UpdatePrefKeys
 import io.payanam.presentation.updates.artifactNameMatchesBuildType
 import io.payanam.service.DatabaseBackupCoordinator
+import io.payanam.shared.version.BuildLabel
 import io.payanam.shared.database.PayanamDatabaseSchema
 import io.payanam.shared.logging.dbExportName
 import io.payanam.shared.settings.BackupInterval
 import io.payanam.shared.updates.UpdateCheckError
 import io.payanam.shared.updates.UpdateOutcome
-import io.payanam.shared.version.BuildLabel
 import io.payanam.ui.viewmodel.UhabitsImporter
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.CoroutineDispatcher
@@ -113,11 +113,11 @@ class SettingsViewModel(
             // The version row and the pre-unlock hatch draw the SAME label: version, short sha and build
             // time from one shared formatter, never the packed version code.
             appVersion =
-            BuildLabel.of(
-                BuildConfig.VERSION_NAME,
-                BuildConfig.BUILD_SHORT_SHA,
-                BuildConfig.BUILD_TIMESTAMP,
-            ),
+                BuildLabel.of(
+                    BuildConfig.VERSION_NAME,
+                    BuildConfig.BUILD_SHORT_SHA,
+                    BuildConfig.BUILD_TIMESTAMP,
+                ),
             buildNumber = BuildConfig.VERSION_CODE,
         ),
     )
