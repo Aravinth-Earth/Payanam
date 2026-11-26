@@ -77,6 +77,14 @@ data class ScoringConfig(
         LifeDimension.CONTRIBUTION to (dimensionWeightsById[DimensionTaxonomyCatalog.COMMUNITY_SERVICE.id] ?: 0.65)
     )
 ) {
+    /** Factor weights in scoring order; the defaults when the stored set cannot produce a score. */
+    fun factorWeights(): List<Double> = weightList().takeIf { it.isUsable() } ?: defaults().weightList()
+
+    private fun weightList(): List<Double> =
+        listOf(dimensionWeight, impactWeight, alignmentWeight, energyWeight, controlWeight, durationWeight)
+
+    private fun List<Double>.isUsable(): Boolean = all { it.isFinite() && it >= 0.0 } && sum() > 0.0
+
     @Suppress("MagicNumber")
     companion object {
         /**

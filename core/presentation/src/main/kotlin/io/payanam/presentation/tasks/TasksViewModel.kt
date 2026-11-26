@@ -706,7 +706,6 @@ class TasksViewModel(
                     mapOf(
                         "taskId" to taskId,
                         "taskFound" to (task != null).toString(),
-                        "taskTitle" to (task?.title ?: "null"),
                         "isRecurring" to (task?.recurrenceEnabled?.toString() ?: "null"),
                     ),
                 )
@@ -716,7 +715,6 @@ class TasksViewModel(
                         "RECURRING_TASK_COMPLETION_DIALOG_SHOWN",
                         mapOf(
                             "taskId" to taskId,
-                            "taskTitle" to task.title,
                         ),
                     )
                     _uiState.update {

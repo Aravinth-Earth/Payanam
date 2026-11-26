@@ -1,0 +1,21 @@
+appId: io.payanam
+---
+# Ends a tracking session a previous run left running: an open session would hide the start action
+# and skip the start transition, so a flow that wants to start MUST normalise first.
+- runFlow:
+    when:
+      visible:
+        id: "time.stop_tracking_button"
+    commands:
+      - tapOn:
+          id: "time.stop_tracking_button"
+      - extendedWaitUntil:
+          visible:
+            id: "edit_time_entry_confirm_button"
+          timeout: 20000
+      - tapOn:
+          id: "edit_time_entry_confirm_button"
+      - extendedWaitUntil:
+          visible:
+            id: "time.start_tracking_fab"
+          timeout: 30000

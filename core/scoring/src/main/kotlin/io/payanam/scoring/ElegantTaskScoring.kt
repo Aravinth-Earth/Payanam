@@ -108,15 +108,7 @@ object ElegantTaskScoring : ScoreCalculator {
             (durationValue + floor).coerceIn(floor, 1.0)
         )
         
-        // Factor weights from config
-        val weights = listOf(
-            config.dimensionWeight,
-            config.impactWeight,
-            config.alignmentWeight,
-            config.energyWeight,
-            config.controlWeight,
-            config.durationWeight
-        )
+        val weights = config.factorWeights()
         val totalWeight = weights.sum().coerceAtLeast(MIN_TOTAL_WEIGHT)
         
         var product = 1.0

@@ -1,0 +1,59 @@
+appId: io.payanam
+---
+# Auto-backup ON, or the session cannot pass: every session's epilogue taps `settings.run_backup_now`
+# and `:tools:e2e-verify` hard-fails a run with no DB snapshot, so a session that starts with the toggle
+# OFF has no button to tap at all. Idempotent by construction - the tap is guarded by the row's own
+# unchecked state, so an already-enabled device only pays for the navigation. Ends at the TOP of Settings,
+# which is where the callers that continue on this screen (appearance, focus mode) expect to scroll from.
+- tapOn:
+    id: "nav.tab.settings"
+# centerElement on every scroll whose target is tapped or waited on next: `scrollUntilVisible` alone
+# returns COMPLETED as soon as Compose reports the node in the semantics tree, and a node can be in that
+# tree while sitting BELOW the scroll viewport. Measured on device: this row reported `[84,2059][996,2091]`
+# against a viewport ending at y=2052 - reported visible, zero pixels on screen - and the following tap
+# landed on dead space. Centring it is what makes the target genuinely reachable.
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_card"
+    direction: DOWN
+    timeout: 40000
+    centerElement: true
+# The card composes its body - and the toggle inside it - only while expanded.
+- tapOn:
+    id: "settings.auto_backup_card"
+# Scroll to the ROW itself, not to the card and not to the switch's thumb: the row is the last thing in a
+# card that can sit at the bottom edge of the viewport, and a node addressable but off-screen is a tap that
+# lands elsewhere.
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_switch"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- runFlow:
+    when:
+      visible:
+        id: "settings.auto_backup_switch"
+        checked: false
+    commands:
+      - tapOn:
+          id: "settings.auto_backup_switch"
+      # The controls below the toggle compose ONLY while it is on, so this scroll is the proof the tap
+      # reached the control rather than falling through to the card behind it: on a device where the tap
+      # missed, `run_backup_now` never exists and the scroll times out instead of the flow passing on a
+      # stale node. Element-conditioned, never a fixed wait - the button has to enter the viewport.
+      - scrollUntilVisible:
+          element:
+            id: "settings.run_backup_now"
+          direction: DOWN
+          timeout: 30000
+          centerElement: true
+      - extendedWaitUntil:
+          visible:
+            id: "settings.run_backup_now"
+          timeout: 15000
+- scrollUntilVisible:
+    element:
+      id: "settings.appearance_card"
+    direction: UP
+    timeout: 40000

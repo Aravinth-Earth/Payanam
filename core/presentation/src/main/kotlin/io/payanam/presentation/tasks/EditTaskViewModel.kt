@@ -140,7 +140,6 @@ class EditTaskViewModel(
             "Task update requested from UI",
             mapOf(
                 "taskId" to taskId,
-                "title" to input.title,
                 "tagCount" to input.tags.size,
                 "recurrenceEnabled" to input.recurrenceEnabled,
             ),
@@ -202,7 +201,6 @@ class EditTaskViewModel(
                     }
                 }
 
-                logger.d("EditTaskViewModel.updateTask", "Task updated", mapOf("title" to input.title))
                 logger.i(
                     "EditTaskViewModel.updateTask",
                     "Task updated",

@@ -4,6 +4,8 @@ package io.payanam.core.ui.tasks
 
 import io.payanam.core.ui.text.formatArgs
 import androidx.compose.runtime.remember
+import io.payanam.core.ui.components.TestTags
+import io.payanam.core.ui.components.exposeTestTagsAsResourceIds
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.shared.logging.AppLogger
 import io.payanam.core.ui.flags.LocalFeatureFlags
@@ -30,10 +32,27 @@ import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.toggleableState
+import androidx.compose.ui.state.ToggleableState
 import androidx.compose.ui.unit.dp
 import io.payanam.presentation.tasks.HabitSortOption
 import io.payanam.presentation.tasks.TaskSortOption
 import io.payanam.presentation.tasks.TasksChromeUiState
+
+/**
+ * Marks a filter-menu row as checked/unchecked in the semantics tree.
+ *
+ * The visual state lives in the `Checkbox` inside the row's `text` slot, and a
+ * `Checkbox(onCheckedChange = null)` is inert by design: it draws itself but contributes no
+ * toggleable state. That left the tagged `DropdownMenuItem` reporting `checked = false` forever,
+ * which is wrong for screen readers and for UI automation. Declaring the state on the tagged row
+ * keeps the row's existing click/touch target untouched.
+ */
+private fun Modifier.filterRowChecked(checked: Boolean): Modifier = semantics {
+    toggleableState = if (checked) ToggleableState.On else ToggleableState.Off
+}
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -95,9 +114,12 @@ internal fun TasksTopBar(
             if (effectiveTabIndex == 0) {
                 if (!habitSearchActive) {
                     Box {
-                        androidx.compose.material3.IconButton(onClick = {
-                            onToggleHabitSearch()
-                        }) {
+                        androidx.compose.material3.IconButton(
+                            onClick = {
+                                onToggleHabitSearch()
+                            },
+                            modifier = Modifier.testTag(TestTags.Habits.SEARCH_BUTTON),
+                        ) {
                             Icon(
                                 imageVector = Icons.Default.Search,
                                 contentDescription = strings.locSearchHabits,
@@ -107,20 +129,25 @@ internal fun TasksTopBar(
                 }
 
                 Box {
-                    androidx.compose.material3.IconButton(onClick = {
-                        logger.d("TasksScreen.sortMenuOpened", "Sort menu opened", mapOf("tab" to "habits"))
-                        onShowHabitSortMenuChange(true)
-                    }) {
+                    androidx.compose.material3.IconButton(
+                        onClick = {
+                            logger.d("TasksScreen.sortMenuOpened", "Sort menu opened", mapOf("tab" to "habits"))
+                            onShowHabitSortMenuChange(true)
+                        },
+                        modifier = Modifier.testTag(TestTags.Habits.SORT_BUTTON),
+                    ) {
                         Icon(Icons.Default.Sort, contentDescription = strings.locSortHabits)
                     }
                     DropdownMenu(
                         expanded = showHabitSortMenu,
                         onDismissRequest = { onShowHabitSortMenuChange(false) },
+                        modifier = Modifier.exposeTestTagsAsResourceIds(),
                     ) {
                         HabitSortOption.entries
                             .filter { LocalFeatureFlags.current.scoringEnabled || it.legacyCategory() }
                             .forEach { option ->
                                 DropdownMenuItem(
+                                    modifier = Modifier.testTag(TestTags.Habits.sortOption(option.name)),
                                     text = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             if (chromeState.habitSortOption == option) {
@@ -145,10 +172,13 @@ internal fun TasksTopBar(
                 }
 
                 Box {
-                    androidx.compose.material3.IconButton(onClick = {
-                        logger.d("TasksScreen.filterMenuOpened", "Filter menu opened", mapOf("tab" to "habits"))
-                        onShowHabitFilterMenuChange(true)
-                    }) {
+                    androidx.compose.material3.IconButton(
+                        onClick = {
+                            logger.d("TasksScreen.filterMenuOpened", "Filter menu opened", mapOf("tab" to "habits"))
+                            onShowHabitFilterMenuChange(true)
+                        },
+                        modifier = Modifier.testTag(TestTags.Habits.FILTER_BUTTON),
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Archive,
                             contentDescription = strings.locFilterHabits,
@@ -157,8 +187,12 @@ internal fun TasksTopBar(
                     DropdownMenu(
                         expanded = showHabitFilterMenu,
                         onDismissRequest = { onShowHabitFilterMenuChange(false) },
+                        modifier = Modifier.exposeTestTagsAsResourceIds(),
                     ) {
                         DropdownMenuItem(
+                            modifier = Modifier
+                                .testTag(TestTags.Habits.filterOption("hide_completed"))
+                                .filterRowChecked(!chromeState.showCompletedHabits),
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
@@ -175,6 +209,9 @@ internal fun TasksTopBar(
                             },
                         )
                         DropdownMenuItem(
+                            modifier = Modifier
+                                .testTag(TestTags.Habits.filterOption("hide_all_marked"))
+                                .filterRowChecked(chromeState.hideAllMarkedToday),
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
@@ -191,6 +228,9 @@ internal fun TasksTopBar(
                             },
                         )
                         DropdownMenuItem(
+                            modifier = Modifier
+                                .testTag(TestTags.Habits.filterOption("due_today"))
+                                .filterRowChecked(chromeState.dueTodayOnly),
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
@@ -207,6 +247,9 @@ internal fun TasksTopBar(
                             },
                         )
                         DropdownMenuItem(
+                            modifier = Modifier
+                                .testTag(TestTags.Habits.filterOption("show_archived"))
+                                .filterRowChecked(chromeState.showArchivedHabits),
                             text = {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
                                     androidx.compose.material3.Checkbox(
@@ -227,15 +270,19 @@ internal fun TasksTopBar(
             }
             if (effectiveTabIndex == 1) {
                 Box {
-                    androidx.compose.material3.IconButton(onClick = {
-                        logger.d("TasksScreen.sortMenuOpened", "Sort menu opened", mapOf("tab" to "tasks"))
-                        onShowTaskSortMenuChange(true)
-                    }) {
+                    androidx.compose.material3.IconButton(
+                        onClick = {
+                            logger.d("TasksScreen.sortMenuOpened", "Sort menu opened", mapOf("tab" to "tasks"))
+                            onShowTaskSortMenuChange(true)
+                        },
+                        modifier = Modifier.testTag(TestTags.Tasks.SORT_BUTTON),
+                    ) {
                         Icon(Icons.Default.Sort, contentDescription = strings.locSortTasks)
                     }
                     DropdownMenu(
                         expanded = showTaskSortMenu,
                         onDismissRequest = { onShowTaskSortMenuChange(false) },
+                        modifier = Modifier.exposeTestTagsAsResourceIds(),
                     ) {
                         val scoringHiddenSorts = setOf(
                             TaskSortOption.SCORE_DESC,
@@ -247,6 +294,7 @@ internal fun TasksTopBar(
                             .filter { LocalFeatureFlags.current.scoringEnabled || it !in scoringHiddenSorts }
                             .forEach { option ->
                                 DropdownMenuItem(
+                                    modifier = Modifier.testTag(TestTags.Tasks.sortOption(option.name)),
                                     text = {
                                         Row(verticalAlignment = Alignment.CenterVertically) {
                                             if (chromeState.currentSort == option) {

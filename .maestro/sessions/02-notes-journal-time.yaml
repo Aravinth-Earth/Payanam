@@ -1,0 +1,196 @@
+appId: io.payanam
+name: Session — notes, journal and a manual time entry
+tags:
+  - session
+env:
+  PASS: E2ETestPass!2026
+---
+# The second long session: Notes, Journal and Time in one launch and one unlock. Same harness contract
+# as 01 — every in-app step is addressed by testTag, and the run ends with the two export actions that
+# make the log and the database pullable.
+#
+# Preconditions are the ones 01-fresh-setup establishes.
+
+- evalScript: ${output.stamp = Date.now(); output.note = 'e2e-session-' + output.stamp + '-note'; output.tag = 'e2e-tag-' + output.stamp; output.journal = 'e2e-journal-' + output.stamp}
+
+- launchApp
+- runFlow:
+    file: ../subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.notes"
+    timeout: 90000
+- takeScreenshot: 300-session-start
+
+# ---- preflight: auto-backup ON, so the epilogue has a Run-Backup-Now to tap. The next step re-selects
+# Notes, which is where this session expects to start after the subflow leaves Settings.
+- runFlow:
+    file: ../subflows/ensure-auto-backup.yaml
+
+# ---- notes: create with a tag, find it by search, then delete it through the editor ----
+- tapOn:
+    id: "nav.tab.notes"
+- extendedWaitUntil:
+    visible:
+      id: "notes.add_button"
+    timeout: 30000
+- tapOn:
+    id: "notes.add_button"
+- extendedWaitUntil:
+    visible:
+      id: "notes.title_field"
+    timeout: 20000
+- tapOn:
+    id: "notes.title_field"
+- inputText: "${output.note}"
+- tapOn:
+    id: "notes.tags_field"
+- inputText: "${output.tag}"
+- hideKeyboard
+- takeScreenshot: 301-note-draft
+- tapOn:
+    id: "notes.save_button"
+- extendedWaitUntil:
+    visible: ".*${output.note}.*"
+    timeout: 30000
+- takeScreenshot: 302-note-created
+
+- tapOn:
+    id: "notes.search_field"
+- inputText: "${output.note}"
+- hideKeyboard
+- extendedWaitUntil:
+    visible: ".*${output.note}.*"
+    timeout: 20000
+- takeScreenshot: 303-note-search
+- tapOn:
+    id: "notes.search_field"
+- eraseText
+- hideKeyboard
+
+# Open the note again and delete it: the editor's delete trigger, then the confirmation.
+- tapOn: ".*${output.note}.*"
+- extendedWaitUntil:
+    visible:
+      id: "notes.delete_button"
+    timeout: 20000
+- takeScreenshot: 304-note-editor
+- tapOn:
+    id: "notes.delete_button"
+- extendedWaitUntil:
+    visible:
+      id: "notes.delete_confirm"
+    timeout: 20000
+- tapOn:
+    id: "notes.delete_confirm"
+- extendedWaitUntil:
+    notVisible: ".*${output.note}.*"
+    timeout: 30000
+- takeScreenshot: 305-note-deleted
+
+# ---- journal: one overall reflection, autosaved ----
+- tapOn:
+    id: "nav.tab.journal"
+- extendedWaitUntil:
+    visible:
+      id: "journal_overall_prompt_0"
+    timeout: 30000
+- tapOn:
+    id: "journal_overall_prompt_0"
+- inputText: "${output.journal}"
+- hideKeyboard
+# The write is debounced; leaving the tab and coming back is what proves it survived a screen change.
+- tapOn:
+    id: "nav.tab.notes"
+- tapOn:
+    id: "nav.tab.journal"
+- extendedWaitUntil:
+    visible: ".*${output.journal}.*"
+    timeout: 30000
+- takeScreenshot: 306-journal-saved
+
+# ---- time: one manual entry through the add-entry modal ----
+- tapOn:
+    id: "nav.tab.time"
+- extendedWaitUntil:
+    visible:
+      id: "time.add_entry_fab"
+    timeout: 30000
+- tapOn:
+    id: "time.add_entry_fab"
+- extendedWaitUntil:
+    visible:
+      id: "edit_time_entry_confirm_button"
+    timeout: 20000
+- takeScreenshot: 307-entry-modal
+- tapOn:
+    id: "edit_time_entry_confirm_button"
+# The modal closing is the UI signal. Whether the entry reached the timeline is asserted by
+# :tools:e2e-verify from the snapshot (`--expect-time-entry`), because a short entry's block can be a
+# sliver on the minute-granularity timeline and is not a reliable visible assertion.
+- extendedWaitUntil:
+    notVisible:
+      id: "edit_time_entry_confirm_button"
+    timeout: 30000
+- takeScreenshot: 308-entry-created
+
+# ---- epilogue: DB snapshot + current session log ----
+- tapOn:
+    id: "nav.tab.settings"
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_card"
+    direction: DOWN
+    timeout: 40000
+    centerElement: true
+- tapOn:
+    id: "settings.auto_backup_card"
+- scrollUntilVisible:
+    element:
+      id: "settings.run_backup_now"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "settings.run_backup_now"
+# In-flight only: this tag is absent whenever no manual run is executing, so a re-run can never be
+# satisfied by a stale node. Appearance proves the tap started a run; disappearance is the app's
+# completion signal (the persisted "last run" line is still on screen from the previous run).
+- extendedWaitUntil:
+    visible:
+      id: "settings.backup_in_progress"
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: "settings.backup_in_progress"
+    timeout: 120000
+- takeScreenshot: 309-backup-written
+# The Debug card sits below the fold of the settings column: measured on the A17 it reported
+# `[84,2039][996,2091]` — a 52 px sliver ending under the bottom bar — and a tap at y=2065 expanded
+# nothing, so the export buttons inside it were never composed at all. Centring is what makes its row a
+# real target (the same class as `settings.auto_backup_switch` above).
+- scrollUntilVisible:
+    element:
+      id: "settings.debug_card"
+    direction: DOWN
+    timeout: 40000
+    centerElement: true
+- tapOn:
+    id: "settings.debug_card"
+- extendedWaitUntil:
+    visible:
+      id: "log_export.export_latest_button"
+    timeout: 20000
+# The card's LAST row, composed only while it is expanded: centre it rather than trust the expansion to
+# have left it inside the viewport.
+- scrollUntilVisible:
+    element:
+      id: "log_export.export_latest_button"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- tapOn:
+    id: "log_export.export_latest_button"
+- takeScreenshot: 310-log-export-tapped

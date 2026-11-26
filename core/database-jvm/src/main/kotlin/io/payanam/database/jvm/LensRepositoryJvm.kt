@@ -4,6 +4,7 @@ package io.payanam.database.jvm
 
 import io.payanam.database.entity.LensReflectionEntity
 import io.payanam.domain.lens.DailyStatsCalculator
+import io.payanam.domain.model.TaskPriority
 import io.payanam.domain.lens.buildDimensionTrendBlocks
 import io.payanam.domain.lens.buildHeatmapDays
 import io.payanam.domain.lens.buildMinutePatternData
@@ -439,7 +440,7 @@ class LensRepositoryJvm(
                         dimensionId = task.dimensionId,
                         estimatedMinutes = task.durationMinutes,
                         dueDate = task.dueDate.toString(),
-                        priority = determinePriority(task.taskScore ?: 0.0),
+                        priority = TaskPriority.of(task.taskScore ?: 0.0),
                     )
                 }
         val habitPlanItems =
@@ -666,13 +667,6 @@ class LensRepositoryJvm(
 
     private fun canonicalId(rawId: String): String = DimensionTaxonomyCatalog.fromCanonicalId(rawId)?.id ?: rawId
 
-    private fun determinePriority(taskScore: Double): String =
-        when {
-            taskScore >= HIGH_PRIORITY_SCORE -> "High"
-            taskScore >= MEDIUM_PRIORITY_SCORE -> "Medium"
-            else -> "Low"
-        }
-
     private fun reflectionEntity(
         dayKey: String,
         dimensionId: String?,
@@ -704,8 +698,6 @@ class LensRepositoryJvm(
         const val FOCUS_GAP_REFLECTION_THRESHOLD_MINUTES = 60
         const val DIMENSION_GAP_REFLECTION_THRESHOLD_MINUTES = 60
         const val FOCUS_THRESHOLD = 0.7
-        const val HIGH_PRIORITY_SCORE = 0.8
-        const val MEDIUM_PRIORITY_SCORE = 0.5
         const val TIME_ADHERENCE_WEIGHT = 0.5f
         const val TASK_ADHERENCE_WEIGHT = 0.3f
         const val HABIT_ADHERENCE_WEIGHT = 0.2f
