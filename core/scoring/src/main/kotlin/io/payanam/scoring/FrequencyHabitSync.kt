@@ -21,6 +21,9 @@ import kotlin.math.max
  */
 private const val ISO_DATE_LENGTH = 10
 
+/* Bounds the roll-forward so a pathological clock cannot loop. */
+private const val MAX_REMINDER_ADVANCE_DAYS = 8
+
 /**
  * The window bookkeeping for a FREQUENCY habit — "3 times per 7 days" rather than "every 1 day".
  *
@@ -58,7 +61,11 @@ internal class FrequencyHabitSync(
      * decides WHEN the next reminder is due. That is why it is separate from the advance path, which does
      * create occurrences for interval-style recurrences.
      */
-    suspend fun sync(task: Task, today: LocalDate = LocalDate.now()) {
+    suspend fun sync(
+        task: Task,
+        today: LocalDate = LocalDate.now(),
+        now: LocalDateTime = LocalDateTime.now(),
+    ) {
         val frequencyRule = Frequency.legacyParse(task.recurrenceRule)
         val occurrences = taskOccurrenceRepository.getOccurrencesByTaskId(task.id)
         val windowState = evaluateWindow(task, frequencyRule, occurrences, today)
@@ -72,15 +79,18 @@ internal class FrequencyHabitSync(
             anchorDate = anchorDate,
             today = today,
         )
+        val reminderTime = task.dueDate?.toLocalTime() ?: LocalTime.of(9, 0)
         val nextReminderDate =
             if (windowState.isSatisfied || windowState.isNeutral) {
                 windowState.end.plusDays(1)
+            } else if (today.atTime(reminderTime).isAfter(now)) {
+                today
             } else {
-                val todayReminderDateTime = today.atTime(task.dueDate?.toLocalTime() ?: LocalTime.of(9, 0))
-                if (!todayReminderDateTime.isBefore(LocalDateTime.now())) today else today.plusDays(1)
+                today.plusDays(1)
             }
-        val reminderTime = task.dueDate?.toLocalTime() ?: LocalTime.of(9, 0)
-        val newDueDate = nextReminderDate.atTime(reminderTime)
+        /* The effective day can be yesterday while the wall clock is past the reminder time, so the due date is
+           rolled forward until it is in the future: a due time in the past arms nothing. */
+        val newDueDate = nextReminderDate.atTime(reminderTime).advancedPast(now)
         val latestOccurrenceDate =
             occurrences
                 .mapNotNull { parseOccurrenceDate(it) }
@@ -180,6 +190,16 @@ internal class FrequencyHabitSync(
             anchorDate = anchorDate,
             today = LocalDate.now(),
         )
+    }
+
+    private fun LocalDateTime.advancedPast(now: LocalDateTime): LocalDateTime {
+        var candidate = this
+        var days = 0
+        while (!candidate.isAfter(now) && days < MAX_REMINDER_ADVANCE_DAYS) {
+            candidate = candidate.plusDays(1)
+            days += 1
+        }
+        return candidate
     }
 
     private fun parseOccurrenceDate(occurrence: TaskOccurrence): LocalDate? =
