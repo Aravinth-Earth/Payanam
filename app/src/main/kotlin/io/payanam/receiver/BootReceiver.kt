@@ -8,15 +8,11 @@ import android.content.Intent
 import dagger.hilt.android.AndroidEntryPoint
 import io.payanam.FeatureFlags
 import io.payanam.common.logging.UnifiedLogger
-import io.payanam.database.session.DatabaseSessionManager
-import io.payanam.domain.repository.TimeEntryRepository
 import io.payanam.notification.NotificationScheduler
-import io.payanam.service.TrackingService
-import io.payanam.widget.TimeTrackingWidgetProvider
+import io.payanam.service.TrackingRestorer
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import javax.inject.Inject
 
@@ -27,13 +23,10 @@ import javax.inject.Inject
 class BootReceiver : BroadcastReceiver() {
 
     @Inject
-    lateinit var timeEntryRepository: TimeEntryRepository
-
-    @Inject
     lateinit var notificationScheduler: NotificationScheduler
 
     @Inject
-    lateinit var sessionManager: DatabaseSessionManager
+    lateinit var trackingRestorer: TrackingRestorer
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -55,7 +48,7 @@ class BootReceiver : BroadcastReceiver() {
             try {
                 if (restoresTracking) {
                     runCatching {
-                        restoreTracking(context)
+                        trackingRestorer.restore(context)
                     }.onFailure { failure ->
                         logger.e("BootReceiver.onReceive", "Failed to restore tracking", failure)
                     }
@@ -72,47 +65,6 @@ class BootReceiver : BroadcastReceiver() {
         }
     }
 
-    /**
-     * Restores the active tracking notification and widget after boot or package replace, or the widget
-     * alone when the database session is still closed.
-     */
-    private suspend fun restoreTracking(context: Context) {
-        val logger = UnifiedLogger.getInstance()
-        if (!sessionManager.isDbOpen()) {
-            logger.d("BootReceiver.restoreTracking", "Skipping tracking restore; database session is closed")
-            TimeTrackingWidgetProvider.requestUpdate(context)
-            return
-        }
-        // Check for active time entries
-        val activeEntries = timeEntryRepository.getActiveTimeEntries().first()
-        if (activeEntries.isEmpty()) {
-            logger.d("BootReceiver.restoreTracking", "No active entries to restore")
-            TimeTrackingWidgetProvider.requestUpdate(context)
-            return
-        }
-        // Restore the most recent active entry's notification
-        val entry = activeEntries.first()
-
-        logger.i(
-            "BootReceiver.restoreTracking",
-            "Restoring active tracking notification",
-            mapOf(
-                "entryId" to entry.id,
-                "dimensionId" to (entry.dimensionId ?: "unknown"),
-            ),
-        )
-
-        TrackingService.startTracking(
-            context = context,
-            taskId = entry.taskId,
-            taskTitle = entry.lifeIntentionCategory,
-            dimension = entry.lifeIntentionCategory,
-            startTime = entry.startedAt.toString(),
-        )
-        TimeTrackingWidgetProvider.requestUpdate(context)
-        logger.i("BootReceiver.restoreTracking", "Requested widget refresh after restoring active tracking")
-    }
-
     /** Re-arms every eligible task reminder; a closed session makes the repository read fail upward. */
     private suspend fun reArmReminders(action: String) {
         val logger = UnifiedLogger.getInstance()
@@ -120,7 +72,11 @@ class BootReceiver : BroadcastReceiver() {
             logger.i("BootReceiver.reArmReminders", "Skipped reminder schedule on $action; reminders disabled")
             return
         }
-        notificationScheduler.scheduleAllPendingTasks()
+        if (action == Intent.ACTION_TIME_CHANGED || action == Intent.ACTION_TIMEZONE_CHANGED) {
+            notificationScheduler.reArmPendingReminders()
+        } else {
+            notificationScheduler.scheduleAllPendingTasks()
+        }
         logger.i("BootReceiver.reArmReminders", "Scheduled task reminders on $action")
     }
 

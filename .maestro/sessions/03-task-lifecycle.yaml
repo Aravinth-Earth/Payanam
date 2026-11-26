@@ -1,0 +1,223 @@
+appId: io.payanam
+name: Session — archive one task and delete another
+tags:
+  - session
+env:
+  PASS: E2ETestPass!2026
+---
+# The task lifecycle a user actually performs: archive the thing you want to keep out of the list, and
+# delete the thing you do not. One session, one launch, one unlock, then the two export actions.
+#
+# Order matters for the verifier: the DELETE task is created second, so the newest created id (index 0)
+# is the deleted one and index 1 is the archived one.
+#
+# Preconditions are the ones 01-fresh-setup establishes.
+
+- evalScript: ${output.stamp = Date.now(); output.archive = 'e2e-session-' + output.stamp + '-archive'; output.delete = 'e2e-session-' + output.stamp + '-delete'}
+
+- launchApp
+- runFlow:
+    file: ../subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.tasks"
+    timeout: 90000
+
+# ---- preflight: auto-backup ON, or the epilogue has no Run-Backup-Now. The next step selects Tasks,
+# which restores the screen this session's own ladder starts from.
+- runFlow:
+    file: ../subflows/ensure-auto-backup.yaml
+- tapOn:
+    id: "nav.tab.tasks"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 30000
+# The selected filter is persisted, so a previous run can leave the list on Archived. Normalise to All
+# before anything is created: every later chip tap assumes the All layer as its starting point.
+- tapOn:
+    id: "tasks.filter.all"
+- takeScreenshot: 400-session-start
+
+# ---- create the task that will be archived ----
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 30000
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${output.archive}"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: ".*${output.archive}.*"
+    direction: DOWN
+    timeout: 60000
+- tapOn: ".*${output.archive}.*"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail.archive_button"
+    timeout: 30000
+- takeScreenshot: 401-archive-detail
+# The actions row is below the properties and status cards in a verticalScroll: the node can be in the
+# semantics tree while it is under the fold, so centre it before the tap.
+- scrollUntilVisible:
+    element:
+      id: "task_detail.archive_button"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "task_detail.archive_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.tasks"
+    timeout: 60000
+# All is deliberately unfiltered and still lists the archived row; the active layer (Today) excludes
+# it, and the Active chip is what enters that layer from All.
+- tapOn:
+    id: "tasks.filter.active"
+- extendedWaitUntil:
+    notVisible: ".*${output.archive}.*"
+    timeout: 30000
+- takeScreenshot: 402-archived-gone-from-today
+
+# The Archived filter is where the archived task has to be, so this also proves the chip and the
+# write agree. Not Active is the layer that shows Completed/Archived.
+- tapOn:
+    id: "tasks.filter.not_active"
+- tapOn:
+    id: "tasks.filter.archived"
+# The Archived list accumulates every archived row from earlier runs, so this one may be below the fold.
+- scrollUntilVisible:
+    element:
+      text: ".*${output.archive}.*"
+    direction: DOWN
+    timeout: 60000
+- takeScreenshot: 403-archived-listed
+- tapOn:
+    id: "tasks.filter.all"
+
+# ---- create the task that will be deleted ----
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 30000
+- tapOn:
+    id: "tasks.add_button"
+- tapOn:
+    id: "task_add.title_field"
+- inputText: "${output.delete}"
+- hideKeyboard
+- scrollUntilVisible:
+    element:
+      id: "task_add.save_button"
+    direction: DOWN
+    timeout: 30000
+- tapOn:
+    id: "task_add.save_button"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 60000
+- scrollUntilVisible:
+    element:
+      text: ".*${output.delete}.*"
+    direction: DOWN
+    timeout: 60000
+- tapOn: ".*${output.delete}.*"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail.delete_button"
+    timeout: 30000
+- takeScreenshot: 404-delete-detail
+- tapOn:
+    id: "task_detail.delete_button"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail.delete_confirm"
+    timeout: 20000
+- tapOn:
+    id: "task_detail.delete_confirm"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.tasks"
+    timeout: 60000
+- extendedWaitUntil:
+    notVisible: ".*${output.delete}.*"
+    timeout: 30000
+- takeScreenshot: 405-deleted-gone
+
+# ---- epilogue: DB snapshot + current session log ----
+- tapOn:
+    id: "nav.tab.settings"
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_card"
+    direction: DOWN
+    timeout: 40000
+    centerElement: true
+- tapOn:
+    id: "settings.auto_backup_card"
+- scrollUntilVisible:
+    element:
+      id: "settings.run_backup_now"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "settings.run_backup_now"
+# In-flight only: this tag is absent whenever no manual run is executing, so a re-run can never be
+# satisfied by a stale node. Appearance proves the tap started a run; disappearance is the app's
+# completion signal (the persisted "last run" line is still on screen from the previous run).
+- extendedWaitUntil:
+    visible:
+      id: "settings.backup_in_progress"
+    timeout: 15000
+- extendedWaitUntil:
+    notVisible:
+      id: "settings.backup_in_progress"
+    timeout: 120000
+- takeScreenshot: 406-backup-written
+# The Debug card sits below the fold of the settings column: measured on the A17 it reported
+# `[84,2039][996,2091]` — a 52 px sliver ending under the bottom bar — and a tap at y=2065 expanded
+# nothing, so the export buttons inside it were never composed at all. Centring is what makes its row a
+# real target (the same class as `settings.auto_backup_switch` above).
+- scrollUntilVisible:
+    element:
+      id: "settings.debug_card"
+    direction: DOWN
+    timeout: 40000
+    centerElement: true
+- tapOn:
+    id: "settings.debug_card"
+- extendedWaitUntil:
+    visible:
+      id: "log_export.export_latest_button"
+    timeout: 20000
+# The card's LAST row, composed only while it is expanded: centre it rather than trust the expansion to
+# have left it inside the viewport.
+- scrollUntilVisible:
+    element:
+      id: "log_export.export_latest_button"
+    direction: DOWN
+    timeout: 20000
+    centerElement: true
+- tapOn:
+    id: "log_export.export_latest_button"
+- takeScreenshot: 407-log-export-tapped

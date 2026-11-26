@@ -154,7 +154,6 @@ fun CheckmarkDialog(
                         mapOf(
                             "date" to date.toString(),
                             "status" to selectedStatus.name,
-                            "note" to note,
                         ),
                     )
                     onSave(selectedStatus, note)
@@ -382,7 +381,6 @@ fun CheckmarkDialogWithReason(
                         mapOf(
                             "date" to date.toString(),
                             "status" to selectedStatus.name,
-                            "note" to note,
                             "reason" to selectedReason?.name,
                         ),
                     )

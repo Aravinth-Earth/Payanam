@@ -1,0 +1,10 @@
+# yaml-language-server: $schema=https://coderabbit.ai/integrations/schema.v2.json
+#
+# Automatic reviews are OFF for this public repository: the free review allowance is shared across
+# every pull request, and a push should not spend it without being asked. Comment
+# `@coderabbitai review` on a pull request to run one, or set enabled: true to restore the default.
+language: en
+reviews:
+  auto_review:
+    enabled: false
+    drafts: false

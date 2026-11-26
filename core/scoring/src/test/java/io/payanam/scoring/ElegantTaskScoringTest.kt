@@ -297,6 +297,55 @@ class ElegantTaskScoringTest {
             .of(ElegantTaskScoring.calculateScore(canonical))
     }
 
+    @Test
+    fun calculateScore_withEveryWeightZero_fallsBackToDefaultWeights() {
+        val zeroWeights = ScoringConfig(
+            dimensionWeight = 0.0,
+            impactWeight = 0.0,
+            alignmentWeight = 0.0,
+            energyWeight = 0.0,
+            controlWeight = 0.0,
+            durationWeight = 0.0,
+        )
+
+        assertThat(ElegantTaskScoring.calculateScore(baseTask(), zeroWeights))
+            .isEqualTo(ElegantTaskScoring.calculateScore(baseTask()))
+    }
+
+    @Test
+    fun calculateScore_withANegativeWeight_fallsBackToDefaultWeights() {
+        val negative = ScoringConfig(controlWeight = -1.0)
+
+        assertThat(ElegantTaskScoring.calculateScore(baseTask(), negative))
+            .isEqualTo(ElegantTaskScoring.calculateScore(baseTask()))
+    }
+
+    @Test
+    fun calculateScore_withANonFiniteWeight_fallsBackToDefaultWeights() {
+        for (bad in listOf(Double.NaN, Double.POSITIVE_INFINITY)) {
+            val config = ScoringConfig(durationWeight = bad)
+            assertThat(ElegantTaskScoring.calculateScore(baseTask(), config))
+                .isEqualTo(ElegantTaskScoring.calculateScore(baseTask()))
+        }
+    }
+
+    @Test
+    fun calculateScore_withInvalidWeights_stillRanksTasksApart() {
+        val zeroWeights = ScoringConfig(
+            dimensionWeight = 0.0,
+            impactWeight = 0.0,
+            alignmentWeight = 0.0,
+            energyWeight = 0.0,
+            controlWeight = 0.0,
+            durationWeight = 0.0,
+        )
+
+        val low = ElegantTaskScoring.calculateScore(baseTask(impact = "Minimal Impact"), zeroWeights)
+        val high = ElegantTaskScoring.calculateScore(baseTask(impact = "Critical Impact"), zeroWeights)
+
+        assertThat(high).isGreaterThan(low)
+    }
+
     private fun baseTask(
         impact: String = "Moderate Impact",
         durationMinutes: Int = 10,

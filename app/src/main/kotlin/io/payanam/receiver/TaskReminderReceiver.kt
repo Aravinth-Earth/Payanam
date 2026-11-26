@@ -83,7 +83,6 @@ class TaskReminderReceiver : BroadcastReceiver() {
                         mapOf(
                             "notificationId" to (notificationId ?: "null"),
                             "taskId" to (taskId ?: "null"),
-                            "taskTitle" to (taskTitle ?: "null"),
                         ),
                     )
                     return@launch

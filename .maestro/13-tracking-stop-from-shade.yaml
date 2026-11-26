@@ -1,0 +1,77 @@
+appId: io.payanam
+name: Stop on the tracking notification lands on Time with the entry modal open
+tags:
+  - tracking
+env:
+  PASS: E2ETestPass!2026
+  # Both shipped languages, as a regex; see 03-action-complete.yaml for why the values are grouped.
+  LOC_START: "(Start|தொடங்கு)"
+  TRACKING_SUBTEXT: "(Tracking in progress|கண்காணிப்பு நடைபெறுகிறது)"
+  TRACKING_ACTION_STOP: "(Stop|நிறுத்து)"
+  ACTION_EXPAND: "(Expand|விரிவாக்கும்)"
+---
+# The tracking notification's Stop action does NOT stop the timer itself: TrackingService redirects
+# it to MainActivity with EXTRA_OPEN_TIME_STOP_TRACKING, so the app must arrive on the Time screen
+# with the entry modal already open. Nothing taps a tab after the action: the arrival screen and the
+# open dialog ARE the assertion.
+
+- launchApp
+- runFlow:
+    file: subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.time"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.time"
+
+- runFlow:
+    file: subflows/stop-running-entry.yaml
+
+- tapOn:
+    id: "time.start_tracking_fab"
+- extendedWaitUntil:
+    visible: "^${LOC_START}$"
+    timeout: 20000
+# The start dialog's dimension picker is preselected, so Start is the whole interaction.
+- tapOn: "^${LOC_START}$"
+- extendedWaitUntil:
+    visible:
+      id: "time.stop_tracking_button"
+    timeout: 30000
+- takeScreenshot: 160-timer-running
+
+- pressKey: Home
+- takeScreenshot: 161-app-backgrounded
+- swipe:
+    start: 50%, 0%
+    end: 50%, 70%
+- extendedWaitUntil:
+    visible: ".*${TRACKING_SUBTEXT}.*"
+    timeout: 30000
+- tapOn:
+    text: "${ACTION_EXPAND}"
+    index: 0
+    optional: true
+- extendedWaitUntil:
+    visible: "${TRACKING_ACTION_STOP}"
+    timeout: 30000
+- tapOn: "${TRACKING_ACTION_STOP}"
+- takeScreenshot: 162-stop-tapped
+
+# The action's own activity launch precedes the modal; no tab tap is allowed here.
+- extendedWaitUntil:
+    visible:
+      id: "edit_time_entry_confirm_button"
+    timeout: 60000
+- takeScreenshot: 163-stop-modal-open
+
+- tapOn:
+    id: "edit_time_entry_confirm_button"
+- extendedWaitUntil:
+    visible:
+      id: "time.start_tracking_fab"
+    timeout: 30000
+- takeScreenshot: 164-entry-ended
