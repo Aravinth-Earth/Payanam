@@ -70,6 +70,34 @@ class NotificationScheduler @Inject constructor(
     }
 
     /**
+     * Re-arms every pending reminder at the time it was already scheduled for, so a clock or timezone change keeps a
+     * snooze target instead of recomputing the original reminder time.
+     */
+    suspend fun reArmPendingReminders(): Int {
+        if (!FeatureFlags.remindersEnabled) {
+            logger.i("NotificationScheduler.reArmPendingReminders", "Reminder scheduling disabled by feature flag")
+            return 0
+        }
+        val now = LocalDateTime.now()
+        val tasks = taskRepository.getAllTasks().first()
+        tasks.forEach { task ->
+            val pending =
+                notificationRepository
+                    .getNotificationsForTask(task.id)
+                    .filter { !it.isDelivered && it.scheduledAt.isAfter(now) }
+                    .maxByOrNull { it.scheduledAt }
+            if (pending == null) {
+                scheduleForTask(task, overrideScheduledAt = null, overrideDueAt = null, isSnoozed = false)
+            } else {
+                // A target later than its due time is a snooze; that one keeps both its time and its wording.
+                val snoozed = task.dueDate?.let { pending.scheduledAt.isAfter(it) } == true
+                scheduleForTask(task, pending.scheduledAt, task.dueDate, snoozed)
+            }
+        }
+        return tasks.size
+    }
+
+    /**
      * Arms (or cancels) the reminder for one task: eligibility checks, advance
      * timing from notification mode, persistence, then the alarm itself.
      */
