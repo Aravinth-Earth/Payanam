@@ -20,6 +20,7 @@ import dagger.hilt.components.SingletonComponent
 import io.payanam.common.logging.SharedPreferencesBreadcrumbStore
 import io.payanam.common.logging.UnifiedLogger
 import io.payanam.data.RoomPayanamDataLayer
+import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.port.HabitTimeEntryRecorder
 import io.payanam.domain.port.PerformanceTracer
 import io.payanam.domain.port.ScoreCalculator
@@ -48,15 +49,29 @@ import io.payanam.presentation.data.LocalDataLayer
 import io.payanam.presentation.flags.FeatureFlagsState
 import io.payanam.presentation.flags.PlatformFeatureFlags
 import io.payanam.scoring.port.TaskRecurrenceHandler
+import io.payanam.service.TrackingRestorer
+import io.payanam.service.UnlockRestore
 import io.payanam.shared.logging.AppLogger
 import io.payanam.shared.logging.CrashBreadcrumbs
 import io.payanam.ui.logging.DebugLoggingPrefs
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import timber.log.Timber
+import javax.inject.Inject
 
 /** Application entry point: logging first, then crash handling, notification channels, update check. */
 @HiltAndroidApp
 class PayanamApp : Application() {
+    @Inject
+    lateinit var trackingRestorer: TrackingRestorer
+
+    @Inject
+    lateinit var sessionManager: DatabaseSessionManager
+
+    private val appScope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
 
     /** Initializes the logger before any manifest component can run; initialize() is idempotent. */
     override fun attachBaseContext(base: Context) {
@@ -74,6 +89,8 @@ class PayanamApp : Application() {
         // Hand the real logger to the platform-neutral modules (core/domain, core/scoring), which read
         // AppLogger.current; without this they log to a no-op default and lose every diagnostic.
         AppLogger.install(logger)
+        // A boot broadcast that ran before the first unlock could not read the database; this retries on that unlock.
+        UnlockRestore(sessionManager.isOpen) { trackingRestorer.restore(this@PayanamApp) }.start(appScope)
         // Crash-safe breadcrumb store: installed here rather than lazily, because a ViewModel or an
         // injected component can record a breadcrumb before any Activity is composed.
         CrashBreadcrumbs.install(SharedPreferencesBreadcrumbStore(this))
