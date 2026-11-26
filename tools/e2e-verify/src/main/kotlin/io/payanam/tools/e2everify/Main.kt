@@ -161,9 +161,11 @@ internal fun parseOptions(args: Array<String>): Options? {
             }
 
             "expect-pref" -> {
-                value.split("=", limit = PREF_PAIR_PARTS).takeIf { it.size == PREF_PAIR_PARTS }?.let {
-                    expectPrefs += it[0] to it[1]
+                val pair = value.split("=", limit = PREF_PAIR_PARTS)
+                if (pair.size != PREF_PAIR_PARTS || pair[0].isBlank()) {
+                    return usage("--expect-pref needs key=value, got: " + value)
                 }
+                expectPrefs += pair[0] to pair[1]
             }
 
             "expect-logged-pref" -> {
