@@ -5,11 +5,34 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
 name: "CodeQL"
 
+# Only a change to compiled input can change the analysis result. A pull request that touches
+# documentation, workflows or configuration alone skips the scan: the weekly schedule still covers
+# everything, and a YAML-only pull request no longer spends a 45-minute Java/Kotlin analysis.
 on:
   push:
     branches: ["main"]
+    paths:
+      - "**/*.kt"
+      - "**/*.kts"
+      - "**/*.java"
+      - "**/proguard*.pro"
+      - "gradle.properties"
+      - "gradle/**"
+      - "build.gradle*"
+      - "**/build.gradle*"
+      - "settings.gradle*"
   pull_request:
     branches: ["main", "dev"]
+    paths:
+      - "**/*.kt"
+      - "**/*.kts"
+      - "**/*.java"
+      - "**/proguard*.pro"
+      - "gradle.properties"
+      - "gradle/**"
+      - "build.gradle*"
+      - "**/build.gradle*"
+      - "settings.gradle*"
   schedule:
     - cron: "37 3 * * 1"
 

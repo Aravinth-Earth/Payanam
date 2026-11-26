@@ -284,7 +284,8 @@ tasks.register("staticAnalysisCheck") {
         ":core:ui:detektAndroidMain",
         ":core:ui:detektDesktopMain",
         // Applies the detekt plugin but was never listed here.
-        ":core:strings:detekt"
+        ":core:strings:detekt",
+        ":tools:e2e-verify:detekt"
     )
 }
 
@@ -301,6 +302,7 @@ tasks.register("preCommitCheck") {
         ":core:database-jvm:spotlessCheck",
         ":core:presentation:spotlessCheck",
         ":core:ui:spotlessCheck",
+        ":tools:e2e-verify:spotlessCheck",
         "staticAnalysisCheck"
     )
 }

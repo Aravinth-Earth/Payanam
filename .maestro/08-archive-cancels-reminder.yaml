@@ -1,0 +1,113 @@
+appId: io.payanam
+name: Archiving a habit from its detail screen removes it and cancels its reminder
+tags:
+  - reminders
+env:
+  PASS: E2ETestPass!2026
+---
+# One journey, two halves of the same regression: a habit armed with a reminder is archived, and the
+# habit must leave the list. The OS alarm the archive cancels is NOT observable from inside an app
+# flow, so the cancellation itself is asserted by the unit tiers (TaskReminderSchedulerTest /
+# NotificationSchedulerRegressionTest); to read it by hand around this flow, run
+#   adb shell dumpsys alarm | grep -c 'io.payanam'      before archiving  -> 1
+#   adb shell dumpsys alarm | grep -c 'io.payanam'      after archiving   -> 0
+# This flow used to be split in two so a shell script could read that count between them. Keeping it
+# as one self-contained journey is why the read above is manual.
+
+# +25 puts the fire time ~10 min past the save, so the reminder is armed at save time and does not
+# fire during the flow.
+- evalScript: ${output.habit = 'e2e-archive-' + Date.now(); output.due = new Date(Date.now() + 25*60000); output.dueHour = ('0'+output.due.getHours()).slice(-2); output.dueMinute = ('0'+output.due.getMinutes()).slice(-2)}
+
+- launchApp
+- runFlow:
+    file: subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+
+- runFlow:
+    file: subflows/create-habit-with-reminder.yaml
+    env:
+      HABIT_NAME: ${output.habit}
+      DUE_HOUR: ${output.dueHour}
+      DUE_MINUTE: ${output.dueMinute}
+# The habits list is a LazyColumn sorted score-high-low, and a habit created seconds ago has score
+# 0.0, so it sorts to the bottom: once the list exceeds one screen a plain wait can never see it.
+- scrollUntilVisible:
+    element:
+      text: ".*${output.habit}.*"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: 130-reminder-armed
+
+- tapOn: ".*${output.habit}.*"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail.archive_button"
+    timeout: 30000
+- takeScreenshot: 131-detail-before-archive
+# The detail body is one verticalScroll and the actions row sits below the properties and status
+# cards, so the button can be in the semantics tree while it is under the fold — a tap aimed at those
+# bounds then lands on whatever is at that height. Centre it on the viewport first.
+- scrollUntilVisible:
+    element:
+      id: "task_detail.archive_button"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+
+# Archive taps the detail button; its handler archives the task and navigates back.
+- tapOn:
+    id: "task_detail.archive_button"
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.habits"
+    timeout: 60000
+# showArchivedHabits is persisted (KEY_SHOW_ARCHIVED_HABITS) and survives process death, so one
+# manual tap on Show archived would keep the archived row in this list and the assertion below would
+# then time out for a reason that is not the defect under test. Normalise it off first, remember that
+# it was on, and put it back after the assertion so a run leaves the device as it found it.
+# `output` is one mutable binding for the whole run (GraalJsEngine.outputBinding), so the flag set in
+# the branch below is still readable by the guarded restore at the end of the flow.
+- tapOn:
+    id: "habits.filter_button"
+- extendedWaitUntil:
+    visible:
+      id: "habits.filter.show_archived"
+    timeout: 20000
+- runFlow:
+    when:
+      visible:
+        id: "habits.filter.show_archived"
+        checked: true
+    commands:
+      - evalScript: ${output.showArchivedWasOn = true}
+      - tapOn:
+          id: "habits.filter.show_archived"
+# The toggle does not dismiss the menu, so Back is what returns to the list the assertion reads.
+- pressKey: Back
+# The today list does not keep an archived habit; if the row outlives the archive, this fails.
+- extendedWaitUntil:
+    notVisible: ".*${output.habit}.*"
+    timeout: 30000
+- takeScreenshot: 132-after-archive
+# Restore the pre-existing setting: a device that had Show archived on gets it back on, a device that
+# had it off never enters this branch. Element-conditioned and flag-guarded, never a fixed wait.
+- runFlow:
+    when:
+      true: ${output.showArchivedWasOn == true}
+    commands:
+      - tapOn:
+          id: "habits.filter_button"
+      - extendedWaitUntil:
+          visible:
+            id: "habits.filter.show_archived"
+          timeout: 20000
+      - runFlow:
+          when:
+            visible:
+              id: "habits.filter.show_archived"
+              checked: false
+          commands:
+            - tapOn:
+                id: "habits.filter.show_archived"
+      - pressKey: Back

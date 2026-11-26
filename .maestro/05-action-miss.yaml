@@ -1,100 +1,51 @@
 appId: io.payanam
-name: Reminder Miss reaches the DB after the passphrase unlock
+name: Miss on a dead-process habit reminder writes the missed status after the unlock
+tags:
+  - reminders
+env:
+  PASS: E2ETestPass!2026
+  # Both shipped languages, as a regex; see 03-action-complete.yaml for why the values are grouped.
+  ACTION_EXPAND: "(Expand|விரிவாக்கும்)"
+  ACTION_MISS: "(Miss|தவறவிட்டது)"
+  STATUS_MISSED: "(Missed|தவறவிட்டது)"
 ---
-# Miss tapped on the dead-process reminder is applied after the passphrase unlock: the
-# habit's TODAY cell reads the build's missed word. Miss exists only on a HABIT
-# reminder, so the task must be recurring; the runner sets the due 22 min ahead.
+# Miss tapped on the dead-process reminder is applied after the passphrase unlock: the habit's today
+# cell reads the build's missed word. Miss exists only on a HABIT reminder, so the task is recurring.
+# Preconditions: the app is provisioned with PASS and SCHEDULE_EXACT_ALARM is allowed.
 
-# killApp is `am kill`, which only kills BACKGROUND processes: Home first.
+- evalScript: ${output.habit = 'e2e-miss-' + Date.now(); output.due = new Date(Date.now() + 22*60000); output.dueHour = ('0'+output.due.getHours()).slice(-2); output.dueMinute = ('0'+output.due.getMinutes()).slice(-2)}
+
+# A force-stop start, not `am kill`: a graceful kill lets Android restore the last destination on
+# relaunch (a form left open by an earlier flow), and this flow needs a clean list. The `am kill`
+# that matters is the one below, after the reminder is armed.
+# Home first: a run that failed inside the notification shade leaves it open, and a launched activity
+# behind it never becomes addressable.
 - pressKey: Home
-- killApp
-- launchApp:
-    stopApp: false
-# Cold start after the kill: the unlock screen comes up before the database opens.
-- extendedWaitUntil:
-    visible:
-      id: "passphrase_unlock.passphrase_field"
-    timeout: 60000
-- tapOn:
-    id: "passphrase_unlock.passphrase_field"
-- inputText: "${PASS}"
-- hideKeyboard
-- tapOn:
-    id: "passphrase_unlock.unlock_button"
-# The unlock decrypts the database; nothing renders until it finishes.
-- extendedWaitUntil:
-    visible:
-      id: "nav.tab.habits"
-    timeout: 60000
-- tapOn:
-    id: "nav.tab.habits"
+- launchApp
+# Cold start: the unlock screen comes up before the database opens.
+- runFlow:
+    file: subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
 
-- extendedWaitUntil:
-    visible:
-      id: "tasks.add_button"
-- tapOn:
-    id: "tasks.add_button"
-- tapOn:
-    id: "task_add.title_field"
-- inputText: "${HABIT_NAME}"
-- hideKeyboard
-
-# Recurring is what makes Miss exist at all on the reminder.
-- tapOn:
-    id: "task_add.task_type.recurring"
-- extendedWaitUntil:
-    visible:
-      id: "recurrence.confirm_button"
-- tapOn:
-    id: "recurrence.preset.daily"
-    optional: true
-- tapOn:
-    id: "recurrence.confirm_button"
-
-- tapOn:
-    id: "task_add.due_time_button"
-- extendedWaitUntil:
-    visible:
-      id: "task_add.due_time_input_toggle"
-- tapOn:
-    id: "task_add.due_time_input_toggle"
-- tapOn:
-    id: "task_add.due_time_hour_field"
-- eraseText
-- inputText: "${DUE_HOUR}"
-- tapOn:
-    id: "task_add.due_time_minute_field"
-- eraseText
-- inputText: "${DUE_MINUTE}"
-- hideKeyboard
-- tapOn:
-    id: "task_add.due_time_confirm_button"
-
-# Reminder mode stays at its default (auto) = 15 min before the due time.
-- scrollUntilVisible:
-    element:
-      id: "task_add.save_button"
-    direction: DOWN
-    timeout: 30000
-- tapOn:
-    id: "task_add.save_button"
-# The save is async and the bottom bar is visible on the add form too, so wait for the
-# list's own add action before Home + killApp can interrupt the write and the arming.
-- extendedWaitUntil:
-    visible:
-      id: "tasks.add_button"
-    timeout: 60000
+- runFlow:
+    file: subflows/create-habit-with-reminder.yaml
+    env:
+      HABIT_NAME: ${output.habit}
+      DUE_HOUR: ${output.dueHour}
+      DUE_MINUTE: ${output.dueMinute}
 - takeScreenshot: 140-habit-created
 
 - pressKey: Home
 - killApp
 - takeScreenshot: 141-app-closed
+
 - swipe:
     start: 50%, 0%
     end: 50%, 70%
 - extendedWaitUntil:
-    visible: "${HABIT_NAME}"
-    timeout: ${REMINDER_WAIT_MS}
+    visible: "${output.habit}"
+    timeout: 480000
 - takeScreenshot: 142-reminder-in-shade
 
 - tapOn:
@@ -109,16 +60,10 @@ name: Reminder Miss reaches the DB after the passphrase unlock
 - launchApp:
     stopApp: false
 # Cold start after the action tap: the killed app reopens at the unlock screen.
-- extendedWaitUntil:
-    visible:
-      id: "passphrase_unlock.passphrase_field"
-    timeout: 60000
-- tapOn:
-    id: "passphrase_unlock.passphrase_field"
-- inputText: "${PASS}"
-- hideKeyboard
-- tapOn:
-    id: "passphrase_unlock.unlock_button"
+- runFlow:
+    file: subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
 # Decrypt plus the queued Miss write; the list renders after both.
 - extendedWaitUntil:
     visible:
@@ -130,17 +75,17 @@ name: Reminder Miss reaches the DB after the passphrase unlock
 # The list accumulates a habit per run, so this flow's row may be below the fold.
 - scrollUntilVisible:
     element:
-      text: "${HABIT_NAME}, .*"
+      text: ".*${output.habit}.*"
     direction: DOWN
     timeout: 60000
 
-# (1) TODAY's cell now carries a status at all: PENDING/UNKNOWN render as the
-#     not-filled word, so any other word means an occurrence row exists for today.
+# (1) Today's cell now carries a status at all: PENDING/UNKNOWN render as the not-filled word, so
+#     any other word means an occurrence row exists for today.
 - extendedWaitUntil:
-    visible: "${HABIT_NAME}, ${TODAY}, .*"
+    visible: ".*${output.habit}.*"
 - takeScreenshot: 144-today-cell-written
 
-# (2) That status is MISSED. The receiver passes a status string to one shared
-#     handler, so Miss writing "skipped" is a real failure mode (1) cannot see.
-- assertVisible: "${HABIT_NAME}, ${TODAY}, ${STATUS_MISSED}"
+# (2) That status is MISSED. The receiver passes a status string to one shared handler, so Miss
+#     writing "skipped" is a real failure mode (1) cannot see.
+- assertVisible: ".*${output.habit}.*${STATUS_MISSED}.*"
 - takeScreenshot: 145-today-cell-missed

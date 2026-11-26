@@ -307,6 +307,45 @@ class FrequencyHabitSyncTest {
             assertEquals(1, tasks.updated.size)
         }
 
+    @Test
+    fun `a reminder at the day boundary never lands in the past`() =
+        runBlocking {
+            // 01:30 on the 2nd, with a 02:00 boundary: the effective day is still the 1st, and the reminder time
+            // (01:00) has already gone by on both. A due time in the past arms nothing, so the sync must roll it on.
+            val effectiveDay = LocalDate.of(2026, 3, 1)
+            val now = LocalDateTime.of(2026, 3, 2, 1, 30)
+            val task =
+                frequencyTask(
+                    id = "boundary",
+                    dueDate = LocalDateTime.of(2026, 3, 1, 1, 0),
+                    createdAt = effectiveDay.minusDays(30).atStartOfDay(),
+                )
+            val tasks = FakeTasks(listOf(task))
+
+            sync(tasks, FakeOccurrences(emptyList())).sync(task, effectiveDay, now)
+
+            val due = tasks.updated.single().newDueDate
+            assertTrue("a reminder due at " + due + " must be after " + now, due.isAfter(now))
+        }
+
+    @Test
+    fun `a reminder still ahead in the effective day stays on that day`() =
+        runBlocking {
+            val effectiveDay = LocalDate.of(2026, 3, 1)
+            val now = LocalDateTime.of(2026, 3, 1, 8, 0)
+            val task =
+                frequencyTask(
+                    id = "ahead",
+                    dueDate = LocalDateTime.of(2026, 3, 1, 9, 0),
+                    createdAt = effectiveDay.minusDays(30).atStartOfDay(),
+                )
+            val tasks = FakeTasks(listOf(task))
+
+            sync(tasks, FakeOccurrences(emptyList())).sync(task, effectiveDay, now)
+
+            assertEquals(effectiveDay, tasks.updated.single().newDueDate.toLocalDate())
+        }
+
     // ---- fakes -------------------------------------------------------------------------------------
 
     private class FakeTasks(

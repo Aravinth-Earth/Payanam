@@ -9,6 +9,7 @@ import io.payanam.common.logging.UnifiedLogger
 import io.payanam.database.entity.LensReflectionEntity
 import io.payanam.database.session.DatabaseSessionManager
 import io.payanam.domain.model.DimensionTaxonomyCatalog
+import io.payanam.domain.model.TaskPriority
 import io.payanam.domain.repository.AverageDailyTimeTableData
 import io.payanam.domain.repository.logSummary
 import io.payanam.domain.repository.DailyFocusStat
@@ -552,7 +553,7 @@ class LensRepositoryImpl
                             dimensionId = task.dimensionId,
                             estimatedMinutes = task.durationMinutes,
                             dueDate = task.dueDate.toString(),
-                            priority = determinePriority(task.taskScore ?: 0.0),
+                            priority = TaskPriority.of(task.taskScore ?: 0.0),
                         )
                     }
             val habitPlanItems =
@@ -775,9 +776,3 @@ class LensRepositoryImpl
         }
     }
 
-private fun determinePriority(taskScore: Double): String =
-    when {
-        taskScore >= 0.8 -> "High"
-        taskScore >= 0.5 -> "Medium"
-        else -> "Low"
-    }

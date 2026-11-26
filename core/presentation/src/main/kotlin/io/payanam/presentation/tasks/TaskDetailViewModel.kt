@@ -368,7 +368,10 @@ class TaskDetailViewModel(
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
 
-        scope.launch {
+        // NonCancellable: the screen navigates back as soon as the action is confirmed, and a
+        // cancellable tail left the completion half-applied (task advanced, occurrence missing). Same
+        // rule as archiveTask below: the write must finish after the screen is released.
+        scope.launch(NonCancellable) {
             try {
                 if (task.recurrenceEnabled && recurrenceHandler.isFrequencyHabit(task)) {
                     recordOccurrence(taskId, "completed", note, reason)
@@ -459,7 +462,10 @@ class TaskDetailViewModel(
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
 
-        scope.launch {
+        // NonCancellable: the screen navigates back as soon as the action is confirmed, and a
+        // cancellable tail left the completion half-applied (task advanced, occurrence missing). Same
+        // rule as archiveTask below: the write must finish after the screen is released.
+        scope.launch(NonCancellable) {
             try {
                 if (task.recurrenceEnabled && recurrenceHandler.isFrequencyHabit(task)) {
                     recordOccurrence(taskId, "skipped", note, reason)
@@ -549,7 +555,10 @@ class TaskDetailViewModel(
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
 
-        scope.launch {
+        // NonCancellable: the screen navigates back as soon as the action is confirmed, and a
+        // cancellable tail left the completion half-applied (task advanced, occurrence missing). Same
+        // rule as archiveTask below: the write must finish after the screen is released.
+        scope.launch(NonCancellable) {
             try {
                 if (task.recurrenceEnabled && recurrenceHandler.isFrequencyHabit(task)) {
                     recordOccurrence(taskId, "missed", note, reason)
