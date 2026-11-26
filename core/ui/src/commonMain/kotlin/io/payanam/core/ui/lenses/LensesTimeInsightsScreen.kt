@@ -431,7 +431,6 @@ private fun MultiSeriesLineChartCard(
             "LensesTimeInsightsScreen.MultiSeriesLineChartCard",
             "Preparing time chart",
             mapOf(
-                "title" to title,
                 "days" to xLabels.size,
                 "seriesCount" to normalizedSeries.size,
                 "scrollEnabled" to scrollEnabled,

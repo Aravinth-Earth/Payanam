@@ -1,0 +1,39 @@
+appId: io.payanam
+---
+# Archives one task from the Tasks list, addressed by its title. Archive is the locale-free control
+# (`task_detail.archive_button`); deleting would need the localized delete icon and a confirm dialog.
+# Env the caller must set: TASK_NAME. Ends back on the Tasks list.
+# The selected filter is persisted, so a previous flow can leave the list on Completed or Archived;
+# normalise to All or the row this flow just created is simply not rendered. Unconditional on
+# purpose: callers enter this subflow while the list is still composing, and a `when:` guard would
+# skip the tap exactly then, leaving the wrong layer in place for the scroll below.
+- extendedWaitUntil:
+    visible:
+      id: "tasks.filter.all"
+    timeout: 30000
+- tapOn:
+    id: "tasks.filter.all"
+- scrollUntilVisible:
+    element:
+      text: ".*${TASK_NAME}.*"
+    direction: DOWN
+    timeout: 30000
+- tapOn: ".*${TASK_NAME}.*"
+- extendedWaitUntil:
+    visible:
+      id: "task_detail.archive_button"
+    timeout: 30000
+# The actions row is below the properties and status cards in a verticalScroll: the node can be in the
+# semantics tree while it is under the fold, so centre it before the tap.
+- scrollUntilVisible:
+    element:
+      id: "task_detail.archive_button"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "task_detail.archive_button"
+- extendedWaitUntil:
+    visible:
+      id: "tasks.add_button"
+    timeout: 60000

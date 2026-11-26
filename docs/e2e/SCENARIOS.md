@@ -9,8 +9,9 @@
 #
 # AUTOMATION: the in-process Compose tier (app/src/androidTest/java/io/payanam/e2e/) — this file is
 # the tier-neutral inventory the automated classes map onto, and the roadmap for journeys not yet
-# automated. The Maestro YAML tier that first consumed this catalog was retired 2026-09-13 (see
-# SPEC.md in this directory).
+# automated. The broad Maestro YAML tier that first consumed this catalog was retired 2026-09-13
+# (SPEC.md); the narrow pure-YAML set in .maestro/ survives for the journeys no in-process run can
+# cross — process death, system UI, and persistence across a restart — and its rows are marked there.
 #
 # PRINCIPLE: Each scenario = ONE testable user journey.
 #   - Starts from known state (fresh setup, or unlocked)
@@ -544,6 +545,8 @@
   4. Tap "Stop Tracking"
   5. Assert time entry appears in timeline
 - **Verify:** Time entry created
+- **Automation:** in-process `TimeEntryEditTest`; the notification's own Stop action is
+  `.maestro/13-tracking-stop-from-shade.yaml` (the shade is not the app's process).
 - **End state:** Time tab (1 entry)
 
 ### D3: Time — Start Tracking With Dimension
@@ -1006,6 +1009,9 @@
   3. Select different value
   4. Assert value saved
 - **Verify:** Timeout preference persisted
+- **Automation:** in-process `SettingsTogglesTest` writes the preference. The REAL expiry needs real
+  elapsed time, which a Maestro flow cannot control (no wait/sleep, no clock), so the expiry itself stays
+  in `UnlockTest` and the security unit tiers.
 - **End state:** Settings tab
 
 ### H20: Settings — Scoring Config (from Settings)
@@ -1213,6 +1219,8 @@
   3. Unlock with passphrase
   4. Navigate to each tab → assert all data persists
 - **Verify:** All data survives app restart
+- **Automation:** `.maestro/12-persistence-across-kill.yaml` (one task, `am kill`, cold start, row read
+  back). The in-process tier cannot run this one: it never outlives the writing process.
 - **End state:** Main screen
 
 ### L2: Navigation — All 7 Tabs

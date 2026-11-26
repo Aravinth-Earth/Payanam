@@ -252,7 +252,7 @@ internal fun TaskDetailContent(
                 // Complete Button
                 Button(
                     onClick = onComplete,
-                    modifier = Modifier.weight(1f),
+                    modifier = Modifier.weight(1f).testTag(TestTags.TaskDetail.COMPLETE_BUTTON),
                     colors = ButtonDefaults.buttonColors(
                         containerColor = MaterialTheme.colorScheme.primary,
                     ),
@@ -270,7 +270,7 @@ internal fun TaskDetailContent(
                 if (task.recurrenceEnabled) {
                     FilledTonalButton(
                         onClick = onSkip,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag(TestTags.TaskDetail.SKIP_BUTTON),
                     ) {
                         Icon(
                             imageVector = Icons.Default.SkipNext,
@@ -290,7 +290,7 @@ internal fun TaskDetailContent(
                 if (LocalFeatureFlags.current.recurringTasksEnabled && task.recurrenceEnabled) {
                     OutlinedButton(
                         onClick = onMiss,
-                        modifier = Modifier.weight(1f),
+                        modifier = Modifier.weight(1f).testTag(TestTags.TaskDetail.MISS_BUTTON),
                         colors = ButtonDefaults.outlinedButtonColors(
                             contentColor = MaterialTheme.colorScheme.error,
                         ),

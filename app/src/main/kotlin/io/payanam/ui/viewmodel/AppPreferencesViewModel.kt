@@ -38,6 +38,7 @@ import io.payanam.domain.port.BackupStatusSnapshot
 import io.payanam.domain.port.BackupTrigger
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
+import io.payanam.presentation.platform.elapsedMillis
 import io.payanam.presentation.preferences.AppPreferenceKeys
 import io.payanam.presentation.preferences.AppPreferencesWriter
 import io.payanam.presentation.preferences.DimensionLabelNormalizer
@@ -48,6 +49,7 @@ import io.payanam.service.DatabaseBackupCoordinator
 import io.payanam.shared.settings.FocusModePreset
 import io.payanam.ui.logging.DebugLoggingPrefs
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
@@ -477,6 +479,7 @@ class AppPreferencesViewModel @Inject constructor(
     @Suppress("TooGenericExceptionCaught") // Intentional: backup + restore pipeline; multiple failure modes
     fun triggerManualBackupNow() {
         _manualBackupInProgress.value = true
+        val startedAtMs = elapsedMillis()
         viewModelScope.launch {
             try {
                 val result = databaseBackupCoordinator.backupToAppBackupDirectory(BackupTrigger.MANUAL)
@@ -501,7 +504,22 @@ class AppPreferencesViewModel @Inject constructor(
                 )
                 logger.e("AppPreferencesViewModel.triggerManualBackupNow", "Manual backup failed", error)
             } finally {
-                _manualBackupInProgress.value = false
+                // A manual run of this database takes ~120 ms, which is shorter than any UI driver's poll
+                // interval: the in-progress flag came and went between two polls, so the spinner was
+                // unobservable even though the run really happened. Holding the flag for a floor of 3 s
+                // measured from the tap makes the state honest for the user who pressed the button (something
+                // visibly happens) and observable for anything watching the screen. A 1.5 s floor was tried
+                // first and stayed racy: the wait only starts after the tap's own round trip, so the window
+                // has to cover a poll interval plus that latency, not just the run. It is a display floor,
+                // NOT a test hook: the snapshot and the persisted last-run record are already committed here.
+                val remainingMs = MIN_MANUAL_BACKUP_IN_PROGRESS_MS - (elapsedMillis() - startedAtMs)
+                try {
+                    if (remainingMs > 0) delay(remainingMs)
+                } finally {
+                    // Inner finally: a scope cancelled during the floor still clears the flag instead of
+                    // leaving the button stuck on "in progress" until some later run.
+                    _manualBackupInProgress.value = false
+                }
             }
         }
     }
@@ -509,7 +527,7 @@ class AppPreferencesViewModel @Inject constructor(
         val rows = mutableListOf<Map<String, Any>>()
         readableDb.query(
             """
-            SELECT id, title, recurrenceRule, recurrenceEnabled, dimension_id,
+            SELECT id, recurrenceRule, recurrenceEnabled, dimension_id,
                    createdAt, updatedAt, status, archivedAt
             FROM tasks
             WHERE recurrenceEnabled = 1
@@ -519,14 +537,13 @@ class AppPreferencesViewModel @Inject constructor(
             while (cursor.moveToNext()) {
                 rows += mapOf(
                     "habitId" to cursor.getString(0),
-                    "title" to cursor.getString(1),
-                    "recurrenceRule" to (cursor.getString(2) ?: "null"),
-                    "recurrenceEnabled" to cursor.getInt(3),
-                    "dimensionId" to (cursor.getString(4) ?: "null"),
-                    "createdAt" to (cursor.getString(5) ?: "null"),
-                    "updatedAt" to (cursor.getString(6) ?: "null"),
-                    "status" to (cursor.getString(7) ?: "null"),
-                    "archivedAt" to (cursor.getString(8) ?: "null"),
+                    "recurrenceRule" to (cursor.getString(1) ?: "null"),
+                    "recurrenceEnabled" to cursor.getInt(2),
+                    "dimensionId" to (cursor.getString(3) ?: "null"),
+                    "createdAt" to (cursor.getString(4) ?: "null"),
+                    "updatedAt" to (cursor.getString(5) ?: "null"),
+                    "status" to (cursor.getString(6) ?: "null"),
+                    "archivedAt" to (cursor.getString(7) ?: "null"),
                 )
             }
         }
@@ -576,11 +593,10 @@ class AppPreferencesViewModel @Inject constructor(
                 rows += mapOf(
                     "dimensionId" to cursor.getString(0),
                     "key" to (cursor.getString(1) ?: "null"),
-                    "label" to (cursor.getString(2) ?: "null"),
-                    "sortOrder" to cursor.getInt(3),
-                    "isActive" to cursor.getInt(4),
-                    "color" to (cursor.getString(5) ?: "null"),
-                    "icon" to (cursor.getString(6) ?: "null"),
+                    "sortOrder" to cursor.getInt(2),
+                    "isActive" to cursor.getInt(3),
+                    "color" to (cursor.getString(4) ?: "null"),
+                    "icon" to (cursor.getString(5) ?: "null"),
                 )
             }
         }
@@ -1004,6 +1020,20 @@ class AppPreferencesViewModel @Inject constructor(
     companion object {
         @Volatile
         private var lastLoggedDimensionSettingsSignature: String? = null
+
+        /**
+         * The floor, in milliseconds, for which a manual backup reports itself as in progress.
+         *
+         * Measured on device: the run completes in ~120 ms, so without this floor the in-progress state is
+         * gone before it can be drawn or polled. It is a display floor for a real state, not a test hook.
+         *
+         * 3 s rather than a token delay: the state has to outlive a UI driver's poll interval PLUS the
+         * latency of the commands around it, and on the A17 that round trip is what made a 1.5 s floor
+         * racy - an `extendedWaitUntil` that started late could miss the window entirely even though the
+         * backup had really run. The floor is only ever longer than the work, never longer than the
+         * state it describes: the snapshot is committed before the delay begins.
+         */
+        private const val MIN_MANUAL_BACKUP_IN_PROGRESS_MS = 3_000L
 
         private const val KEY_THEME_MODE = AppPreferenceKeys.KEY_THEME_MODE
         private const val KEY_FONT_FAMILY = AppPreferenceKeys.KEY_FONT_FAMILY

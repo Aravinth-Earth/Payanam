@@ -1,0 +1,23 @@
+# Maestro workspace for the on-device user-journey tier.
+#
+# Run everything from the repository root:
+#   maestro test .maestro
+#
+# Only root *.yaml files are flows. subflows/ holds shared steps that run only when a flow calls
+# them, so they are not discovered (and are not listed below).
+flows:
+  - "*.yaml"
+  - "sessions/*.yaml"
+  # DESTRUCTIVE: `pm clear` wipes the real database. Run it by file, deliberately.
+  - "!01-fresh-setup.yaml"
+  # MANUAL: these two need SCHEDULE_EXACT_ALARM flipped between them, which is an OS app-op no flow
+  # can set. Run them by file with the documented appop in place.
+  - "!06-exact-alarm-offered.yaml"
+  - "!07-exact-alarm-hidden.yaml"
+# A flow tagged `blocked` is committed with its finding but kept out of every run until the app
+# defect it exposes is fixed (see docs/e2e/MIGRATION.md, open defects).
+excludeTags:
+  - blocked
+
+# Artifacts (screenshots, hierarchy dumps, per-flow logs) go to ~/.maestro/tests/<timestamp>/<flow>/.
+# To keep them beside the repository instead, pass the CLI flag: --test-output-dir build-logs/e2e
