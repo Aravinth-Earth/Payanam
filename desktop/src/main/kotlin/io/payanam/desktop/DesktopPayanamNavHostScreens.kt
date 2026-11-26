@@ -584,10 +584,14 @@ internal class DesktopPayanamNavHostScreens(
         val uiState by produceState<SettingsUiState?>(initialValue = null, settingsCollaborators) {
             value = settingsCollaborators.uiState()
         }
+        val settingsUiState = uiState ?: return
         SettingsScreen(
             prefsState = settingsState,
-            uiState = uiState ?: return,
+            uiState = settingsUiState,
             debugLogExport = { DesktopLogExportActions() },
+            // The card was empty on the desktop: no slot was passed. Same rows Android shows, from the
+            // same strings and the same shared credits list.
+            aboutContent = { DesktopAboutContent(version = settingsUiState.appVersion) },
             // The desktop's own rows, so a theme chosen here is the one the shell reads on its next
             // recomposition - the SAME `app_settings` rows Android writes, read back through the shared
             // mapper rather than through a desktop-private store.

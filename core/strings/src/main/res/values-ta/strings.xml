@@ -746,6 +746,8 @@
     <string name="settings_about_title">பற்றி</string>
     <string name="settings_about_version_label">பதிப்பு</string>
     <string name="settings_about_version_value">%1$s</string>
+    <string name="settings_credits_title">திறந்த மூல நன்றியுரைகள்</string>
+    <string name="settings_credits_intro">இந்த செயலி பயன்படுத்தும், கட்டும் ஒவ்வொரு library-யும் அது வாழும் இடமும். ஒரு வரிசையைத் தட்டினால் அதன் பக்கம் திறக்கும்.</string>
     <string name="settings_action_change_passphrase">பயன்பாட்டுக் கடவுச்சொல்லை மாற்று</string>
     <string name="settings_action_collapse">சுருக்கு</string>
     <string name="settings_action_configure_scoring">மதிப்பெண் எடைகளை அமை</string>
