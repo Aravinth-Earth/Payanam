@@ -84,6 +84,9 @@ internal class Check(
     override fun toString(): String = (if (passed) "PASS  " else "FAIL  ") + name + " — " + detail
 }
 
+/** The environment variable that carries the vault phrase into the verifier. */
+internal const val PASSPHRASE_ENV = "PAYANAM_E2E_PASSPHRASE"
+
 /** The command line, parsed by hand: this tool has no dependency beyond the database module. */
 internal class Options(
     val log: File,
@@ -131,7 +134,8 @@ internal fun main(args: Array<String>) {
 }
 
 internal const val USAGE =
-    "usage: --log <file> --db <file> --passphrase <value> [--prefix <p>] [--maestro <dir>] " +
+    "usage: --log <file> --db <file> [--passphrase-file <path> | --passphrase <value> | env PAYANAM_E2E_PASSPHRASE] " +
+        "[--prefix <p>] [--maestro <dir>] " +
         "[--min-screenshots <n>] [--entities <n>] [--expect-occurrence <status>] " +
         "[--expect-note-deleted] [--expect-time-entry] [--expect-journal] [--allow-error <text>]"
 
@@ -174,7 +178,30 @@ internal fun parseOptions(args: Array<String>): Options? {
     }
     val log = values["log"]?.let(::File) ?: return usage("--log is required")
     val database = values["db"]?.let(::File) ?: return usage("--db is required")
-    val passphrase = values["passphrase"] ?: return usage("--passphrase is required")
+    val passphrase =
+        when {
+            values["passphrase-file"] != null -> {
+                val file = File(values.getValue("passphrase-file"))
+                if (!file.isFile) return usage("passphrase file does not exist: " + file.path)
+                val text = file.readText().trim()
+                if (text.isEmpty()) return usage("passphrase file is empty: " + file.path)
+                text
+            }
+
+            values["passphrase"] != null -> {
+                // A command-line value is visible in `ps` and the shell history; kept only for a
+                // throwaway vault, and named on stderr so the caller knows.
+                System.err.println(
+                    "warning: --passphrase is visible in process listings and shell history; use --passphrase-file or $PASSPHRASE_ENV",
+                )
+                values.getValue("passphrase")
+            }
+
+            else -> {
+                System.getenv(PASSPHRASE_ENV)?.trim()?.takeIf { it.isNotEmpty() }
+                    ?: return usage("--passphrase-file, --passphrase or $PASSPHRASE_ENV is required")
+            }
+        }
     if (!log.isFile) return usage("log file does not exist: " + log.path)
     if (!database.isFile) return usage("database file does not exist: " + database.path)
     val minScreenshots = values["min-screenshots"]?.toIntOrNull() ?: SEQUENCE_UNUSED

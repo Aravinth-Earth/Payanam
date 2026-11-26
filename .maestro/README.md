@@ -118,7 +118,7 @@ for i in "${!sessions[@]}"; do
   ./gradlew :tools:e2e-verify:run --args="\
     --log ${logs[$i]} \
     --db ${snaps[$i]}/payanam.db \
-    --passphrase 'E2ETestPass!2026' \
+    --passphrase-file "${PAYANAM_E2E_PASSPHRASE_FILE:?write the test-vault phrase to a file and point this at it}" \
     --maestro \"${run}/${flow}\" \
     --min-screenshots 5 \
     --allow-error 'Failed to re-arm task reminders' \
@@ -206,7 +206,10 @@ Rotation, if it is ever enabled, prunes old snapshots — pull immediately after
 ## Preconditions
 
 - **A provisioned app**: an installed build whose database was created with the passphrase in each
-  flow's `env:` block (`E2ETestPass!2026`). `01-fresh-setup.yaml` creates exactly that state.
+  flow's `env:` block. That phrase is a **test-vault value committed with the flows** - never reuse it
+  for a vault that holds real data, and keep the verifier's copy out of the shell history
+  (`--passphrase-file` or `PAYANAM_E2E_PASSPHRASE`; `--passphrase` still works but is visible in `ps`).
+  `01-fresh-setup.yaml` creates exactly that state.
 - **Notifications allowed** for the shade assertions. Flows that need them denied deny them
   themselves and restore the grant at the end.
 - **Exact alarms allowed** for the reminder journeys (03/04/05/08/11):

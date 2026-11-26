@@ -527,7 +527,7 @@ class AppPreferencesViewModel @Inject constructor(
         val rows = mutableListOf<Map<String, Any>>()
         readableDb.query(
             """
-            SELECT id, title, recurrenceRule, recurrenceEnabled, dimension_id,
+            SELECT id, recurrenceRule, recurrenceEnabled, dimension_id,
                    createdAt, updatedAt, status, archivedAt
             FROM tasks
             WHERE recurrenceEnabled = 1
@@ -537,14 +537,13 @@ class AppPreferencesViewModel @Inject constructor(
             while (cursor.moveToNext()) {
                 rows += mapOf(
                     "habitId" to cursor.getString(0),
-                    "title" to cursor.getString(1),
-                    "recurrenceRule" to (cursor.getString(2) ?: "null"),
-                    "recurrenceEnabled" to cursor.getInt(3),
-                    "dimensionId" to (cursor.getString(4) ?: "null"),
-                    "createdAt" to (cursor.getString(5) ?: "null"),
-                    "updatedAt" to (cursor.getString(6) ?: "null"),
-                    "status" to (cursor.getString(7) ?: "null"),
-                    "archivedAt" to (cursor.getString(8) ?: "null"),
+                    "recurrenceRule" to (cursor.getString(1) ?: "null"),
+                    "recurrenceEnabled" to cursor.getInt(2),
+                    "dimensionId" to (cursor.getString(3) ?: "null"),
+                    "createdAt" to (cursor.getString(4) ?: "null"),
+                    "updatedAt" to (cursor.getString(5) ?: "null"),
+                    "status" to (cursor.getString(6) ?: "null"),
+                    "archivedAt" to (cursor.getString(7) ?: "null"),
                 )
             }
         }
@@ -594,11 +593,10 @@ class AppPreferencesViewModel @Inject constructor(
                 rows += mapOf(
                     "dimensionId" to cursor.getString(0),
                     "key" to (cursor.getString(1) ?: "null"),
-                    "label" to (cursor.getString(2) ?: "null"),
-                    "sortOrder" to cursor.getInt(3),
-                    "isActive" to cursor.getInt(4),
-                    "color" to (cursor.getString(5) ?: "null"),
-                    "icon" to (cursor.getString(6) ?: "null"),
+                    "sortOrder" to cursor.getInt(2),
+                    "isActive" to cursor.getInt(3),
+                    "color" to (cursor.getString(4) ?: "null"),
+                    "icon" to (cursor.getString(5) ?: "null"),
                 )
             }
         }
