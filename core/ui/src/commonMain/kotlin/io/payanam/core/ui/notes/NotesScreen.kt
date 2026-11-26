@@ -63,6 +63,7 @@ import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.DimensionCompactBadge
 import io.payanam.core.ui.components.DimensionIdentityRow
 import io.payanam.core.ui.components.PayanamAlertDialog
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.model.DimensionIconCatalog
 import io.payanam.core.ui.preferences.DimensionOption
 import io.payanam.core.ui.preferences.LocalAppPreferences
@@ -128,7 +129,10 @@ fun NotesScreen(viewModel: NotesViewModel) {
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { showAddNoteDialog = true }) {
+            FloatingActionButton(
+                onClick = { showAddNoteDialog = true },
+                modifier = Modifier.testTag(TestTags.Notes.ADD_BUTTON),
+            ) {
                 Icon(
                     Icons.Default.Add,
                     contentDescription = strings.locAddNote,
@@ -161,7 +165,8 @@ fun NotesScreen(viewModel: NotesViewModel) {
                 modifier =
                     Modifier
                         .fillMaxWidth()
-                        .padding(horizontal = 16.dp, vertical = 8.dp),
+                        .padding(horizontal = 16.dp, vertical = 8.dp)
+                        .testTag(TestTags.Notes.SEARCH_FIELD),
                 singleLine = true,
             )
 
@@ -462,7 +467,7 @@ private fun NoteDialog(
                     value = title,
                     onValueChange = { title = it },
                     label = { Text(strings.locTitle) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag(TestTags.Notes.TITLE_FIELD),
                     singleLine = true,
                 )
 
@@ -474,7 +479,8 @@ private fun NoteDialog(
                     modifier =
                         Modifier
                             .fillMaxWidth()
-                            .height(120.dp),
+                            .height(120.dp)
+                            .testTag(TestTags.Notes.DETAILS_FIELD),
                     maxLines = 5,
                 )
                 val selectedTags = parseTagsInput(tagsInput)
@@ -488,7 +494,7 @@ private fun NoteDialog(
                     onValueChange = { tagsInput = it },
                     label = { Text(strings.locTagsOptional) },
                     placeholder = { Text(strings.locTagsHint) },
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().testTag(TestTags.Notes.TAGS_FIELD),
                     singleLine = true,
                 )
                 if (matchingTagSuggestions.isNotEmpty()) {
@@ -564,7 +570,7 @@ private fun NoteDialog(
                 if (onDelete != null) {
                     TextButton(
                         onClick = { showDeleteConfirm = true },
-                        modifier = Modifier.fillMaxWidth(),
+                        modifier = Modifier.fillMaxWidth().testTag(TestTags.Notes.DELETE_BUTTON),
                     ) {
                         Icon(Icons.Default.Delete, null, tint = MaterialTheme.colorScheme.error)
                         Spacer(Modifier.width(8.dp))
@@ -588,6 +594,7 @@ private fun NoteDialog(
                         parseTagsInput(tagsInput),
                     )
                 },
+                modifier = Modifier.testTag(TestTags.Notes.SAVE_BUTTON),
                 enabled = title.isNotBlank(),
             ) {
                 Text(strings.locSave)
@@ -607,6 +614,7 @@ private fun NoteDialog(
             text = { Text(strings.locThisActionCannotBeUndone) },
             confirmButton = {
                 TextButton(
+                    modifier = Modifier.testTag(TestTags.Notes.DELETE_CONFIRM),
                     onClick = {
                         showDeleteConfirm = false
                         onDelete?.invoke()

@@ -562,7 +562,6 @@ fun AddTaskScreen(
                         "AddTaskScreen.onSave",
                         "Saving task",
                         mapOf(
-                            "title" to title,
                             "recurrenceEnabled" to recurrenceEnabled,
                             "selectedDate" to (selectedDate?.toString() ?: "none"),
                             "selectedTime" to (selectedTime?.toString() ?: "none"),

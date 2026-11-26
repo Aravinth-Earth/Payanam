@@ -272,15 +272,14 @@ fun StatusNoteDialog(
         },
         confirmButton = {
             TextButton(
+                modifier = Modifier.testTag(TestTags.StatusNote.CONFIRM_BUTTON),
                 onClick = {
                     logger.i(
                         "StatusNoteDialog",
                         "Confirming status change",
                         mapOf(
-                            "taskTitle" to taskTitle,
                             "action" to action.name,
                             "reason" to selectedReason?.name,
-                            "note" to noteText.trim(),
                             "nextDueStrategy" to nextDueStrategy,
                         ),
                     )
@@ -311,7 +310,10 @@ fun StatusNoteDialog(
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag(TestTags.StatusNote.DISMISS_BUTTON),
+            ) {
                 Text(strings.settingsActionCancel)
             }
         },
@@ -349,13 +351,19 @@ fun QuickCompleteDialog(
                     Text(strings.locAddNote)
                 }
                 Spacer(modifier = Modifier.width(8.dp))
-                TextButton(onClick = onConfirm) {
+                TextButton(
+                    onClick = onConfirm,
+                    modifier = Modifier.testTag(TestTags.StatusNote.CONFIRM_BUTTON),
+                ) {
                     Text(strings.locDone)
                 }
             }
         },
         dismissButton = {
-            TextButton(onClick = onDismiss) {
+            TextButton(
+                onClick = onDismiss,
+                modifier = Modifier.testTag(TestTags.StatusNote.DISMISS_BUTTON),
+            ) {
                 Text(strings.settingsActionCancel)
             }
         },

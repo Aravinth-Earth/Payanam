@@ -541,8 +541,15 @@ fun PayanamNavHost(
                     }
                 }
             }
+            // Keyed on landingReady ONLY, not on landingRoute: the landing route is a PREFERENCE, so a
+            // change to it while the app is open must not rebuild the graph. Keyed on the value, the
+            // host recreated its start destination under the user's feet — the Settings entry was
+            // destroyed mid-composition and `hiltViewModel()` then threw
+            // "You cannot access the NavBackStackEntry's ViewModels after the NavBackStackEntry is
+            // destroyed" (measured on the 1.1.0 release build). Captured once here, a new landing route
+            // is honoured on the next launch, which is exactly what the setting means.
             val startDestination =
-                remember(landingReady, landingRoute) {
+                remember(landingReady) {
                     if (landingReady) {
                         landingRoute
                     } else {

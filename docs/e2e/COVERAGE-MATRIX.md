@@ -248,7 +248,7 @@ clock), taps are selector-based, and **no agent pushes** — all work stays loca
 | App widget rendering | App-widget host, outside the app process | `WidgetCommandTest` covers the command path only |
 | `pm clear` / adb / force-stop | Project rule forbids; instrumentation dies with the process | A fresh install (`-KeepInstalled:$false`) is the reset |
 | Delete All Data | Restarts the app process, killing the run | `FreshSetup` reaches the same clean state via a fresh install |
-| Lock screen after session timeout | One instrumentation run = one process, so the session never closes | `UnlockTest` as its own invocation |
+| Lock screen after session timeout | One instrumentation run = one process, so the session never closes | `UnlockTest` as its own invocation. The REAL elapsed-time timeout needs clock control a Maestro flow does not have, so it stays in the security unit tiers |
 | System dark-mode follow / rotation / system font scale | Device-level settings, no adb | Font-scale sweeps via a large-scale device run of `FullJourneyTest` |
 
 ## 12. Selector gaps to close first (app-side one-liners)
@@ -395,3 +395,38 @@ FILE's verdict rather than the success copy, and the refusal path's user-visible
 | Settings | 34 | 4 | 8 | 22 |
 
 Excluded from counts: elements classified 🔒 **B** in §11, which no on-device tier can reach.
+
+This snapshot predates the classes listed in §13 and is NOT maintained; read the per-row **Coverage**
+column as the current answer, not these totals.
+
+## 15. Cross-tier: what the Maestro flows cover
+
+The in-process tier owns every screen-driven journey. `.maestro/` exists only for the boundaries it cannot
+cross — process death, system UI/OS state, and persistence across a restart — so a row here is never a
+duplicate of an in-process class. The flows are pure YAML and self-contained: `maestro test .maestro` is the
+runner, and `.maestro/README.md` holds the preconditions.
+
+| Flow | Journey | Boundary it crosses | Asserted by |
+|---|---|---|---|
+| `03` | Complete on a dead-process reminder reaches the DB after unlock | process death | the task appears under the Completed filter |
+| `04` | More opens the status dialog and writes nothing | process death | the untouched today cell |
+| `05` | Miss on a dead-process habit reminder writes the missed status | process death | the row's status |
+| `06` | the exact-alarm affordance appears when the app-op is denied | OS state (manual app-op) | the Reminders card and its row |
+| `07` | it is gone once the app-op is granted | OS state (manual app-op) | the absent card |
+| `08` | a habit armed with a reminder is archived and leaves the list | system UI + app state | the row's disappearance |
+| `09` | End/Continue stop the tracking notification | system UI | the notification leaving the shade |
+| `10` | the notification offer follows the permission | OS state | the offer, its withdrawal |
+| `11` | the short-lead warning follows whether an alarm arms | OS state | the warning dialog |
+| `12` | a task survives a process kill | process death | the row after the cold start |
+| `13` | Stop on the tracking notification lands on Time with the modal open | system UI | the modal's own arrival |
+
+Left to other tiers by design: the OS alarm count (armed/cancelled) and a live `TrackingService` are process
+reads no flow can make — `TaskReminderSchedulerTest` / `NotificationSchedulerRegressionTest` cover the
+scheduler, and flow `08` documents the manual `dumpsys alarm` check. The idle-timeout expiry needs real
+elapsed time, which a flow has no control over.
+
+Device preconditions for any of these: the APK is installed and provisioned with the flow's `PASS`,
+notifications are allowed (flows that deny them restore the grant), `SCHEDULE_EXACT_ALARM` is allowed for the
+reminder journeys, and the host clock matches the device clock (`evalScript` computes due times from the
+host).
+

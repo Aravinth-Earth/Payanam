@@ -413,9 +413,9 @@ class TaskRepositoryJvmTest {
         runBlocking {
             val created = repository().createTask(TaskInput(title = "score me"))
 
-            repository().updateTaskScore(created.id, 42.5)
+            repository().updateTaskScore(created.id, 0.425)
 
-            assertThat(repository().getTaskById(created.id)?.taskScore).isEqualTo(42.5)
+            assertThat(repository().getTaskById(created.id)?.taskScore).isEqualTo(0.425)
         }
 
     @Test

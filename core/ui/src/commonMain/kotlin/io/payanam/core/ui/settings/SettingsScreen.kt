@@ -149,6 +149,7 @@ fun SettingsScreenContent(
             SettingsCard(
                 title = strings.settingsAppearanceTitle,
                 icon = Icons.Default.Palette,
+                modifier = Modifier.testTag(TestTags.Settings.APPEARANCE_CARD),
                 expanded = expandedSection == SettingsSection.APPEARANCE,
                 onToggleExpanded = {
                     logSectionToggle(logger, expandedSection, "appearance", SettingsSection.APPEARANCE)
@@ -168,6 +169,7 @@ fun SettingsScreenContent(
             SettingsCard(
                 title = strings.settingsDefaultLandingTitle,
                 icon = Icons.Default.Timer,
+                modifier = Modifier.testTag(TestTags.Settings.DEFAULT_LANDING_CARD),
                 expanded = expandedSection == SettingsSection.DEFAULT_LANDING,
                 onToggleExpanded = {
                     logSectionToggle(logger, expandedSection, "default_landing", SettingsSection.DEFAULT_LANDING)
@@ -185,6 +187,7 @@ fun SettingsScreenContent(
                 SettingsCard(
                     title = strings.focusModeTitle,
                     icon = Icons.Default.Visibility,
+                    modifier = Modifier.testTag(TestTags.Settings.FOCUS_MODE_CARD),
                     expanded = expandedSection == SettingsSection.FOCUS_MODE,
                     onToggleExpanded = {
                         logSectionToggle(logger, expandedSection, "focus_mode", SettingsSection.FOCUS_MODE)
@@ -336,6 +339,7 @@ fun SettingsScreenContent(
             }
             SettingsCard(
                 title = strings.settingsInsightsChartsVisibilityTitle,
+                modifier = Modifier.testTag(TestTags.Settings.TIME_INSIGHTS_CARD),
                 icon = Icons.Default.TrendingUp,
                 expanded = expandedSection == SettingsSection.TIME_INSIGHTS,
                 onToggleExpanded = {
@@ -351,6 +355,7 @@ fun SettingsScreenContent(
             SettingsCard(
                 title = strings.settingsAutoBackupTitle,
                 icon = Icons.Default.Backup,
+                modifier = Modifier.testTag(TestTags.Settings.AUTO_BACKUP_CARD),
                 expanded = expandedSection == SettingsSection.AUTO_BACKUP,
                 onToggleExpanded = {
                     logSectionToggle(logger, expandedSection, "auto_backup", SettingsSection.AUTO_BACKUP)
