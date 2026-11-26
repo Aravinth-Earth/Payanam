@@ -72,7 +72,6 @@ class RecurrenceManager(
                 "Processing task",
                 mapOf(
                     "taskId" to task.id,
-                    "title" to task.title,
                     "dueDate" to (task.dueDate?.toString() ?: "none"),
                     "status" to (task.status ?: "none"),
                     "recurrenceEnabled" to task.recurrenceEnabled,
@@ -86,7 +85,6 @@ class RecurrenceManager(
                     "Skipped - no dueDate",
                     mapOf(
                         "taskId" to task.id,
-                        "title" to task.title,
                     ),
                 )
                 continue
@@ -98,7 +96,6 @@ class RecurrenceManager(
                     "Skipped - not pending",
                     mapOf(
                         "taskId" to task.id,
-                        "title" to task.title,
                         "status" to (task.status ?: "null"),
                     ),
                 )
@@ -122,7 +119,6 @@ class RecurrenceManager(
                         "Skipped - not overdue",
                         mapOf(
                             "taskId" to task.id,
-                            "title" to task.title,
                             "dueDate" to dueDate.toString(),
                             "effectiveToday" to taskEffectiveToday.toString(),
                         ),
@@ -181,7 +177,6 @@ class RecurrenceManager(
                     "Repairing task",
                     mapOf(
                         "taskId" to task.id,
-                        "title" to task.title,
                         "oldStatus" to (task.status ?: "null"),
                         "oldDueDate" to (task.dueDate?.toString() ?: "null"),
                         "newDueDate" to newDueDate.toString(),
@@ -204,7 +199,6 @@ class RecurrenceManager(
                         "Recurrence update matched no row; task archived",
                         mapOf(
                             "taskId" to task.id,
-                            "title" to task.title,
                         ),
                     )
                 }
@@ -242,7 +236,6 @@ class RecurrenceManager(
             "Processing overdue task",
             mapOf(
                 "taskId" to task.id,
-                "title" to task.title,
                 "overdueDate" to overdueDate.toString(),
                 "effectiveToday" to effectiveToday.toString(),
                 "daysMissed" to daysMissed,

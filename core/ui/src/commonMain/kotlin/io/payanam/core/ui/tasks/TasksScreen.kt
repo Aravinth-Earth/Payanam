@@ -717,7 +717,8 @@ private fun HabitsTabContent(
                     modifier = Modifier
                         .fillMaxWidth()
                         .padding(horizontal = 16.dp, vertical = 4.dp)
-                        .focusRequester(searchFocusRequester),
+                        .focusRequester(searchFocusRequester)
+                        .testTag(TestTags.Habits.SEARCH_FIELD),
                     singleLine = true,
                     label = { Text(strings.locSearchHabits) },
                     placeholder = { Text(strings.locSearchHabitsPlaceholder) },

@@ -33,10 +33,12 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import io.payanam.core.ui.components.PayanamAlertDialog
 import io.payanam.core.ui.components.RescheduleDialog
 import io.payanam.core.ui.components.StatusAction
 import io.payanam.core.ui.components.StatusNoteDialog
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.navigation.LocalTaskStatusDialogRequest
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.formatArgs
@@ -127,13 +129,19 @@ fun TaskDetailScreen(
                     }
                 },
                 actions = {
-                    IconButton(onClick = onNavigateToEdit) {
+                    IconButton(
+                        onClick = onNavigateToEdit,
+                        modifier = Modifier.testTag(TestTags.TaskDetail.EDIT_BUTTON),
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Edit,
                             contentDescription = strings.locEdit,
                         )
                     }
-                    IconButton(onClick = { showDeleteDialog = true }) {
+                    IconButton(
+                        onClick = { showDeleteDialog = true },
+                        modifier = Modifier.testTag(TestTags.TaskDetail.DELETE_BUTTON),
+                    ) {
                         Icon(
                             imageVector = Icons.Default.Delete,
                             contentDescription = strings.locDelete,
@@ -251,6 +259,7 @@ fun TaskDetailScreen(
                 text = { Text(strings.locThisActionCannotBeUndone) },
                 confirmButton = {
                     TextButton(
+                        modifier = Modifier.testTag(TestTags.TaskDetail.DELETE_CONFIRM),
                         onClick = {
                             showDeleteDialog = false
                             // Navigating before the delete lands hid a failed delete behind a screen the user

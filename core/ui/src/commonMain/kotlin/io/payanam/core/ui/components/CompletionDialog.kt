@@ -264,7 +264,6 @@ fun CompletionDialog(
                         "CompletionDialog",
                         "Marking task as done",
                         mapOf(
-                            "taskTitle" to taskTitle,
                             "actualTime" to actualTime?.toString(),
                             "actualDuration" to actualDuration,
                         ),

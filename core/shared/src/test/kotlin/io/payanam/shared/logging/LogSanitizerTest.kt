@@ -447,6 +447,29 @@ class LogSanitizerTest {
     }
 
     @Test
+    fun sanitizeData_keepsTheEnumLiteralFieldButWouldRedactAnEnumValueField() {
+        // The settings writer logs a preference literal under `enumLiteral` because this sanitizer
+        // classifies a value by whether its KEY contains a content token, and "value" is one of them:
+        // "enumValue" normalizes to "enumvalue", which CONTAINS "value", so that field name would be
+        // redacted. This pins both halves — the name the writer uses, and the reason the obvious
+        // alternative cannot be used instead of it.
+        val kept = LogSanitizer.sanitizeData(mapOf("enumLiteral" to "simple_journal"))
+        val rejected = LogSanitizer.sanitizeData(mapOf("enumValue" to "simple_journal"))
+
+        assertThat(kept["enumLiteral"]).isEqualTo("simple_journal")
+        assertThat(rejected["enumValue"]).isEqualTo("<redacted>")
+    }
+
+    @Test
+    fun sanitizeData_stillRedactsTheGenericValueFieldTheWriterAlsoLogs() {
+        // The new field is ADDITIVE: the original `value` key keeps its redaction, so the writer can not
+        // leak a dimension label or an exported path by logging the literal beside it.
+        val output = LogSanitizer.sanitizeData(mapOf("key" to "theme_mode", "value" to "dark"))
+
+        assertThat(output["value"]).isEqualTo("<redacted>")
+    }
+
+    @Test
     fun sanitizeData_redactsAndroidAppInternalPathsButNotLookalikes() {
         val output =
             LogSanitizer.sanitizeData(
