@@ -1,22 +1,31 @@
 appId: io.payanam
 name: The permission warning follows whether a reminder will actually be armed
+tags:
+  - reminders
+  - permissions
+env:
+  PASS: E2ETestPass!2026
+  # Both shipped languages, as a regex; see 03-action-complete.yaml for why the values are grouped.
+  NOTIF_TITLE: '(Turn on notifications\?|அறிவிப்புகளை இயக்கவா\?)'
+  NOTIF_REMINDER_BODY: "(This reminder will not arrive, because notifications are turned off for Payanam.|இந்த நினைவூட்டல் வராது, ஏனெனில் பயணத்திற்கு அறிவிப்புகள் அடுத்தவும்.)"
+  NOTIF_NOT_NOW: "(Not now|இப்போது இல்லை)"
 ---
-# Covers #66. The runner denies POST_NOTIFICATION before this flow and computes a due time
-# 12 minutes ahead, so:
+# Covers #66. Notifications are pinned to denied and the due time is 12 minutes ahead, so:
 #   Auto (15-minute default)  -> fire time already past -> no alarm -> no warning
 #   Custom 0                  -> falls back to 15 minutes -> no alarm -> no warning
 #   Custom 1                  -> fire time 11 minutes ahead -> alarm -> warning
+# The flow ends by restoring notifications, so it does not leave the device unable to show them.
+
+- evalScript: ${output.base = 'e2e-lead-' + Date.now(); output.due = new Date(Date.now() + 12*60000); output.dueHour = ('0'+output.due.getHours()).slice(-2); output.dueMinute = ('0'+output.due.getMinutes()).slice(-2)}
+
+- launchApp:
+    stopApp: true
+    permissions:
+      notifications: deny
 - runFlow:
-    when:
-      visible:
-        id: "passphrase_unlock.passphrase_field"
-    commands:
-      - tapOn:
-          id: "passphrase_unlock.passphrase_field"
-      - inputText: "${PASS}"
-      - hideKeyboard
-      - tapOn:
-          id: "passphrase_unlock.unlock_button"
+    file: subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
 - extendedWaitUntil:
     visible:
       id: "nav.tab.tasks"
@@ -33,7 +42,7 @@ name: The permission warning follows whether a reminder will actually be armed
     id: "tasks.add_button"
 - tapOn:
     id: "task_add.title_field"
-- inputText: "${HABIT_NAME}-auto"
+- inputText: "${output.base}-auto"
 - hideKeyboard
 - tapOn:
     id: "task_add.due_time_button"
@@ -46,11 +55,11 @@ name: The permission warning follows whether a reminder will actually be armed
 - tapOn:
     id: "task_add.due_time_hour_field"
 - eraseText
-- inputText: "${DUE_HOUR}"
+- inputText: "${output.dueHour}"
 - tapOn:
     id: "task_add.due_time_minute_field"
 - eraseText
-- inputText: "${DUE_MINUTE}"
+- inputText: "${output.dueMinute}"
 - hideKeyboard
 - tapOn:
     id: "task_add.due_time_confirm_button"
@@ -74,7 +83,7 @@ name: The permission warning follows whether a reminder will actually be armed
     id: "tasks.add_button"
 - tapOn:
     id: "task_add.title_field"
-- inputText: "${HABIT_NAME}-zero"
+- inputText: "${output.base}-zero"
 - hideKeyboard
 - tapOn:
     id: "task_add.due_time_button"
@@ -87,11 +96,11 @@ name: The permission warning follows whether a reminder will actually be armed
 - tapOn:
     id: "task_add.due_time_hour_field"
 - eraseText
-- inputText: "${DUE_HOUR}"
+- inputText: "${output.dueHour}"
 - tapOn:
     id: "task_add.due_time_minute_field"
 - eraseText
-- inputText: "${DUE_MINUTE}"
+- inputText: "${output.dueMinute}"
 - hideKeyboard
 - tapOn:
     id: "task_add.due_time_confirm_button"
@@ -121,7 +130,7 @@ name: The permission warning follows whether a reminder will actually be armed
     id: "tasks.add_button"
 - tapOn:
     id: "task_add.title_field"
-- inputText: "${HABIT_NAME}-one"
+- inputText: "${output.base}-one"
 - hideKeyboard
 - tapOn:
     id: "task_add.due_time_button"
@@ -134,11 +143,11 @@ name: The permission warning follows whether a reminder will actually be armed
 - tapOn:
     id: "task_add.due_time_hour_field"
 - eraseText
-- inputText: "${DUE_HOUR}"
+- inputText: "${output.dueHour}"
 - tapOn:
     id: "task_add.due_time_minute_field"
 - eraseText
-- inputText: "${DUE_MINUTE}"
+- inputText: "${output.dueMinute}"
 - hideKeyboard
 - tapOn:
     id: "task_add.due_time_confirm_button"
@@ -168,3 +177,25 @@ name: The permission warning follows whether a reminder will actually be armed
     visible:
       id: "tasks.add_button"
     timeout: 30000
+
+# Restore the device state this flow changed: later flows need the shade.
+- setPermissions:
+    permissions:
+      notifications: allow
+
+# Task 3's 1-minute lead ARMED an alarm that would fire during a later flow, so the three tasks are
+# archived (which cancels their reminders) instead of left behind. The warning dialog only appears
+# while notifications are denied, hence the grant above comes first and this cleanup follows it.
+- runFlow:
+    file: subflows/archive-task.yaml
+    env:
+      TASK_NAME: ${output.base}-auto
+- runFlow:
+    file: subflows/archive-task.yaml
+    env:
+      TASK_NAME: ${output.base}-zero
+- runFlow:
+    file: subflows/archive-task.yaml
+    env:
+      TASK_NAME: ${output.base}-one
+- takeScreenshot: 163-warning-cleanup

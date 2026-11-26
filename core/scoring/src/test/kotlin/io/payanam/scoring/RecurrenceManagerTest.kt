@@ -230,6 +230,20 @@ class RecurrenceManagerTest {
         }
 
     @Test
+    fun `completing a task whose rule matches no day leaves its due date alone`() =
+        runBlocking {
+            // A stored rule whose weekdays are all invalid used to advance one day per completion, so the task
+            // drifted forever with no day ever matching. It is rejected now: the date stays where it is.
+            val stuck = task(id = "t1", recurrenceRule = "FREQ=WEEKLY;BYDAY=XX", dueDate = LocalDateTime.now())
+            val tasks = InMemoryTasks(listOf(stuck))
+            val manager = RecurrenceManager(tasks, InMemoryOccurrences(emptyList()))
+
+            manager.onTaskCompleted(stuck, note = null, reason = null, nextDueStrategy = null)
+
+            assertEquals(stuck.dueDate, tasks.task("t1")?.dueDate)
+        }
+
+    @Test
     fun `completing a non-recurring task changes nothing`() =
         runBlocking {
             // The other side of the same guard: a one-off task the user finished must not sprout a new date,

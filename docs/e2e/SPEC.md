@@ -144,11 +144,52 @@ process — so the test dies with it and the run reports **no result at all** ra
 stand in for a reinstall BETWEEN routes, never inside one. Same for the passphrase-unlock screen's reset.
 
 
-**Maestro tier (retired 2026-09-13).** The suite began as Maestro YAML flows (full ~409 s, smoke
-~192 s, driven by `build-android.ps1 -RunMaestro`/`-Smoke`). The in-process tier measured ~7×
-faster on the full journey and ~8× on the smoke subset, so the Maestro tier was unwired from the
-build script and its flow artefacts were removed — the specification and the journey catalog
-(SCENARIOS.md) are its durable successors. Git history holds the YAML if the tier is ever revived.
+**Maestro tier — the cross-process complement (broad tier retired 2026-09-13).** The suite began as
+Maestro YAML flows (full ~409 s, smoke ~192 s, driven by `build-android.ps1 -RunMaestro`/`-Smoke`). The
+in-process tier measured ~7× faster on the full journey and ~8× on the smoke subset, so that broad tier was
+unwired and its flow artefacts removed; the specification and the journey catalog (SCENARIOS.md) are its
+durable successors, and git history holds the removed YAML.
+
+A **narrow, self-contained** Maestro set is retained on purpose, in `.maestro/`, because it is the only tier
+that can cross three boundaries the in-process run cannot: **process death** (`am kill`, then apply a queued
+notification action after unlock), **system UI and OS state** (the notification shade, the permission dialog,
+app-ops), and **persistence across a restart**. A flow is only added here when the journey needs one of
+those; anything drivable inside the app process belongs in the in-process tier, which is faster and does not
+need a phone.
+
+| Flows | Proves |
+|---|---|
+| `03`, `04`, `05` | Complete / More / Miss tapped on a dead-process reminder is applied (or not) after the passphrase unlock (03 asserts the task under the Completed filter, because a habit advances to its next day) |
+| `06`, `07` | the exact-alarm affordance follows the `SCHEDULE_EXACT_ALARM` app-op (manual: no flow can set an app-op) |
+| `08` | a habit armed with a reminder is archived and leaves the list |
+| `09` | End/Continue stop the tracking notification (the live-service read moved to the notification leaving the shade) |
+| `10` | the notification offer appears while blocked and is withdrawn once granted outside the app |
+| `11` | the short-lead warning follows whether a reminder will actually be armed (and restores the grant) |
+| `12` | a task written before a process kill is on disk after the cold start (SCENARIOS L1) |
+| `13` | Stop on the tracking notification lands on Time with the entry modal already open |
+
+**The migration has its own ledger.** `docs/e2e/MIGRATION.md` maps every in-process class to the
+session that replaces it, and names what still blocks each deletion.
+
+**No shell wrapper.** `maestro test .maestro` is the whole runner: `.maestro/config.yaml` lists the flows and
+the deliberate exclusions (`01` is destructive, `06`/`07` need a manual app-op), and per-flow `tags` select
+subsets (`--include-tags reminders|tracking|permissions|persistence`). Device state a flow changes is changed
+inside the flow (`launchApp.permissions`, `setPermissions`) and restored before it ends. Due times and unique
+row names are generated with `evalScript`, so no host script computes anything. Label matchers carry both
+shipped languages as a regex (`"(Complete|முடி)"`), so the same file runs on an English or a Tamil device;
+`-e` overrides any value.
+
+**What a flow cannot assert, and where it is covered instead:** the OS alarm count (armed, then cancelled by
+archiving) — `TaskReminderSchedulerTest` / `NotificationSchedulerRegressionTest`, with the manual `dumpsys
+alarm` read documented in `08`; a live `TrackingService` after End — the ongoing notification leaving the
+shade; the idle session timeout — `UnlockTest` plus the security unit tiers, because a flow has no clock
+control; the SAF picker — `ImportSeamTest` at the ViewModel seam.
+
+Rules for a new flow: no `pm clear` outside `01` (run that one by file), no coordinate taps, ids before text
+(text is for OS-drawn surfaces only), a unique per-run name for any row it creates, and an end state another
+flow can start from — including any permission or setting it changes.
+
+
 
 ## Structural constraints
 These shaped the harness; do not try to close them with shell access — `pm clear` and `adb` are out

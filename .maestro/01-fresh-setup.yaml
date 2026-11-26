@@ -1,8 +1,14 @@
 appId: io.payanam
-name: Fresh setup, unlock, enable debug logging
+name: Fresh setup — onboarding, passphrase, dimensions, debug logging
+tags:
+  - setup
+  - destructive
+env:
+  PASS: E2ETestPass!2026
 ---
-# clearState is `pm clear` on the installed app, so this flow destroys the real database.
-# The runner runs it only with RESET_APP=1; never point it at an install you care about.
+# clearState is `pm clear` on the installed app, so this flow destroys the real database. It is
+# excluded from the workspace's default flow list (.maestro/config.yaml) for that reason: run it BY
+# FILE, only against an install you are willing to wipe.
 - launchApp:
     clearState: true
     permissions:
@@ -73,11 +79,15 @@ name: Fresh setup, unlock, enable debug logging
 # Debug logging FIRST, so the whole run lands in the session log.
 - tapOn:
     id: "nav.tab.settings"
+# Measured on the A17: this scroll reported `[84,2039][996,2091]` for the card — a 52 px sliver under the
+# bottom bar — and the following tap expanded nothing, so the debug switch and the export buttons were
+# never composed. Centring is what makes the header a real target.
 - scrollUntilVisible:
     element:
       id: "settings.debug_card"
     direction: DOWN
     timeout: 40000
+    centerElement: true
 - takeScreenshot: 09-settings
 - tapOn:
     id: "settings.debug_card"
@@ -88,3 +98,38 @@ name: Fresh setup, unlock, enable debug logging
 - tapOn:
     id: "settings.debug_logging_switch"
 - takeScreenshot: 11-debug-on
+
+# Auto-Backup ON, once per install. Sessions rely on it for the DB snapshot they export, and a fresh
+# install always starts with it off. Enabling it also writes the first backup immediately.
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_card"
+    direction: DOWN
+    timeout: 40000
+    centerElement: true
+- tapOn:
+    id: "settings.auto_backup_card"
+- extendedWaitUntil:
+    visible:
+      id: "settings.auto_backup_switch"
+    timeout: 20000
+# The switch row is the last thing in the card and sat exactly on the measured edge (`[84,2059][996,2091]`
+# against a viewport ending at 2052): the tap landed at (540,2075) on dead space and the app logged no
+# toggle. Scroll the ROW to the middle before tapping it — the same shape as
+# `subflows/ensure-auto-backup.yaml`, which is the proven fix for this site.
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_switch"
+    direction: DOWN
+    timeout: 30000
+    centerElement: true
+- tapOn:
+    id: "settings.auto_backup_switch"
+# Run-now renders only while Auto-Backup is on, so this is also the toggle's own assertion.
+# Below the fold once the card is open: scroll rather than wait, or a taller card never passes.
+- scrollUntilVisible:
+    element:
+      id: "settings.run_backup_now"
+    direction: DOWN
+    timeout: 30000
+- takeScreenshot: 12-auto-backup-on

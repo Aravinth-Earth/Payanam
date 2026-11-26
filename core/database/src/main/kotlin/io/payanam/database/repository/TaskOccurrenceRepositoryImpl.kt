@@ -172,7 +172,6 @@ class TaskOccurrenceRepositoryImpl
                     "taskId" to taskId,
                     "date" to date.toString(),
                     "newStatus" to newStatus,
-                    "note" to (note ?: "null"),
                     "reason" to (reason ?: "null"),
                     "actualCompletedAt" to (actualCompletedAt?.toString() ?: "null"),
                     "actualDurationMinutes" to (actualDurationMinutes?.toString() ?: "null"),

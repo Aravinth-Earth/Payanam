@@ -441,6 +441,26 @@ class RecurrenceConfigTest {
     }
     
     @Test
+    fun `a weekday schedule with no usable weekday is not schedulable and says so`() {
+        val empty = RecurrenceConfig.specificWeekdays(emptySet())
+        assertFalse(empty.isSchedulable)
+        assertEquals("Invalid schedule", empty.displayName)
+
+        val outOfRange = RecurrenceConfig.specificWeekdays(setOf(0, 8))
+        assertFalse(outOfRange.isSchedulable)
+
+        val valid = RecurrenceConfig.specificWeekdays(setOf(1, 3))
+        assertTrue(valid.isSchedulable)
+        assertEquals("Mon, Wed", valid.displayName)
+    }
+
+    @Test
+    fun `an all-invalid BYDAY rule parses to an unschedulable config`() {
+        val config = RecurrenceConfig.parse("FREQ=WEEKLY;BYDAY=XX")
+        assertFalse(config.isSchedulable)
+    }
+
+    @Test
     fun `parse handles all weekday codes`() {
         val config = RecurrenceConfig.parse("FREQ=WEEKLY;BYDAY=MO,TU,WE,TH,FR,SA,SU")
         assertEquals(setOf(1, 2, 3, 4, 5, 6, 7), config.weekdays)

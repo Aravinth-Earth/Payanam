@@ -1,21 +1,23 @@
 appId: io.payanam
 name: Ending a tracking entry stops its notification, and Continue starts a new one
+tags:
+  - tracking
+env:
+  PASS: E2ETestPass!2026
+  # Both shipped languages, as a regex; see 03-action-complete.yaml for why the values are grouped.
+  LOC_START: "(Start|தொடங்கு)"
+  LOC_CONTINUE: "(Continue|தொடர்)"
+  TRACKING_SUBTEXT: "(Tracking in progress|கண்காணிப்பு நடைபெறுகிறது)"
 ---
 # Covers #63: the tracking notification outlived a continued entry that was ended.
-# The flow launches the app itself, so it does not depend on what the previous suite left in front.
-- launchApp:
-    stopApp: false
+# The flow force-stops and relaunches the app itself, so it does not depend on what the previous flow
+# left in front (an unsaved form, another tab, a running session).
+
+- launchApp
 - runFlow:
-    when:
-      visible:
-        id: "passphrase_unlock.passphrase_field"
-    commands:
-      - tapOn:
-          id: "passphrase_unlock.passphrase_field"
-      - inputText: "${PASS}"
-      - hideKeyboard
-      - tapOn:
-          id: "passphrase_unlock.unlock_button"
+    file: subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
 - extendedWaitUntil:
     visible:
       id: "nav.tab.time"
@@ -23,24 +25,8 @@ name: Ending a tracking entry stops its notification, and Continue starts a new 
 - tapOn:
     id: "nav.tab.time"
 
-# Normalise: a session left running by an earlier flow would make "start" a no-op.
 - runFlow:
-    when:
-      visible:
-        id: "time.stop_tracking_button"
-    commands:
-      - tapOn:
-          id: "time.stop_tracking_button"
-      - extendedWaitUntil:
-          visible:
-            id: "edit_time_entry_confirm_button"
-          timeout: 20000
-      - tapOn:
-          id: "edit_time_entry_confirm_button"
-      - extendedWaitUntil:
-          visible:
-            id: "time.start_tracking_fab"
-          timeout: 30000
+    file: subflows/stop-running-entry.yaml
 
 - tapOn:
     id: "time.start_tracking_fab"
@@ -70,8 +56,8 @@ name: Ending a tracking entry stops its notification, and Continue starts a new 
     timeout: 30000
 - takeScreenshot: 141-entry-ended
 
-# Continue the finished entry: it must produce a NEW entry, and ending that one must
-# leave nothing running. The runner then asserts no TrackingService remains.
+# Continue the finished entry: it must produce a NEW entry, and ending that one must leave nothing
+# running.
 - tapOn:
     id: "time.entry_block"
 - extendedWaitUntil:
@@ -97,8 +83,8 @@ name: Ending a tracking entry stops its notification, and Continue starts a new 
     timeout: 30000
 - takeScreenshot: 143-continued-entry-ended
 
-# Visual evidence in the shade. The authoritative assertion is the runner's service check;
-# this wait is here so a still-counting notification is captured in the screenshot.
+# The ongoing notification is the user-visible half of the foreground service; the service read that
+# proved it stopped was a shell job, so this flow asserts the half a user can see.
 - swipe:
     start: 50%, 0%
     end: 50%, 70%

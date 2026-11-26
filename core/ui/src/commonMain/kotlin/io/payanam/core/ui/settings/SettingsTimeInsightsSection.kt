@@ -17,9 +17,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.preferences.chartVisibility
 import io.payanam.core.ui.text.LocalUiStrings
@@ -386,7 +388,10 @@ private fun ChartToggleRow(
             // switch's own on/off state comes from the toggleable modifier applied inside Material3,
             // so a plain semantics block would leave a labelled node with no state next to a stateful
             // node with no label — which reads as "not a switch" to anything inspecting it.
-            modifier = Modifier.semantics(mergeDescendants = true) { contentDescription = row.label },
+            modifier =
+                Modifier
+                    .testTag(TestTags.Settings.insight(row.key))
+                    .semantics(mergeDescendants = true) { contentDescription = row.label },
         )
     }
 }
