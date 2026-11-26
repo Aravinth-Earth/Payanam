@@ -137,9 +137,19 @@ Windows users can also use `.\build-tools\scripts\build-android.ps1` for the ful
 
 ## Credits
 
-Inspiration from [uHabits](https://github.com/iSoron/uhabits), [SATT](https://github.com/Razeeman/Android-SimpleTimeTracker), and [Google Stitch](https://stitch.google.com).  
-Third-party libraries: AndroidX, Kotlin & kotlinx (Coroutines, Serialization), Jetpack Compose + Material3, Hilt (Dagger), Room, [SQLCipher](https://www.zetetic.net/sqlcipher/) (database encryption), [Vico Charts](https://github.com/patrykandpatrick/vico), Timber, WorkManager.  
-Quality tooling: [detekt](https://detekt.dev), [Spotless](https://github.com/diffplug/spotless) + [ktlint](https://ktlint.github.io), JUnit, [Robolectric](https://robolectric.org), [Mockito](https://site.mockito.org), [Truth](https://truth.dev), Espresso.
+Inspiration from [uHabits](https://github.com/iSoron/uhabits), [SATT](https://github.com/Razeeman/Android-SimpleTimeTracker), and [Google Stitch](https://stitch.google.com).
+
+Payanam is built on other people's work. Every library it ships with, and every tool it builds and tests with, is named below with the version this release uses. The same list is inside the app under **Settings → About**, where each row opens that project's own page.
+
+**Android runtime** — AndroidX Core KTX 1.18.0 · AndroidX Activity Compose 1.13.0 · AndroidX Lifecycle 2.10.0 · AndroidX Navigation Compose 2.9.7 · [Jetpack Compose](https://developer.android.com/jetpack/compose) (BOM 2026.02.01) with Compose Material 3 1.3.1 · [Hilt](https://dagger.dev/hilt/) 2.59.2 and Hilt Navigation Compose 1.3.0 · [Room](https://developer.android.com/training/data-storage/room) 2.7.2 on AndroidX SQLite 2.7.0 · [SQLCipher for Android](https://www.zetetic.net/sqlcipher/) 4.17.0 (database encryption) · [Kotlin Coroutines](https://github.com/Kotlin/kotlinx.coroutines) 1.10.2 · [Kotlin Serialization](https://github.com/Kotlin/kotlinx.serialization) 1.9.0 · AndroidX DataStore 1.2.1 · AndroidX WorkManager 2.11.1 · AndroidX Biometric 1.1.0 · [Vico](https://github.com/patrykandpatrick/vico) 3.1.0 · [Timber](https://github.com/JakeWharton/timber) 5.0.1.
+
+**Desktop runtime** — [Compose Multiplatform](https://github.com/JetBrains/compose-multiplatform) 1.10.2 · AndroidX Navigation Compose (multiplatform) 2.9.2 · Kotlin Coroutines (Swing) 1.10.2 · [SQLite JDBC](https://github.com/xerial/sqlite-jdbc) 3.50.3.0 · [SQLCipher Multiplatform JDBC](https://github.com/s0d3s/sqlcipher-multiplatform-jdbc) 0.2.13 (MIT).
+
+**Build and packaging** — Android Gradle Plugin 9.3.0 · [Kotlin](https://kotlinlang.org) 2.3.20 · [KSP](https://github.com/google/ksp) 2.3.10 · Hilt compiler 2.59.2 · Room compiler 2.7.2.
+
+**Tests and quality tooling** — JUnit 4.13.2 · AndroidX Test (core 1.7.0, ext-junit 1.3.0) · [Espresso](https://developer.android.com/training/testing/espresso) 3.7.0 · [Robolectric](https://robolectric.org) 4.16.1 · [Mockito](https://site.mockito.org) 5.23.0 with mockito-kotlin 5.4.0 · [Truth](https://truth.dev) 1.4.5 · Kotlin Coroutines Test 1.10.2 · Room testing 2.7.2 · Compose UI Test (BOM 2026.02.01) · [org.json](https://github.com/stleary/JSON-java) 20240303 (public domain) · [detekt](https://detekt.dev) 1.23.8 · [Spotless](https://github.com/diffplug/spotless) 8.4.0 · [ktlint](https://ktlint.github.io) 1.8.0.
+
+Versions mirror [`gradle/libs.versions.toml`](gradle/libs.versions.toml), and the licences are the ones each project publishes.
 
 ---
 

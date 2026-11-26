@@ -38,6 +38,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import io.payanam.R
 import io.payanam.common.logging.UnifiedLogger
+import io.payanam.core.ui.settings.SettingsCreditsSection
 import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.settings.StatRow
 import io.payanam.feature.settings.ApkBuildType
@@ -597,6 +598,23 @@ internal fun AboutSettingsContent(
                 )
             }
         } // End if (!isFDroidBuild)
+
+        // The credits are the same list the desktop About card renders, so a library named here is named
+        // there: only opening a link is Android's own work.
+        SettingsCreditsSection(
+            onOpenUrl = { url ->
+                logger.d("AboutSettingsSection.openCredit", "Credit link tapped", mapOf("url" to url))
+                runCatching {
+                    context.startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+                }.onFailure { e ->
+                    logger.w(
+                        "AboutSettingsSection.openCreditFailed",
+                        "No browser available for a credit link",
+                        mapOf("error" to (e.message ?: "unknown")),
+                    )
+                }
+            },
+        )
     }
 }
 

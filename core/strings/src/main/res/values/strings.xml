@@ -745,6 +745,8 @@
     <string name="settings_about_title">About</string>
     <string name="settings_about_version_label">Version</string>
     <string name="settings_about_version_value">%1$s</string>
+    <string name="settings_credits_title">Open-source credits</string>
+    <string name="settings_credits_intro">Every library this app ships with or builds with, and where it lives. Tap a row to open its page.</string>
     <string name="settings_action_change_passphrase">Update Passphrase</string>
     <string name="settings_action_collapse">Collapse</string>
     <string name="settings_action_configure_scoring">Configure Scoring Weights</string>
