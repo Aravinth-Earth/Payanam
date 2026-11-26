@@ -16,7 +16,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
@@ -118,6 +120,7 @@ fun SettingsDefaultLandingSection(
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             visibleRoutes.forEachIndexed { index, route ->
                 SegmentedButton(
+                    modifier = Modifier.testTag(TestTags.Settings.landingOption(route)),
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = visibleRoutes.size),
                     onClick = {
                         logger.i(

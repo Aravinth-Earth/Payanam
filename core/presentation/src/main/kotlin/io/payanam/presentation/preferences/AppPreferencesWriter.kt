@@ -578,7 +578,7 @@ class AppPreferencesWriter(
             AppLogger.current.d(
                 "AppPreferencesWriter.setSetting",
                 "Setting updated",
-                mapOf("key" to key, "value" to value),
+                settingLogData(key, value),
             )
         } catch (e: CancellationException) {
             throw e
@@ -590,6 +590,26 @@ class AppPreferencesWriter(
                 mapOf("key" to key),
             )
         }
+    }
+
+    /**
+     * The data map for one settings write.
+     *
+     * `value` is kept exactly as it was, so `LogSanitizer` still redacts it for every row and the
+     * committed "no user content in the log" rule is untouched. [NonContentPreferenceValues.FIELD] is
+     * additive: it appears only when [NonContentPreferenceValues.literalFor] admits the row, i.e. when the
+     * key's declared domain - an enum, a Boolean or a number - proves the value cannot be user text.
+     * Neither the sanitizer nor this class knows a key as "safe" on its own name alone.
+     */
+    private fun settingLogData(
+        key: String,
+        value: String,
+    ): Map<String, Any?> {
+        val data = mutableMapOf<String, Any?>("key" to key, "value" to value)
+        NonContentPreferenceValues.literalFor(key, value)?.let { literal ->
+            data[NonContentPreferenceValues.FIELD] = literal
+        }
+        return data
     }
 
     /**

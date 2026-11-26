@@ -22,7 +22,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.unit.dp
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.preferences.AppLanguageOption
 import io.payanam.core.ui.preferences.AppPreferencesState
 import io.payanam.core.ui.preferences.FontFamilyOption
@@ -103,6 +105,7 @@ fun SettingsAppearanceSection(
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             ThemeModeOption.entries.forEachIndexed { index, option ->
                 SegmentedButton(
+                    modifier = Modifier.testTag(TestTags.Settings.themeOption(option.key)),
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = ThemeModeOption.entries.size),
                     onClick = {
                         onThemeModeChange(option)

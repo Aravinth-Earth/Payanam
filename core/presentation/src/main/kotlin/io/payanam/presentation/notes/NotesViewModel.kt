@@ -183,7 +183,11 @@ class NotesViewModel(
                 if (tags.isNotEmpty()) {
                     tagRepository.replaceNoteTags(note.id, tags)
                 }
-                logger.i("NotesViewModel.createNote", "Note created", mapOf("tagCount" to tags.size))
+                logger.i(
+                    "NotesViewModel.createNote",
+                    "Note created",
+                    mapOf("noteId" to note.id, "tagCount" to tags.size),
+                )
             } catch (e: CancellationException) {
                 // A cancelled collection is NOT a load failure. Rethrowing keeps structured
                 // concurrency intact, and stops a normal cancellation being logged as an ERROR -

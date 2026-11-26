@@ -500,6 +500,7 @@ fun TimeScreen(
                         activeModalTarget = TimeBlockModalTarget.ManualCreate(uiState.selectedDate)
                     },
                     containerColor = MaterialTheme.colorScheme.secondaryContainer,
+                    modifier = Modifier.testTag(TestTags.Time.ADD_ENTRY_FAB),
                 ) {
                     Icon(Icons.Default.Add, strings.locAddTimeEntry)
                 }

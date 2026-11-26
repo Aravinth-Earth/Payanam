@@ -7,13 +7,18 @@ import io.payanam.domain.model.DimensionTaxonomyCatalog
 import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.repository.AppSettingsRepository
 import io.payanam.domain.repository.LifeDimensionCatalogRepository
+import io.payanam.shared.logging.AppLogger
+import io.payanam.shared.logging.UnifiedLogger
 import io.payanam.shared.settings.FocusModePreset
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
+import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
+import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
+import org.junit.Before
 import org.junit.Test
 import java.time.LocalDate
 
@@ -32,6 +37,22 @@ class AppPreferencesWriterTest {
     private val canonicalId = CANONICAL_DIMENSION_ID
     private val canonicalFallbackLabel =
         requireNotNull(DimensionTaxonomyCatalog.fromCanonicalId(CANONICAL_DIMENSION_ID)).fallbackLabel
+
+    /** Captures the data maps the writer logs, so "logged a literal" is an assertion. */
+    private val recorder = RecordingLog()
+
+    // AppLogger is a process-wide holder and tests share one JVM: reset on both sides, so this class
+    // neither reads a logger leaked from an earlier class nor leaks its own into the next one.
+    @Before
+    fun installRecorder() {
+        AppLogger.resetForTests()
+        AppLogger.install(recorder)
+    }
+
+    @After
+    fun removeRecorder() {
+        AppLogger.resetForTests()
+    }
 
     private companion object {
         /** A dimension id [DimensionTaxonomyCatalog] actually owns, so the canonical-fallback branches run. */
@@ -493,4 +514,120 @@ class AppPreferencesWriterTest {
             // Each toggle owns its row: sharing one key across cards would make them read each other.
             assertEquals(3, settings.writes.size)
         }
+
+    // ---------------------------------------------------------------- what reaches the log
+
+    @Test
+    fun `an allowlisted preference logs its literal beside the still-redacted value field`() =
+        runTest {
+            val settings = RecordingSettings()
+            writer(settings).setThemeMode("dark")
+
+            val data = recorder.dataOf("AppPreferencesWriter.setSetting", "theme_mode")
+            assertEquals("theme_mode", data?.get("key"))
+            // The generic field is untouched: LogSanitizer still redacts it on the way to disk.
+            assertEquals("dark", data?.get("value"))
+            // The additive field is what the e2e verifier asserts against.
+            assertEquals("dark", data?.get("enumLiteral"))
+        }
+
+    @Test
+    fun `every preference row a session verifies emits the literal field`() =
+        runTest {
+            val settings = RecordingSettings()
+            val writer = writer(settings)
+
+            writer.setThemeMode("system")
+            writer.setLaunchDestination("notes")
+            writer.setActivePreset(FocusModePreset.SIMPLE_JOURNAL)
+            writer.setChartJournalModuleEnabled(true)
+
+            assertEquals("system", recorder.literalOf("theme_mode"))
+            assertEquals("notes", recorder.literalOf("launch_destination_route"))
+            assertEquals("simple_journal", recorder.literalOf("focus_mode_active_preset"))
+            assertEquals("true", recorder.literalOf("chart_journal_module_enabled"))
+        }
+
+    @Test
+    fun `a row outside the allowlist logs no literal`() =
+        runTest {
+            val settings = RecordingSettings()
+            writer(settings).setAutoBackupLastRun("2026-11-19T12:00:00")
+
+            val data = recorder.dataOf("AppPreferencesWriter.setSetting", "auto_backup_last_run")
+            // The timestamp is neither an enum, a Boolean nor a number, so only the redacted `value` reaches
+            // the log - the same shape as before this field existed.
+            assertEquals("2026-11-19T12:00:00", data?.get("value"))
+            assertNull(data?.get("enumLiteral"))
+        }
+
+    @Test
+    fun `an admitted key carrying an invented value logs no literal`() =
+        runTest {
+            val settings = RecordingSettings()
+            writer(settings).setThemeMode("my favourite theme")
+
+            // The write still lands (the writer is not a validator), but the value stays out of the log:
+            // the domain check, not the key name alone, is what admits a value.
+            assertEquals("my favourite theme", settings.valueOf("theme_mode"))
+            assertNull(recorder.dataOf("AppPreferencesWriter.setSetting", "theme_mode")?.get("enumLiteral"))
+        }
+
+    /** A logger that records the source and data map of every entry, so a logged field is assertable. */
+    private class RecordingLog : UnifiedLogger {
+        val entries = mutableListOf<Pair<String, Map<String, Any?>>>()
+
+        fun dataOf(
+            source: String,
+            key: String,
+        ): Map<String, Any?>? =
+            entries.lastOrNull { (entrySource, data) ->
+                entrySource == source && data["key"] == key
+            }?.second
+
+        /** The literal the writer logged for [key] on its generic settings line, if any. */
+        fun literalOf(key: String): Any? = dataOf("AppPreferencesWriter.setSetting", key)?.get("enumLiteral")
+
+        override fun d(
+            source: String,
+            message: String,
+            data: Map<String, Any?>,
+        ) {
+            entries += source to data
+        }
+
+        override fun i(
+            source: String,
+            message: String,
+            data: Map<String, Any?>,
+        ) {
+            entries += source to data
+        }
+
+        override fun w(
+            source: String,
+            message: String,
+            data: Map<String, Any?>,
+        ) {
+            entries += source to data
+        }
+
+        override fun e(
+            source: String,
+            message: String,
+            error: Throwable?,
+            data: Map<String, Any?>,
+        ) {
+            entries += source to data
+        }
+
+        override fun eSync(
+            source: String,
+            message: String,
+            error: Throwable?,
+            data: Map<String, Any?>,
+        ) {
+            entries += source to data
+        }
+    }
 }
