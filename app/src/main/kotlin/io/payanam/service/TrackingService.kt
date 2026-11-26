@@ -9,12 +9,15 @@ import android.app.NotificationChannel
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.app.Service
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.os.Binder
 import android.os.IBinder
 import android.os.SystemClock
 import androidx.core.app.NotificationCompat
+import androidx.core.content.ContextCompat
 import dagger.hilt.android.AndroidEntryPoint
 import io.payanam.MainActivity
 import io.payanam.R
@@ -104,14 +107,31 @@ class TrackingService : Service() {
     }
 
     /**
-     * Creates the low-importance tracking notification channel.
+     * Creates the low-importance tracking notification channel and listens for the broadcasts after which the
+     * chronometer base no longer matches the stored start time.
      */
     override fun onCreate() {
         super.onCreate()
         logger.i("TrackingService.onCreate", "Service created")
         notificationManager = getSystemService(Context.NOTIFICATION_SERVICE) as NotificationManager
         createNotificationChannel()
+        val filter =
+            IntentFilter().apply {
+                addAction(Intent.ACTION_TIMEZONE_CHANGED)
+                addAction(Intent.ACTION_TIME_CHANGED)
+            }
+        ContextCompat.registerReceiver(this, clockChangeReceiver, filter, ContextCompat.RECEIVER_NOT_EXPORTED)
     }
+
+    /** Re-posts the notification at the elapsed time the stored timestamps now give. */
+    private val clockChangeReceiver =
+        object : BroadcastReceiver() {
+            override fun onReceive(context: Context?, intent: Intent?) {
+                if (!ClockChange.rebases(intent?.action)) return
+                logger.i("TrackingService.clockChange", "Clock or zone changed; rebasing the tracking notification")
+                updateNotification()
+            }
+        }
 
     /**
      * Clients bind directly; commands arrive via [onStartCommand].
@@ -260,8 +280,6 @@ class TrackingService : Service() {
     }
 
     private fun buildNotification(session: TrackingSession): Notification {
-        val elapsed = Duration.between(session.startTime, LocalDateTime.now())
-
         // Intent to open app (same target semantics as widget quick start)
         val openAppIntent = Intent(this, MainActivity::class.java).apply {
             flags = Intent.FLAG_ACTIVITY_SINGLE_TOP or Intent.FLAG_ACTIVITY_CLEAR_TOP
@@ -305,7 +323,7 @@ class TrackingService : Service() {
             .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setUsesChronometer(true)
-            .setWhen(System.currentTimeMillis() - elapsed.toMillis())
+            .setWhen(ClockChange.chronometerBase(session.startTime, LocalDateTime.now(), System.currentTimeMillis()))
             .setChronometerCountDown(false)
             .setContentIntent(openAppPendingIntent)
             .addAction(
@@ -339,6 +357,7 @@ class TrackingService : Service() {
      * Flushes the encrypted database's WAL checkpoint before the service dies.
      */
     override fun onDestroy() {
+        runCatching { unregisterReceiver(clockChangeReceiver) }
         logger.i(
             "TrackingService.onDestroy",
             "Service destroying; flushing WAL checkpoint",
