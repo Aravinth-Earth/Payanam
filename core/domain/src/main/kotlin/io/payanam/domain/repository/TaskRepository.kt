@@ -42,7 +42,7 @@ interface TaskRepository {
      */
     suspend fun updateTask(id: String, input: TaskInput): Task
     /**
-     * Writes the recomputed score (0-100) for a task after a
+     * Writes the recomputed score (0.0-1.0) for a task after a
      * completion/skip/miss or manual change; feeds the life-dimension radar
      * and Trends.
      */
