@@ -145,7 +145,7 @@ stand in for a reinstall BETWEEN routes, never inside one. Same for the passphra
 
 
 **Maestro tier — the cross-process complement (broad tier retired 2026-09-13).** The suite began as
-Maestro YAML flows (full ~409 s, smoke ~192 s, driven by `build-android.ps1 -RunMaestro`/`-Smoke`). The
+Maestro YAML flows (full ~409 s, smoke ~192 s, driven by `build.py android -RunMaestro`/`-Smoke`). The
 in-process tier measured ~7× faster on the full journey and ~8× on the smoke subset, so that broad tier was
 unwired and its flow artefacts removed; the specification and the journey catalog (SCENARIOS.md) are its
 durable successors, and git history holds the removed YAML.
@@ -250,7 +250,7 @@ to the a11y tree. Put the label on the clickable node: `.semantics { contentDesc
 1. STOP the test immediately
 2. Log the gap: "Element X not found on screen Y — needs an a11y label or testTag"
 3. Add the label/testTag to Kotlin code (see the table above)
-4. Build with `build-tools/scripts/build-android.ps1`
+4. Build with `python3 build-tools/preflight/build.py android`
 5. Re-run the class on the device
 
 ## Step efficiency rules

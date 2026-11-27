@@ -94,8 +94,8 @@ if [[ "$SKIP_BUILD" -eq 1 ]]; then
         step "1/4 build: SKIPPED (--skip-build)"
     fi
 else
-    step "1/4 build: bash build-tools/scripts/build-linux.sh"
-    if ! bash build-tools/scripts/build-linux.sh >"$LOGS_DIR/desktop-import-loop-build-$STAMP.log" 2>&1; then
+    step "1/4 build: python3 build-tools/preflight/build.py desktop"
+    if ! python3 build-tools/preflight/build.py desktop >"$LOGS_DIR/desktop-import-loop-build-$STAMP.log" 2>&1; then
         verdict "LOOP-FAILED: the build failed - see $LOGS_DIR/desktop-import-loop-build-$STAMP.log"
         exit 1
     fi
@@ -146,7 +146,7 @@ if [[ "$SKIP_LAUNCH" -eq 0 ]]; then
                 # The log goes where the APP decides, not where this script would guess. Mirroring
                 # DesktopAppPaths: with XDG_DATA_HOME set it replaces <home> as the parent, and the root
                 # name carries a "-debug" suffix on a debug build ("$APP_DIRECTORY_NAME-debug"). This .deb
-                # was built with build-linux.sh's default BUILD_TYPE=debug, so Payanam-debug is the root
+                # was built with build.py desktop's default BUILD_TYPE=debug, so Payanam-debug is the root
                 # actually in use - a sweep that only knew the unsuffixed name found nothing under an
                 # otherwise completely healthy run, the same way desktop-loop.sh did.
                 # BOTH names are searched anyway: --reuse-deb/--skip-build can hand over a binary built

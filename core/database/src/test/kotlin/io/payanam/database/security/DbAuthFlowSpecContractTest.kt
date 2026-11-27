@@ -15,7 +15,7 @@ import java.io.File
 
 /**
  * Token set shared by the import rules. `plain` is the load-bearing token: it covers both the PLAIN and the
- * PLAINTEXT spellings the spec has used, matching the ps1 guard in build-tools/scripts/build-android.ps1.
+ * PLAINTEXT spellings the spec has used, matching the ps1 guard in python3 build-tools/preflight/build.py android.
  */
 private val PLAINTEXT_TOKENS = Regex("plain|unencrypt|cleartext", RegexOption.IGNORE_CASE)
 
@@ -110,7 +110,7 @@ class DbAuthFlowSpecContractTest {
     }
 
     private fun loadSpecJson(): String {
-        // A system property lets the guard falsifier (build-tools/scripts/db-flow-guard-falsify.ps1) run these
+        // A system property lets the guard falsifier (build-tools/preflight/checks/common/db_auth_falsification.py) run these
         // assertions against a deliberately mutated spec; without it that mutant would have to overwrite the
         // canonical spec in place, which is the leak the ps1 side's -SpecPath parameter exists to prevent.
         val override = System.getProperty("payanam.dbflow.spec")

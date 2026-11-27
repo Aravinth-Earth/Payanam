@@ -851,7 +851,7 @@ Write-LogWithTime "========================================" "Cyan"
 # This script targets Windows. Fail immediately if not on Windows.
 if (-not $IsWindows) {
     Write-LogWithTime "❌ This script targets Windows but is running on Linux." "Red"
-    Write-LogWithTime "   Use build-linux.sh for Linux builds." "Yellow"
+    Write-LogWithTime "   Use build.py desktop for Linux builds." "Yellow"
     exit 1
 }
 

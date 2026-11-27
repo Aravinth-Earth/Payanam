@@ -134,6 +134,10 @@ def _retain(directory: Path, pattern: str, keep: int = 5) -> None:
 def android(root: Path, env: dict[str, str], build_type: str) -> int:
     if _run_layer("android", "pre", root, env):
         return 1
+    # The footprint guard refuses an APK patched in place, and an incremental build reuses the previous
+    # archive; removing the output directory is what makes the next assemble write it fresh (the old
+    # script did the same before assembling).
+    shutil.rmtree(root / "app/build/outputs/apk", ignore_errors=True)
     task = "assembleRelease" if build_type == "release" else "assembleDebug"
     code = _gradle(root, env, task)
     if code:

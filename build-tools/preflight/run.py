@@ -38,6 +38,7 @@ LAYER_ORDER: dict[str, list[str]] = {
         "string_parity",
         "formatting_ratchet",
         "db_auth_contract",
+        "db_auth_falsification",
         "app_logger_contract",
         "logging_coverage",
     ],

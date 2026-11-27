@@ -134,7 +134,7 @@ payanam/
 ./gradlew preCommitCheck
 ```
 
-Windows users can also use `.\build-tools\scripts\build-android.ps1` for the full pipeline (preflight checks, device install, smoke tests).
+Windows users can also use `python3 build-tools/preflight/build.py android` for the full pipeline (preflight checks, device install, smoke tests).
 
 ---
 
