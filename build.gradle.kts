@@ -16,6 +16,42 @@ plugins {
     alias(libs.plugins.spotless) apply false
 }
 
+// Host to native payload, resolved ONCE here and exposed to the modules that need it.
+//
+// WHY THIS IS NOT A FALLBACK: the old code asked "is this Linux? else windows-x64", so a macOS host
+// silently took the Windows native and failed at RUNTIME with UnsatisfiedLinkError. Here a host
+// Payanam has no payload for fails at CONFIGURATION time with its own name, and a requested platform
+// that disagrees with the host fails too - jpackage cannot cross-build the Windows installers, so a
+// build for another OS is a mistake, not something to attempt.
+val hostOsName: String = providers.systemProperty("os.name").get().lowercase()
+val hostNativePlatform: String? =
+    when {
+        "linux" in hostOsName -> "linux-x64"
+        "windows" in hostOsName -> "windows-x64"
+        else -> null
+    }
+val requestedNativePlatform: String? = providers.gradleProperty("payanam.nativePlatform").orNull?.lowercase()
+val payanamNativePlatform: String =
+    when {
+        requestedNativePlatform == null ->
+            hostNativePlatform ?: error(
+                "Unsupported host OS '$hostOsName': Payanam ships SQLCipher natives for Linux and Windows only. " +
+                    "There is no macOS native in gradle/libs.versions.toml, so this build cannot be made to work by guessing.",
+            )
+        requestedNativePlatform !in setOf("linux-x64", "windows-x64") ->
+            error(
+                "Unknown payanam.nativePlatform '$requestedNativePlatform'. Valid values: linux-x64, windows-x64.",
+            )
+        requestedNativePlatform != hostNativePlatform ->
+            error(
+                "Requested payanam.nativePlatform=$requestedNativePlatform on a '$hostOsName' host. " +
+                    "That build must run on its own OS (jpackage and the SQLCipher native are host-specific); " +
+                    "this host cannot produce it.",
+            )
+        else -> requestedNativePlatform
+    }
+extra["payanamNativePlatform"] = payanamNativePlatform
+
 // Declared version: gradle/version.properties is the only source. Parsed once here; modules read it
 // through the payanamVersion* extra properties.
 val versionPropertiesFile = file("gradle/version.properties")

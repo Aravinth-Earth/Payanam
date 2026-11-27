@@ -13,12 +13,12 @@
     contract.
 
     INDEPENDENCE
-      * Does NOT call, read, or modify python3 build-tools/preflight/build.py desktop.
+      * Does NOT call, read, or modify python3 build-tools/preflight/build.py --platform linux.
       * Is NOT part of the build pipeline and adds nothing to it.
       * Invokes only the :desktop:test Gradle task, so the only build work it can trigger is what
         Gradle considers stale.
 
-    NOT verify-by-build. If you changed app code, run build.py desktop first (project rule); this
+    NOT verify-by-build. If you changed app code, run build.py --platform linux first (project rule); this
     script is for running tests repeatedly, not for validating a change.
 
     WHY GRADLE AND NOT A HEADED RUN: the desktop in-process tier rasters through offscreen Skia, so

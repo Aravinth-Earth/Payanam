@@ -36,7 +36,7 @@ property (camelCase of the `loc_*` / `settings_*` resource). `testTag` literals 
 
 ```pwsh
 # 1. Build the app (project rule: build before any run)
-python3 build-tools/preflight/build.py android
+python3 build-tools/preflight/build.py --platform android
 
 # 2. One fresh-install class per invocation (a fresh install is the only clean state)
 pwsh build-tools/scripts/run-inprocess-tests.ps1 -Runs 1 `

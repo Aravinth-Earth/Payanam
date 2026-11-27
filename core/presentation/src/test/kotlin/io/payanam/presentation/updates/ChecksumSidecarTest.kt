@@ -5,7 +5,7 @@ package io.payanam.presentation.updates
 import com.google.common.truth.Truth.assertThat
 import org.junit.Test
 
-/** A published digest, upper-case hex, exactly as `build.py android` writes it. */
+/** A published digest, upper-case hex, exactly as `build.py --platform android` writes it. */
 private const val DIGEST_UPPER = "AB12CD34EF56AB12CD34EF56AB12CD34EF56AB12CD34EF56AB12CD34EF56AB12"
 
 /** The same digest, lower-case hex, as a digester would normally produce it. */
@@ -18,7 +18,7 @@ private const val ARTIFACT_NAME = "payanam_1.0.0_debug_arm64-v8a.apk"
  * The `.sha256` sidecar policy: parse the published format, compare digests case-insensitively.
  *
  * The fixture is the real shape rather than a convenient one — upper-case hex, TWO spaces, then
- * the bare artifact filename, plus a trailing newline — because that is what `build.py android`
+ * the bare artifact filename, plus a trailing newline — because that is what `build.py --platform android`
  * produces and what `publish-release.ps1` verifies. The property pinned here is fail-closed
  * parsing: a token that is not exactly 64 hex characters yields null, never a best guess.
  */

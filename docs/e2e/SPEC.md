@@ -250,7 +250,7 @@ to the a11y tree. Put the label on the clickable node: `.semantics { contentDesc
 1. STOP the test immediately
 2. Log the gap: "Element X not found on screen Y — needs an a11y label or testTag"
 3. Add the label/testTag to Kotlin code (see the table above)
-4. Build with `python3 build-tools/preflight/build.py android`
+4. Build with `python3 build-tools/preflight/build.py --platform android`
 5. Re-run the class on the device
 
 ## Step efficiency rules

@@ -134,7 +134,7 @@ payanam/
 ./gradlew preCommitCheck
 ```
 
-Every platform builds through one entry point: `python3 build-tools/preflight/build.py android|desktop|all` (preflight checks, tests, package).
+Every platform builds through one entry point: `python3 build-tools/preflight/build.py --platform android|desktop|all` (preflight checks, tests, package).
 
 ---
 
