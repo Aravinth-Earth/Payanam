@@ -135,6 +135,23 @@ class DesktopPreferencesSourceTest {
         }
 
     @Test
+    fun `a writer write is published, so a toggle does not render the value it replaced`(): Unit =
+        runBlocking {
+            installLayer()
+            source.reload()
+            assertThat(source.preferences.value.autoTrackHabitTimeGlobal).isFalse()
+
+            // The settings callbacks write through AppPreferencesWriter, not through setSetting: this is the
+            // path that left the auto-tracking toggle switching itself back off while the row said true.
+            source.settingWrite {
+                LocalDataLayer.current.appSettings.setSetting(AppPreferenceKeys.KEY_AUTO_TRACK_HABIT_TIME, "true")
+            }
+
+            assertThat(source.preferences.value.autoTrackHabitTimeGlobal).isTrue()
+            assertThat(rowsInDatabase()[AppPreferenceKeys.KEY_AUTO_TRACK_HABIT_TIME]).isEqualTo("true")
+        }
+
+    @Test
     fun `a write lands in the encrypted database and reads back equal`(): Unit =
         runBlocking {
             installLayer()

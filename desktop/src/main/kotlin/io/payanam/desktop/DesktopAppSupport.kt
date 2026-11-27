@@ -493,6 +493,24 @@ internal class DesktopPreferencesSource(
      * The catch is deliberately broad: a failed JDBC execute raises checked `SQLException` as well as
      * unchecked `IllegalStateException`, and both are the same event from here - the row did not land.
      */
+    /**
+     * Runs [write] and republishes the rows it changed.
+     *
+     * The settings screen's callbacks go through `AppPreferencesWriter`, which writes rows directly and knows
+     * nothing about the published state this source owns. Without the re-read the state kept the values from
+     * the last load, so a toggle wrote its row and then rendered itself still off - a settings screen where
+     * every control looks dead while the database is correct. Re-reading (rather than patching one key) also
+     * covers the writer's multi-row methods, like a focus preset that writes nine rows.
+     */
+    @Suppress("TooGenericExceptionCaught")
+    suspend fun settingWrite(write: suspend () -> Unit) {
+        try {
+            write()
+        } finally {
+            reload()
+        }
+    }
+
     @Suppress("TooGenericExceptionCaught")
     suspend fun setSetting(
         key: String,

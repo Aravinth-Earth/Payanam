@@ -450,8 +450,10 @@ internal fun desktopApp(onQuitRequested: () -> Unit) {
                     databaseFile = File(models.shellRenderState.desktopLifecycleState.databaseFilePath),
                     // The SHELL's scope, so a write is not abandoned when this destination leaves the
                     // composition - and a settings write followed immediately by a rail tap is the ordinary
-                    // case, not an edge.
-                    launchWrite = { block -> databaseScope.launch { block() } },
+                    // case, not an edge. The source owns the write-then-publish rule: the callbacks below use
+                    // the preferences WRITER, which writes rows without touching the published state, so a
+                    // bare launch left every toggle reading the values from before the tap.
+                    launchWrite = { block -> databaseScope.launch { rememberedState.preferencesSource.settingWrite(block) } },
                     setSetting = { key, value -> callbacks.onSettingChanged(key, value) },
                     // The shell's OWN export and import flows, not new pickers: both already run on the scope
                     // that owns the transfer controller, and the import already verifies the session
