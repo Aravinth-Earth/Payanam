@@ -7,6 +7,7 @@ package io.payanam.presentation.tasks
 import io.payanam.domain.model.Task
 import io.payanam.domain.model.TaskOccurrence
 import io.payanam.domain.model.TaskReschedule
+import io.payanam.domain.port.ScoreRollupTrigger
 import io.payanam.domain.port.TaskReminderScheduler
 import io.payanam.domain.repository.TaskOccurrenceRepository
 import io.payanam.domain.repository.TaskRepository
@@ -72,6 +73,7 @@ class TaskDetailViewModel(
     private val notificationScheduler: TaskReminderScheduler,
     private val recurrenceHandler: TaskRecurrenceHandler,
     private val habitMetricRepository: io.payanam.domain.repository.HabitMetricRepository,
+    private val scoreRollupTrigger: ScoreRollupTrigger,
     private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.Default),
 ) {
     private val logger = AppLogger.current
@@ -364,6 +366,7 @@ class TaskDetailViewModel(
         note: String? = null,
         reason: String? = null,
         nextDueStrategy: String? = null,
+        onResult: (Result<Unit>) -> Unit = {},
     ) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -394,6 +397,7 @@ class TaskDetailViewModel(
                         }
                     }
                     // Reload task to get updated score
+                    scoreRollupTrigger.recalcForStatusChange(taskId, LocalDate.now())
                     loadTask(taskId)
                 } else {
                     taskRepository.completeTask(taskId, note)
@@ -420,6 +424,7 @@ class TaskDetailViewModel(
                             }
                         }
                         // Reload task to get updated score
+                        scoreRollupTrigger.recalcForStatusChange(taskId, LocalDate.now())
                         loadTask(taskId)
                     } else {
                         cancelReminder(taskId, "TaskDetailViewModel.completeTask")
@@ -435,6 +440,7 @@ class TaskDetailViewModel(
                         "recurring" to task.recurrenceEnabled,
                     ),
                 )
+                onResult(Result.success(Unit))
                 hideStatusDialog()
             } catch (e: CancellationException) {
                 logger.i(
@@ -446,6 +452,7 @@ class TaskDetailViewModel(
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.completeTask", "Error completing task", e)
                 _uiState.update { it.copy(error = e.message) }
+                onResult(Result.failure(e))
             }
         }
     }
@@ -458,6 +465,7 @@ class TaskDetailViewModel(
         note: String? = null,
         reason: String? = null,
         nextDueStrategy: String? = null,
+        onResult: (Result<Unit>) -> Unit = {},
     ) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -488,6 +496,7 @@ class TaskDetailViewModel(
                         }
                     }
                     // Reload task to get updated score
+                    scoreRollupTrigger.recalcForStatusChange(taskId, LocalDate.now())
                     loadTask(taskId)
                 } else {
                     taskRepository.skipTask(taskId, note)
@@ -514,6 +523,7 @@ class TaskDetailViewModel(
                             }
                         }
                         // Reload task to get updated score
+                        scoreRollupTrigger.recalcForStatusChange(taskId, LocalDate.now())
                         loadTask(taskId)
                     } else {
                         cancelReminder(taskId, "TaskDetailViewModel.skipTask")
@@ -529,6 +539,7 @@ class TaskDetailViewModel(
                         "recurring" to task.recurrenceEnabled,
                     ),
                 )
+                onResult(Result.success(Unit))
                 hideStatusDialog()
             } catch (e: CancellationException) {
                 logger.i(
@@ -540,6 +551,7 @@ class TaskDetailViewModel(
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.skipTask", "Error skipping task", e)
                 _uiState.update { it.copy(error = e.message) }
+                onResult(Result.failure(e))
             }
         }
     }
@@ -551,6 +563,7 @@ class TaskDetailViewModel(
     fun missTask(
         note: String? = null,
         reason: String? = null,
+        onResult: (Result<Unit>) -> Unit = {},
     ) {
         val taskId = currentTaskId ?: return
         val task = _uiState.value.task ?: return
@@ -580,6 +593,7 @@ class TaskDetailViewModel(
                             )
                         }
                     }
+                    scoreRollupTrigger.recalcForStatusChange(taskId, LocalDate.now())
                     loadTask(taskId)
                 } else {
                     taskRepository.missTask(taskId, note)
@@ -605,6 +619,7 @@ class TaskDetailViewModel(
                                 )
                             }
                         }
+                        scoreRollupTrigger.recalcForStatusChange(taskId, LocalDate.now())
                         loadTask(taskId)
                     } else {
                         cancelReminder(taskId, "TaskDetailViewModel.missTask")
@@ -620,6 +635,7 @@ class TaskDetailViewModel(
                         "recurring" to task.recurrenceEnabled,
                     ),
                 )
+                onResult(Result.success(Unit))
                 hideStatusDialog()
             } catch (e: CancellationException) {
                 logger.i(
@@ -631,6 +647,7 @@ class TaskDetailViewModel(
             } catch (e: Exception) {
                 logger.e("TaskDetailViewModel.missTask", "Error marking task as missed", e)
                 _uiState.update { it.copy(error = e.message) }
+                onResult(Result.failure(e))
             }
         }
     }
@@ -876,5 +893,6 @@ fun taskDetailViewModel(scope: CoroutineScope = CoroutineScope(SupervisorJob() +
         notificationScheduler = LocalDataLayer.current.reminderScheduler,
         recurrenceHandler = LocalDataLayer.current.recurrenceHandler,
         habitMetricRepository = LocalDataLayer.current.habitMetrics,
+        scoreRollupTrigger = LocalDataLayer.current.scoreRollupTrigger,
         scope = scope,
     )

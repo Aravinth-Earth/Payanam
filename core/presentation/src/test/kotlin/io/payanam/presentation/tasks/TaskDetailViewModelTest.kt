@@ -39,6 +39,7 @@ class TaskDetailViewModelTest {
     private lateinit var reminderScheduler: FakeReminderScheduler
     private lateinit var recurrenceHandler: FakeRecurrenceHandler
     private lateinit var habitMetricRepo: FakeHabitMetricRepository
+    private lateinit var scoreRollupTrigger: FakeScoreRollupTrigger
     private var viewModelScope: CoroutineScope? = null
 
     @Before
@@ -50,6 +51,7 @@ class TaskDetailViewModelTest {
         reminderScheduler = FakeReminderScheduler()
         recurrenceHandler = FakeRecurrenceHandler()
         habitMetricRepo = FakeHabitMetricRepository()
+        scoreRollupTrigger = FakeScoreRollupTrigger()
     }
 
     @After
@@ -71,6 +73,7 @@ class TaskDetailViewModelTest {
             notificationScheduler = reminderScheduler,
             recurrenceHandler = recurrenceHandler,
             habitMetricRepository = habitMetricRepo,
+            scoreRollupTrigger = scoreRollupTrigger,
             scope = scope,
         )
     }
@@ -209,6 +212,7 @@ class TaskDetailViewModelTest {
                     notificationScheduler = reminderScheduler,
                     recurrenceHandler = recurrenceHandler,
                     habitMetricRepository = habitMetricRepo,
+                    scoreRollupTrigger = scoreRollupTrigger,
                     scope = scope,
                 )
 
@@ -756,6 +760,7 @@ class TaskDetailViewModelTest {
                     notificationScheduler = reminderScheduler,
                     recurrenceHandler = recurrenceHandler,
                     habitMetricRepository = habitMetricRepo,
+                    scoreRollupTrigger = scoreRollupTrigger,
                     scope = newViewModelScope(),
                 )
             vm.loadTask("t1")
@@ -768,6 +773,179 @@ class TaskDetailViewModelTest {
             advanceUntilIdle()
 
             assertThat(reminderScheduler.cancelled).contains("t1")
+        }
+
+
+    // ────────────────────────────────────────────────────────────────
+    // Status actions from the detail screen
+    // ────────────────────────────────────────────────────────────────
+
+    private fun gatedComplete(vmScope: CoroutineScope, started: CompletableDeferred<Unit>, release: CompletableDeferred<Unit>): TaskDetailViewModel {
+        val gated =
+            object : TaskRepository by taskRepo {
+                override suspend fun completeTask(
+                    id: String,
+                    note: String?,
+                ): Task {
+                    started.complete(Unit)
+                    release.await()
+                    return taskRepo.completeTask(id, note)
+                }
+            }
+        return TaskDetailViewModel(
+            taskRepository = gated,
+            taskOccurrenceRepository = occurrenceRepo,
+            taskRescheduleRepository = rescheduleRepo,
+            notificationScheduler = reminderScheduler,
+            recurrenceHandler = recurrenceHandler,
+            habitMetricRepository = habitMetricRepo,
+            scoreRollupTrigger = scoreRollupTrigger,
+            scope = vmScope,
+        )
+    }
+
+    /**
+     * The write and the reminder tail have to survive the screen being released, and the caller has to
+     * hear that the action landed - the navigation decision depends on it.
+     */
+    @Test
+    fun `completeTask survives dispose and reports success`() =
+        runTest {
+            taskRepo.tasks.value = listOf(task(id = "t1"))
+            val started = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val vm = gatedComplete(newViewModelScope(), started, release)
+            vm.loadTask("t1")
+            advanceUntilIdle()
+
+            var outcome: Result<Unit>? = null
+            vm.completeTask(onResult = { outcome = it })
+            started.await()
+            vm.dispose()
+            release.complete(Unit)
+            advanceUntilIdle()
+
+            assertThat(taskRepo.tasks.value.first { it.id == "t1" }.status).isEqualTo("completed")
+            assertThat(reminderScheduler.cancelled).contains("t1")
+            assertThat(outcome?.isSuccess).isTrue()
+        }
+
+    @Test
+    fun `skipTask survives dispose and reports success`() =
+        runTest {
+            taskRepo.tasks.value = listOf(task(id = "t1"))
+            val started = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val gated =
+                object : TaskRepository by taskRepo {
+                    override suspend fun skipTask(
+                        id: String,
+                        note: String?,
+                    ): Task {
+                        started.complete(Unit)
+                        release.await()
+                        return taskRepo.skipTask(id, note)
+                    }
+                }
+            val vm =
+                TaskDetailViewModel(
+                    taskRepository = gated,
+                    taskOccurrenceRepository = occurrenceRepo,
+                    taskRescheduleRepository = rescheduleRepo,
+                    notificationScheduler = reminderScheduler,
+                    recurrenceHandler = recurrenceHandler,
+                    habitMetricRepository = habitMetricRepo,
+                    scoreRollupTrigger = scoreRollupTrigger,
+                    scope = newViewModelScope(),
+                )
+            vm.loadTask("t1")
+            advanceUntilIdle()
+
+            var outcome: Result<Unit>? = null
+            vm.skipTask(onResult = { outcome = it })
+            started.await()
+            vm.dispose()
+            release.complete(Unit)
+            advanceUntilIdle()
+
+            assertThat(taskRepo.tasks.value.first { it.id == "t1" }.status).isEqualTo("skipped")
+            assertThat(outcome?.isSuccess).isTrue()
+        }
+
+    @Test
+    fun `missTask survives dispose and reports success`() =
+        runTest {
+            taskRepo.tasks.value = listOf(task(id = "t1"))
+            val started = CompletableDeferred<Unit>()
+            val release = CompletableDeferred<Unit>()
+            val gated =
+                object : TaskRepository by taskRepo {
+                    override suspend fun missTask(
+                        id: String,
+                        note: String?,
+                    ): Task {
+                        started.complete(Unit)
+                        release.await()
+                        return taskRepo.missTask(id, note)
+                    }
+                }
+            val vm =
+                TaskDetailViewModel(
+                    taskRepository = gated,
+                    taskOccurrenceRepository = occurrenceRepo,
+                    taskRescheduleRepository = rescheduleRepo,
+                    notificationScheduler = reminderScheduler,
+                    recurrenceHandler = recurrenceHandler,
+                    habitMetricRepository = habitMetricRepo,
+                    scoreRollupTrigger = scoreRollupTrigger,
+                    scope = newViewModelScope(),
+                )
+            vm.loadTask("t1")
+            advanceUntilIdle()
+
+            var outcome: Result<Unit>? = null
+            vm.missTask(onResult = { outcome = it })
+            started.await()
+            vm.dispose()
+            release.complete(Unit)
+            advanceUntilIdle()
+
+            assertThat(taskRepo.tasks.value.first { it.id == "t1" }.status).isEqualTo("missed")
+            assertThat(outcome?.isSuccess).isTrue()
+        }
+
+    @Test
+    fun `a failed completeTask reaches the caller as a failure`() =
+        runTest {
+            taskRepo.tasks.value = listOf(task(id = "t1"))
+            taskRepo.failComplete = true
+            val vm = viewModel()
+            vm.loadTask("t1")
+            advanceUntilIdle()
+
+            var outcome: Result<Unit>? = null
+            vm.completeTask(onResult = { outcome = it })
+            advanceUntilIdle()
+
+            assertThat(outcome?.isFailure).isTrue()
+        }
+
+    /**
+     * The detail screen writes the same roll-ups the task list does: a completion that never reaches the
+     * trigger leaves the ring, the streak and the day metrics at their pre-completion values.
+     */
+    @Test
+    fun `completeTask recomputes the roll-up for a recurring task`() =
+        runTest {
+            taskRepo.tasks.value = listOf(task(id = "t1", recurrenceEnabled = true))
+            val vm = viewModel()
+            vm.loadTask("t1")
+            advanceUntilIdle()
+
+            vm.completeTask()
+            advanceUntilIdle()
+
+            assertThat(scoreRollupTrigger.statusChanges.map { it.first }).contains("t1")
         }
 
     // ────────────────────────────────────────────────────────────────

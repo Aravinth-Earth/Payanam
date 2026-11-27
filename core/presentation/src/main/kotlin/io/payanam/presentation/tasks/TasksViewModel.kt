@@ -818,8 +818,10 @@ class TasksViewModel(
                         "actualDurationMinutes" to actualDurationMinutes?.toString(),
                     ),
                 )
-                refreshCheckmarksForTask(task.id)
+                // Recompute L1/L2/L3 FIRST so refreshed rows carry the just-updated metrics
+                // (refresh-before-cascade showed the stale ring and streak).
                 scoreRollupTrigger.recalcForStatusChange(task.id, date)
+                refreshCheckmarksForTask(task.id)
                 habitTimeEntryRecorder(task, actualCompletedAt, actualDurationMinutes)
                 dismissCompletionDialog()
             } catch (e: CancellationException) {
@@ -1396,8 +1398,8 @@ class TasksViewModel(
                             )
                         }
                     }
-                    refreshCheckmarksForTask(taskId)
                     scoreRollupTrigger.recalcForStatusChange(taskId, LocalDate.now())
+                    refreshCheckmarksForTask(taskId)
                 } else {
                     notificationScheduler.cancelForTask(taskId)
                 }

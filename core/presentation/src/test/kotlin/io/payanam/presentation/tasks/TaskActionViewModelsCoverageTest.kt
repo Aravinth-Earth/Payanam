@@ -248,6 +248,7 @@ class TaskActionViewModelsCoverageTest {
             notificationScheduler = scheduler,
             recurrenceHandler = recurrenceHandler,
             habitMetricRepository = habitMetricRepo,
+            scoreRollupTrigger = FakeScoreRollupTrigger(),
             scope = scope,
         )
     }

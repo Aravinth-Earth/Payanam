@@ -5,6 +5,7 @@
 package io.payanam.core.ui.tasks
 
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material.icons.Icons
@@ -61,16 +62,16 @@ fun TaskDetailScreen(
     var currentStatusAction by remember { mutableStateOf<StatusAction?>(null) }
     var showRescheduleDialog by remember { mutableStateOf(false) }
     val snackbarHostState = remember { SnackbarHostState() }
-    val actionFailedReasonPlaceholder = "__TASK_DETAIL_ERROR_REASON__"
-    val actionFailedMessageTemplate = strings.locActionFailedWithReason.formatArgs(actionFailedReasonPlaceholder)
+    val actionFailedMessage = strings.locActionFailed
     LaunchedEffect(taskId) {
         logger.d("TaskDetailScreen.LaunchedEffect", "Loading task", mapOf("taskId" to taskId))
         viewModel.loadTask(taskId)
     }
     LaunchedEffect(uiState.error) {
         val error = uiState.error ?: return@LaunchedEffect
+        // The raw exception is logged by the ViewModel; the screen says what a person can act on.
         snackbarHostState.showSnackbar(
-            message = actionFailedMessageTemplate.replace(actionFailedReasonPlaceholder, error),
+            message = actionFailedMessage,
             withDismissAction = true,
             duration = SnackbarDuration.Indefinite,
         )
@@ -166,6 +167,9 @@ fun TaskDetailScreen(
             }
 
             uiState.task == null -> {
+                // A read that failed is not a task that is gone: offer the retry instead of the final
+                // sentence, and keep "Task not found" for the loaded-and-absent case.
+                val loadError = uiState.error
                 Box(
                     modifier =
                         Modifier
@@ -173,7 +177,16 @@ fun TaskDetailScreen(
                             .padding(padding),
                     contentAlignment = Alignment.Center,
                 ) {
-                    Text(strings.locTaskNotFound)
+                    if (loadError == null) {
+                        Text(strings.locTaskNotFound)
+                    } else {
+                        Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                            Text(strings.locTaskLoadFailed)
+                            TextButton(onClick = { viewModel.loadTask(taskId) }) {
+                                Text(strings.locActionRetry)
+                            }
+                        }
+                    }
                 }
             }
 
@@ -220,12 +233,20 @@ fun TaskDetailScreen(
                 taskTitle = uiState.task?.title ?: "",
                 isRecurring = uiState.task?.recurrenceEnabled == true,
                 onConfirm = { result ->
+                    // The same rule the archive row follows: the screen leaves only when the action
+                    // actually landed. A failure closes the dialog, keeps the person here and the error
+                    // effect says so.
+                    val settled: (Result<Unit>) -> Unit = { outcome ->
+                        currentStatusAction = null
+                        if (outcome.isSuccess) onNavigateBack()
+                    }
                     when (result.action) {
                         StatusAction.COMPLETE -> {
                             viewModel.completeTask(
                                 note = result.note.ifBlank { null },
                                 reason = null,
                                 nextDueStrategy = result.nextDueStrategy,
+                                onResult = settled,
                             )
                         }
 
@@ -234,6 +255,7 @@ fun TaskDetailScreen(
                                 note = result.note.ifBlank { null },
                                 reason = result.reason?.name,
                                 nextDueStrategy = result.nextDueStrategy,
+                                onResult = settled,
                             )
                         }
 
@@ -241,11 +263,10 @@ fun TaskDetailScreen(
                             viewModel.missTask(
                                 note = result.note.ifBlank { null },
                                 reason = result.reason?.name,
+                                onResult = settled,
                             )
                         }
                     }
-                    currentStatusAction = null
-                    onNavigateBack()
                 },
                 onDismiss = { currentStatusAction = null },
             )
