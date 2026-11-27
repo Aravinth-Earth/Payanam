@@ -19,7 +19,7 @@ private val SIDECAR_SEPARATOR = Regex("""\s+""")
 /**
  * Parse a release's `.sha256` sidecar into its digest, or null when it carries none.
  *
- * THE FORMAT, pinned to what this repo actually publishes. `build-android.ps1` writes one line of
+ * THE FORMAT, pinned to what this repo actually publishes. `build.py android` writes one line of
  * `<64 uppercase hex>` + two spaces + the bare artifact filename + a newline, through PowerShell
  * `Set-Content -Encoding UTF8`. `publish-release.ps1` verifies it by taking the FIRST line, then
  * the FIRST whitespace-separated token, upper-casing it and ignoring the filename entirely.

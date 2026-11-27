@@ -838,9 +838,9 @@ acquire_run_lock
 
 if (( BUILD )); then
     say "building (detekt, tests, coverage, package)"
-    bash "$SCRIPT_DIR/build-linux.sh" || die "the build gate failed - nothing to launch"
+    python3 "$SCRIPT_DIR/../preflight/build.py" desktop || die "the build gate failed - nothing to launch"
 fi
-[[ -x "$APP" ]] || die "no built app at $APP - run with -b, or bash build-tools/scripts/build-linux.sh"
+[[ -x "$APP" ]] || die "no built app at $APP - run with -b, or python3 build-tools/preflight/build.py desktop"
 
 # --- a run that starts from nothing ----------------------------------------------------------------------
 if (( FRESH )); then

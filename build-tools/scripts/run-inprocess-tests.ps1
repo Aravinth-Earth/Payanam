@@ -10,14 +10,14 @@
     driven directly, without any coupling to the build pipeline.
 
     INDEPENDENCE
-      * Does NOT call, read, or modify build-tools/scripts/build-android.ps1.
+      * Does NOT call, read, or modify python3 build-tools/preflight/build.py android.
       * Is NOT part of the build pipeline and adds nothing to it.
       * Invokes only the connected-test Gradle task, so the only build work it can trigger is
         what Gradle considers stale. Because the versionCode comes from gradle/version.properties
         and changes only when bumpVersion runs, a plain run of this script reuses the APKs already
         built and does NOT rebuild them.
 
-    NOT verify-by-build. If you changed app code, run build-android.ps1 first (project rule);
+    NOT verify-by-build. If you changed app code, run build.py android first (project rule);
     this script is for running tests repeatedly, not for validating a change.
 
     WHY GRADLE AND NOT adb: running instrumented tests means installing an app APK + a test

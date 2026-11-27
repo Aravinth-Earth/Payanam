@@ -87,7 +87,7 @@ fun keepScreenOn(activity: Activity) {
 /**
  * How long a label is given to arrive before the harness starts scrolling for it.
  *
- * Measured 2026-10-14, and the reason it is not the 5s it was: after `build-android.ps1` installs a
+ * Measured 2026-10-14, and the reason it is not the 5s it was: after the gate APK is installed on a
  * freshly built APK, the FIRST launch is a cold one (dexopt/JIT), and the Time screen's own body had not
  * finished composing when the arrival window closed - the journey then reported
  * `'கணாணிப்பைத் தொடங்கவும்' is not on this screen` with only the nav bar in the diagnosis, on the very

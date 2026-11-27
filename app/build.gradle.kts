@@ -182,7 +182,7 @@ android {
             // which crashes AndroidJUnitRunner before the first test is executed:
             //   NoClassDefFoundError: Failed resolution of: Lkotlin/LazyKt;
             //     at androidx.test.platform.io.TestDirCalculator.<init>
-            // build-android.ps1 -RunInProcess passes -Ppayanam.noMinify=true for this reason.
+            // A test run can pass -Ppayanam.noMinify=true for this reason.
             val noMinify = (project.providers.gradleProperty("payanam.noMinify").orNull
                 ?: "false").toBoolean()
             isMinifyEnabled = !noMinify
