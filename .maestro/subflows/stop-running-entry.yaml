@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 ---
 # Ends a tracking session a previous run left running: an open session would hide the start action
 # and skip the start transition, so a flow that wants to start MUST normalise first.

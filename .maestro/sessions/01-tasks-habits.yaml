@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: Session — tasks and habits, with logging, backup and log export
 tags:
   - session

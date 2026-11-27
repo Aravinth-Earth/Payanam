@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 ---
 # Archives one task from the Tasks list, addressed by its title. Archive is the locale-free control
 # (`task_detail.archive_button`); deleting would need the localized delete icon and a confirm dialog.

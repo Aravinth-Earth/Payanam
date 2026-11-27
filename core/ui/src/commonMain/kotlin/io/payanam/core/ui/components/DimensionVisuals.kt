@@ -488,7 +488,10 @@ fun DimensionColorPicker(
         )
         OutlinedButton(
             onClick = { showDialog = true },
-            modifier = Modifier.fillMaxWidth(),
+            modifier =
+                Modifier
+                    .fillMaxWidth()
+                    .testTag(TestTags.Settings.DIMENSION_COLOR_PICKER),
         ) {
             Box(
                 modifier =
@@ -541,6 +544,7 @@ fun DimensionColorPicker(
                             modifier =
                                 Modifier
                                     .size(52.dp)
+                                    .testTag(TestTags.Settings.dimensionColor(hex))
                                     .semantics {
                                         contentDescription = colorLabel
                                         selected = isSelected

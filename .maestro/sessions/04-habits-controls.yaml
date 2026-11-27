@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: Session — a habit's list controls and its deletion
 tags:
   - session

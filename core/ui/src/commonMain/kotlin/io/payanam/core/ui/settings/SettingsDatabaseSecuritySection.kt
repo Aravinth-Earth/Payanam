@@ -41,6 +41,7 @@ import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.components.PayanamAlertDialog
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.text.formatArgs
 import io.payanam.presentation.settings.SettingsUiState
 import io.payanam.shared.logging.AppLogger
@@ -228,9 +229,11 @@ fun SettingsDatabaseSecuritySection(
                 // announcement cannot disagree with the label the user can see; there is deliberately no merge,
                 // because a merge boundary moves the switch out of the unmerged semantics tree.
                 modifier =
-                    Modifier.semantics {
-                        contentDescription = strings.dbPassphraseUnlockBiometricTitle
-                    },
+                    Modifier
+                        .semantics {
+                            contentDescription = strings.dbPassphraseUnlockBiometricTitle
+                        }
+                        .testTag(TestTags.Settings.BIOMETRIC_SWITCH),
                 onCheckedChange = { enabled ->
                     logger.i(
                         "DatabaseSecurityPreferencesSection.biometric",

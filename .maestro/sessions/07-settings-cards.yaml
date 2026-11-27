@@ -1,0 +1,110 @@
+appId: ${APP_ID}
+name: Session — every settings card is reachable and its controls are addressable
+tags:
+  - session
+env:
+  PASS: E2ETestPass!2026
+---
+# The settings surface is where a preference is written, so it is the one place a session proves the
+# cards can be reached and their controls carry identifiers a black-box runner can address. Every node
+# below is matched by testTag-as-resource-id, never by copy: the app ships English and Tamil.
+#
+# The one write in this session is deliberately reversible (time format 24h -> 12h). Toggling biometric
+# unlock would raise an OS prompt, and the backup and dimension rows change stored data the other
+# sessions read, so those are asserted for reachability only; their behaviour is covered by unit tests.
+#
+# Preconditions are the ones 01-fresh-setup establishes (unlocked, debug logging on, auto-backup on).
+
+- launchApp
+- runFlow:
+    file: ../subflows/unlock.yaml
+    env:
+      PASS: ${PASS}
+- extendedWaitUntil:
+    visible:
+      id: "nav.tab.settings"
+    timeout: 90000
+- tapOn:
+    id: "nav.tab.settings"
+
+# ---- Appearance: language, font and time format are addressable; the time format writes and restores
+# The setup flow leaves the list scrolled to its own last card, so the appearance card is reached by
+# scrolling UP, not down.
+- scrollUntilVisible:
+    element:
+      id: "settings.appearance_card"
+    direction: UP
+- tapOn:
+    id: "settings.appearance_card"
+- assertVisible:
+    id: "settings.language.en"
+- assertVisible:
+    id: "settings.language.ta"
+- assertVisible:
+    id: "settings.font_field"
+- assertVisible:
+    id: "settings.time_format.24h"
+- tapOn:
+    id: "settings.time_format.24h"
+- assertVisible:
+    id: "settings.time_format.12h"
+- tapOn:
+    id: "settings.time_format.12h"
+
+# ---- Dimensions: the card is reachable. Its colour picker and swatches are tagged inside a dimension's
+# editor, which this session does not open: saving an edit would change data the other sessions read.
+- scrollUntilVisible:
+    element:
+      id: "settings.dimensions_card"
+    direction: UP
+- tapOn:
+    id: "settings.dimensions_card"
+# The colour picker and the name field live in a dimension's own editor, so the flow opens the first
+# dimension's editor, checks both, and closes it again without saving - the session leaves the stored
+# dimensions exactly as it found them.
+- tapOn:
+    id: "settings.dimension_edit.dim_physical_health"
+- assertVisible:
+    id: "settings_dimension_name_field"
+- assertVisible:
+    id: "settings.dimension_color_picker"
+- tapOn:
+    id: "settings.dimension_edit.dim_physical_health"
+
+# ---- Security: timeout row and biometric switch are addressable (the switch is not toggled: it raises an
+# OS prompt, and a prompt is a person's decision, not a session's)
+- scrollUntilVisible:
+    element:
+      id: "settings.security_card"
+    direction: DOWN
+- tapOn:
+    id: "settings.security_card"
+- assertVisible:
+    id: "settings_unlock_timeout"
+# The biometric row is drawn only where the platform reports an available authenticator, so a session
+# cannot assert it on every device; the switch carries its tag when the row exists.
+
+# ---- Auto-backup: interval and rotation rows are addressable
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_card"
+    direction: DOWN
+- tapOn:
+    id: "settings.auto_backup_card"
+- assertVisible:
+    id: "settings_backup_interval"
+# The count field renders only while rotation is on, so the flow asserts the switch every run has.
+- assertVisible:
+    id: "settings.auto_backup_rotation_switch"
+
+# ---- Debug: the logging switch and the log-export slot are addressable
+- scrollUntilVisible:
+    element:
+      id: "settings.debug_card"
+    direction: DOWN
+- tapOn:
+    id: "settings.debug_card"
+- assertVisible:
+    id: "settings.debug_logging_switch"
+- assertVisible:
+    id: "log_export.export_latest_button"

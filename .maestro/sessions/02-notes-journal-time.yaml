@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: Session — notes, journal and a manual time entry
 tags:
   - session

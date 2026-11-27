@@ -1,0 +1,58 @@
+appId: ${APP_ID}
+---
+# The teardown half of every focused run: export the session log so the verifier can read it after an
+# adb pull, and leave a fresh database snapshot beside it.
+#
+# It navigates for itself, so it can follow any flow that ends anywhere in the app.
+- tapOn:
+    id: "nav.tab.settings"
+- extendedWaitUntil:
+    visible:
+      id: "settings.debug_card"
+    timeout: 30000
+- scrollUntilVisible:
+    element:
+      id: "settings.debug_card"
+    direction: DOWN
+    centerElement: true
+# The card may already be open from the flow this teardown follows: tapping it again would close it, and
+# the export button would then never appear. Open it only when the button is not already on screen.
+- runFlow:
+    when:
+      notVisible:
+        id: "log_export.export_latest_button"
+    commands:
+      - tapOn:
+          id: "settings.debug_card"
+- extendedWaitUntil:
+    visible:
+      id: "log_export.export_latest_button"
+    timeout: 30000
+- tapOn:
+    id: "log_export.export_latest_button"
+- takeScreenshot: 99-log-exported
+# A database snapshot too, so the verifier has both layers for a run that created rows.
+- scrollUntilVisible:
+    element:
+      id: "settings.auto_backup_card"
+    direction: DOWN
+    centerElement: true
+- runFlow:
+    when:
+      notVisible:
+        id: "settings.run_backup_now"
+    commands:
+      - tapOn:
+          id: "settings.auto_backup_card"
+- scrollUntilVisible:
+    element:
+      id: "settings.run_backup_now"
+    direction: DOWN
+    centerElement: false
+- tapOn:
+    id: "settings.run_backup_now"
+- extendedWaitUntil:
+    visible:
+      id: "settings.backup_last_run"
+    timeout: 60000
+- takeScreenshot: 100-backup-taken

@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: Ending a tracking entry stops its notification, and Continue starts a new one
 tags:
   - tracking

@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: Session — archive one task and delete another
 tags:
   - session

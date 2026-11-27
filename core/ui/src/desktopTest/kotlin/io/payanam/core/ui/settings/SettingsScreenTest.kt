@@ -17,6 +17,8 @@ import androidx.compose.ui.test.printToString
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
+import androidx.compose.ui.test.onNodeWithTag
+import androidx.compose.ui.test.performScrollTo
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollToNode
 import androidx.compose.ui.test.performTextClearance
@@ -28,6 +30,7 @@ import io.payanam.core.ui.text.LocalUiStrings
 import io.payanam.core.ui.text.UiLanguage
 import io.payanam.core.ui.text.UiStrings
 import io.payanam.core.ui.components.IMPORT_PICKER_MIME
+import io.payanam.core.ui.components.TestTags
 import io.payanam.presentation.settings.SettingsUiState
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertTrue
@@ -133,6 +136,46 @@ class SettingsScreenTest {
     private fun clickRow(text: String) {
         scrollTo(text)
         composeRule.onNodeWithText(text).performClick()
+    }
+
+
+    /**
+     * The controls the settings cards expose to a black-box runner. A tag that is not rendered is a flow
+     * that fails on a device, and a card whose controls have no tag at all is a card no session can
+     * reach - both are cheaper to catch here than in a device run.
+     */
+    @Test
+    fun everySettingsCardExposesItsControlsByTag() {
+        setContent()
+        fun reachable(tag: String) {
+            composeRule.onNodeWithTag(tag).performScrollTo().assertExists()
+        }
+
+        openCard(strings.settingsAppearanceTitle)
+        listOf(
+            TestTags.Settings.languageOption("en"),
+            TestTags.Settings.languageOption("ta"),
+            TestTags.Settings.FONT_FIELD,
+            TestTags.Settings.timeFormatOption("24h"),
+            TestTags.Settings.timeFormatOption("12h"),
+        ).forEach(::reachable)
+
+        // The colour picker and its swatches are tagged, but they live in a dimension's editor: this
+        // screen-level check stops at the card, and the flow that opens the editor covers the rest.
+        openCard(strings.settingsLifeDimensionsTitle)
+        reachable(TestTags.Settings.DIMENSIONS_CARD)
+        reachable(TestTags.Settings.dimensionEdit("dim_health"))
+
+        // The biometric row renders only where the platform reports an available authenticator, so this
+        // checks the row every device has; the switch carries its tag when it is drawn.
+        openCard(strings.settingsSecurityTitle)
+        reachable("settings_unlock_timeout")
+
+        // The backup rows render once auto-backup is on; this harness leaves it off, so they are covered
+        // by the session (whose preconditions turn it on) rather than here.
+
+        openCard(strings.settingsDebugTitle)
+        reachable(TestTags.Settings.DEBUG_LOGGING_SWITCH)
     }
 
     @Test

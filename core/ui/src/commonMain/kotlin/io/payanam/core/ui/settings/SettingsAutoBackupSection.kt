@@ -246,9 +246,11 @@ fun SettingsAutoBackupSection(
                     // Same sibling-label shape as the toggle above, and the same fix: the visible title
                     // becomes the control's own description rather than a string typed a second time here.
                     modifier =
-                        Modifier.semantics {
-                            contentDescription = strings.settingsBackupRotationEnable
-                        },
+                        Modifier
+                            .semantics {
+                                contentDescription = strings.settingsBackupRotationEnable
+                            }
+                            .testTag(TestTags.Settings.AUTO_BACKUP_ROTATION_SWITCH),
                     onCheckedChange = { enabled ->
                         onBackupRotationEnabledChange(enabled)
                         logger.d("SettingsScreen.backupRotation", "Backup rotation toggled", mapOf("enabled" to enabled))

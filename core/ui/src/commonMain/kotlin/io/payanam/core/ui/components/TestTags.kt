@@ -82,9 +82,36 @@ object TestTags {
         /** One default-landing route (the route name, e.g. notes). */
         fun landingOption(route: String): String = "settings.landing." + route
 
+        /** One app-language rung (AppLanguageOption.key). */
+        fun languageOption(key: String): String = "settings.language." + key
+
+        const val FONT_FIELD = "settings.font_field"
+
+        /** One font-family entry (FontFamilyOption.key). */
+        fun fontOption(key: String): String = "settings.font." + key
+
+        /** One time-format rung (TimeFormatOption.key). */
+        fun timeFormatOption(key: String): String = "settings.time_format." + key
+
+        const val BIOMETRIC_SWITCH = "settings.security_biometric_switch"
+
+        const val DIMENSIONS_CARD = "settings.dimensions_card"
+
+        const val SECURITY_CARD = "settings.security_card"
+
+        /** The per-dimension edit control, keyed by the dimension's id. */
+        fun dimensionEdit(dimensionId: String): String = "settings.dimension_edit." + dimensionId
+
+        const val DIMENSION_COLOR_PICKER = "settings.dimension_color_picker"
+
+        /** One colour swatch in the dimension editor, keyed by its hex without the leading '#'. */
+        fun dimensionColor(hex: String): String = "settings.dimension_color." + hex.trim().trimStart('#').uppercase()
+
         const val AUTO_BACKUP_CARD = "settings.auto_backup_card"
 
         const val AUTO_BACKUP_SWITCH = "settings.auto_backup_switch"
+        const val AUTO_BACKUP_ROTATION_SWITCH = "settings.auto_backup_rotation_switch"
+
 
         const val RUN_BACKUP_NOW = "settings.run_backup_now"
 

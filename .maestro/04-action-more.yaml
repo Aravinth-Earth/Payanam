@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: More on a dead-process reminder opens the status dialog and writes nothing
 tags:
   - reminders

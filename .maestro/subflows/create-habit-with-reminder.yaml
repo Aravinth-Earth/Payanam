@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 ---
 # Creates a recurring habit (a "habit" is a task with a recurrence rule) whose reminder is meant to
 # fire a few minutes from now. Env the caller must set: HABIT_NAME, DUE_HOUR, DUE_MINUTE — the caller
