@@ -42,7 +42,7 @@ See [VISION.md](docs/VISION.md) for philosophy and roadmap.
 ## Quick Start
 
 ```bash
-# Build debug APK (requires Java 17 + Android SDK 35)
+# Build debug APK (requires Java 17 + Android SDK 36)
 ./gradlew assembleDebug
 ```
 
@@ -84,14 +84,17 @@ Payanam is offline by design. It has no servers, no accounts, no analytics, and 
 
 | Layer | Choice |
 |-------|--------|
-| **Language** | Kotlin 2.0 |
-| **UI** | Jetpack Compose + Material3 |
-| **Database** | Room (SQLite, local-only) |
-| **DI** | Hilt (Dagger) |
+| **Language** | Kotlin 2.3.20 |
+| **Build** | Android Gradle Plugin 9.3.0 |
+| **UI** | Jetpack Compose (BOM 2026.02.01) + Material 3 1.3.1 |
+| **Database** | Room 2.7.2 (SQLite, local-only, encrypted with SQLCipher 4.17.0) |
+| **DI** | Hilt 2.59.2 (Dagger) |
 | **Architecture** | Multi-module, MVVM + Repository |
-| **Desktop** | Compose Multiplatform |
+| **Desktop** | Compose Multiplatform 1.10.2 |
 | **Min SDK** | 28 (Android 9) |
 | **Target SDK** | 35 |
+
+These versions mirror [`gradle/libs.versions.toml`](gradle/libs.versions.toml); `ReadmeTechStackTest` fails when a row disagrees with the catalogue or with `app/build.gradle.kts`.
 
 ---
 
