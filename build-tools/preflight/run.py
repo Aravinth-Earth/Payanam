@@ -35,10 +35,23 @@ LAYER_ORDER: dict[str, list[str]] = {
         "version_file",
         "store_assets",
         "module_ratchet",
+        "string_parity",
     ],
-    "android": [],
-    "desktop": [],
+    "android": [
+        "jdk",
+        "core_sources",
+        "static_analysis",
+    ],
+    "desktop": [
+        "desktop_sources",
+        "formatting_ratchet",
+    ],
 }
+
+
+# Each check may declare PHASE; the runner only executes the requested phase, so a post-build scanner
+# (an APK's central directory, a package's launcher entry) never runs before there is a package.
+DEFAULT_PHASE = "pre"
 
 
 @dataclass
@@ -57,6 +70,7 @@ def main(argv: list[str]) -> int:
     parser.add_argument("--root", default=".", help="repository root (default: current directory)")
     parser.add_argument("--list", action="store_true", help="print the layer's steps and exit")
     parser.add_argument("--only", action="append", default=[], help="run only these steps (repeatable)")
+    parser.add_argument("--phase", choices=("pre", "post"), default="pre", help="which phase to run")
     args = parser.parse_args(argv)
 
     if args.list:
@@ -74,8 +88,9 @@ def main(argv: list[str]) -> int:
             print(f"unknown step(s) for {args.layer}: {', '.join(unknown)}", file=sys.stderr)
             return 2
         names = [n for n in names if n in args.only]
+    names = [n for n in names if getattr(load(args.layer, n), "PHASE", DEFAULT_PHASE) == args.phase]
     if not names:
-        print(f"preflight[{args.layer}]: no steps yet")
+        print(f"preflight[{args.layer}]: no {args.phase}-build steps")
         return 0
 
     total = len(names)
