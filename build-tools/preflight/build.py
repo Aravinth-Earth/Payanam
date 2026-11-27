@@ -55,10 +55,21 @@ def _run_layer(layer: str, phase: str, root: Path, env: dict[str, str]) -> int:
     return 0
 
 
+PLATFORM_NAMES = {"linux": "Linux", "windows": "Windows", "macos": "macOS"}
+
+
 def _gradle(root: Path, env: dict[str, str], *tasks: str) -> int:
     print(f"\n== gradle: {' '.join(tasks)} ==")
+    properties = []
     native = env.get("PAYANAM_NATIVE_PLATFORM")
-    properties = [f"-Ppayanam.nativePlatform={native}"] if native else []
+    if native:
+        properties.append(f"-Ppayanam.nativePlatform={native}")
+    # The desktop build derives its own identity from these three properties (desktop/build.gradle.kts
+    # documents them as the only sanctioned inputs): without them the type token falls to "release", so a
+    # debug package logs as release and its debug-file logging defaults to off.
+    properties.append(f"-PbuildPlatform={PLATFORM_NAMES.get(HOST_PLATFORM, HOST_PLATFORM)}")
+    properties.append(f"-PbuildTimestamp={env.get('PAYANAM_BUILD_STAMP') or _stamp()}")
+    properties.append(f"-PbuildType={env.get('PAYANAM_BUILD_TYPE', 'debug')}")
     result = subprocess.run(["./gradlew", *properties, *tasks], cwd=root, env=env)
     return result.returncode
 
@@ -238,6 +249,8 @@ def main(argv: list[str]) -> int:
             print(f"build.py: {refusal}", file=sys.stderr)
             return 2
     env["PAYANAM_NATIVE_PLATFORM"] = HOST_NATIVE.get(HOST_PLATFORM, "")
+    env["PAYANAM_BUILD_TYPE"] = build_type
+    env["PAYANAM_BUILD_STAMP"] = _stamp()
 
     if _run_layer("common", "pre", root, env):
         return 1
