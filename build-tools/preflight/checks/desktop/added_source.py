@@ -10,4 +10,4 @@ ENV_VAR = "PAYANAM_DESKTOP_TEST_BASELINE"
 
 
 def run(ctx) -> tuple[bool, str]:
-    return ratchet(Path(ctx.root), ctx.env, ENV_VAR, "desktop/src/main", "desktop/src/test", "build-tools/preflight/checks/desktop/added_source.py")
+    return ratchet(Path(ctx.root), ctx.env, ENV_VAR, ("desktop/src/main",), ("desktop/src/test",), "build-tools/preflight/checks/desktop/added_source.py")

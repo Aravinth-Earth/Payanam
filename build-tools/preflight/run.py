@@ -35,6 +35,7 @@ LAYER_ORDER: dict[str, list[str]] = {
         "version_file",
         "store_assets",
         "module_ratchet",
+        "core_added_source",
         "string_parity",
         "formatting_ratchet",
         "db_auth_contract",

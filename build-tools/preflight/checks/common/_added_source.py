@@ -28,7 +28,18 @@ def _git(root: Path, *args: str) -> str:
     return result.stdout if result.returncode == 0 else ""
 
 
-def run(root: Path, env: dict[str, str], env_var: str, main_root: str, test_root: str, marker_file: str) -> tuple[bool, str]:
+def _roots(value: str | list[str] | tuple[str, ...]) -> list[str]:
+    return [value] if isinstance(value, str) else list(value)
+
+
+def run(
+    root: Path,
+    env: dict[str, str],
+    env_var: str,
+    main_root: str | list[str] | tuple[str, ...],
+    test_root: str | list[str] | tuple[str, ...],
+    marker_file: str,
+) -> tuple[bool, str]:
     baseline = env.get(env_var, "").strip()
     source = "env"
     if not baseline:
@@ -40,19 +51,25 @@ def run(root: Path, env: dict[str, str], env_var: str, main_root: str, test_root
     if not _git(root, "rev-parse", "--verify", "-q", f"{baseline}^{{commit}}"):
         return True, f"baseline '{baseline}' does not resolve - skipped"
 
+    main_roots = _roots(main_root)
+    test_roots = _roots(test_root)
     added = set()
-    for args in (
-        ("diff", "--diff-filter=A", "--name-only", f"{baseline}..HEAD", "--", main_root),
-        ("diff", "--cached", "--diff-filter=A", "--name-only", "--", main_root),
-        ("ls-files", "--others", "--exclude-standard", "--", main_root),
-    ):
-        for line in _git(root, *args).splitlines():
-            if line.strip().endswith(".kt"):
-                added.add(line.strip())
+    for scope in main_roots:
+        for args in (
+            ("diff", "--diff-filter=A", "--name-only", f"{baseline}..HEAD", "--", scope),
+            ("diff", "--cached", "--diff-filter=A", "--name-only", "--", scope),
+            ("ls-files", "--others", "--exclude-standard", "--", scope),
+        ):
+            for line in _git(root, *args).splitlines():
+                if line.strip().endswith(".kt"):
+                    added.add(line.strip())
     if not added:
-        return True, f"no .kt added under {main_root} vs {baseline} - nothing to check"
+        return True, f"no .kt added under {', '.join(main_roots)} vs {baseline} - nothing to check"
 
-    tests = {path.name for path in (root / test_root).rglob("*Test.kt")} if (root / test_root).is_dir() else set()
+    tests: set[str] = set()
+    for scope in test_roots:
+        if (root / scope).is_dir():
+            tests.update(path.name for path in (root / scope).rglob("*Test.kt"))
     uncovered = []
     for relative in sorted(added):
         stem = Path(relative).stem
@@ -64,7 +81,7 @@ def run(root: Path, env: dict[str, str], env_var: str, main_root: str, test_root
         uncovered.append(relative)
     if uncovered:
         return False, (
-            f"{len(uncovered)} added source(s) with no matching *Test.kt under {test_root}: "
+            f"{len(uncovered)} added source(s) with no matching *Test.kt under {', '.join(test_roots)}: "
             + ", ".join(uncovered[:8])
             + f" - add a test, or a '// no-test: <reason>' line; widen the range with {env_var}=<ref>"
         )

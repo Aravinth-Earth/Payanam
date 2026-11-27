@@ -137,9 +137,10 @@ baseline** — if you legitimately remove a violation, regenerate it:
 
 - Kotlin formatting is enforced by Spotless (ktlint). Run `./gradlew spotlessApply`
   to auto-format a module you changed.
-- The build gate also runs a **spotless ratchet** (`build-tools/scripts/spotless-ratchet.ps1`),
-  which fails when a `.kt` file *changed in your working tree* is unformatted. Pre-existing
-  drift elsewhere is ignored, so you are only on the hook for files you touch.
+- The build gate also runs a **spotless ratchet** (the `formatting_ratchet` step in
+  `build-tools/preflight/checks/common/`), which fails when a `.kt` file *changed in your working
+  tree* is unformatted. Pre-existing drift elsewhere is ignored, so you are only on the hook for
+  files you touch.
 - **Known limitation:** a repo-wide `./gradlew spotlessApply` currently fails and writes
   nothing, because `core/database` and `app` contain unfixable `ktlint(standard:kdoc)` errors
   ("A KDoc is not allowed inside 'modifier_list'"). Format only the module you touched
@@ -153,6 +154,11 @@ baseline** — if you legitimately remove a violation, regenerate it:
 
 - Add or update unit tests for behavior changes.
 - Run the suite: `./gradlew test coverageCheck`
+
+## Pull requests
+
+- Describe the change, not the planning: PR descriptions and commit messages never reference a
+  local planning or work-item id. GitHub's own issue and PR numbers are fine.
 
 ## License
 
