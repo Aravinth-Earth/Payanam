@@ -19,6 +19,7 @@ import io.payanam.database.jvm.TaskRescheduleRepositoryJvm
 import io.payanam.database.jvm.TimeEntryRepositoryJvm
 import io.payanam.database.jvm.backfill.ScoreRollupTriggerJdbc
 import io.payanam.database.jvm.event.ScoreChangeEventBusJvm
+import io.payanam.desktop.port.DesktopHabitTimeEntryRecorder
 import io.payanam.desktop.port.DesktopTimeTrackingController
 import io.payanam.desktop.port.DesktopUnsupportedPorts
 import io.payanam.domain.port.HabitTimeEntryRecorder
@@ -130,7 +131,7 @@ class DesktopPayanamDataLayer(
         RecurrenceManager(tasks, taskOccurrences)
 
     override val habitTimeEntryRecorder: HabitTimeEntryRecorder =
-        DesktopUnsupportedPorts.habitTimeEntryRecorder
+        DesktopHabitTimeEntryRecorder(timeEntries, appSettings)
 
     override val tracer: PerformanceTracer = DesktopUnsupportedPorts.tracer
 

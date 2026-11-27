@@ -78,22 +78,6 @@ internal object DesktopUnsupportedPorts {
             }
         }
 
-    /** The habit time-entry writer this platform does not have: time is tracked on Android. */
-    val habitTimeEntryRecorder: HabitTimeEntryRecorder =
-        object : HabitTimeEntryRecorder {
-            override suspend operator fun invoke(
-                task: Task,
-                actualCompletedAt: LocalDateTime?,
-                actualDurationMinutes: Int?,
-            ) {
-                logger.w(
-                    "DesktopUnsupportedPorts.recordHabitTimeEntry",
-                    "Habit time entries are not recorded on this platform",
-                    mapOf("taskId" to task.id, "durationMinutes" to actualDurationMinutes),
-                )
-            }
-        }
-
     /**
      * A tracer that keeps the counters in memory.
      *
