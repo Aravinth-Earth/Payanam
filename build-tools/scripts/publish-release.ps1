@@ -44,7 +44,7 @@ function Write-LogWithTime {
 }
 
 # Shared release-security helper (Get-AndroidBuildToolPath, Invoke-ReleaseSecurityVerification).
-# Dot-sourced here AND in build.py android — single implementation, never copied.
+# Dot-sourced here AND in build.py --platform android — single implementation, never copied.
 . "$PSScriptRoot/release-security.ps1"
 
 # Refuse loudly and stop — a guard that only warns gets ignored.
@@ -86,8 +86,8 @@ $platforms = @("Android", "Linux", "Windows")
 $artifactDirs = @{ Android = "output/apks"; Linux = "output/debs"; Windows = "output/windows" }
 $artifactExtensions = @{ Android = @(".apk"); Linux = @(".deb"); Windows = @(".zip") }
 $buildHints = @{
-    Android = "Build one with python3 build-tools/preflight/build.py android."
-    Linux   = "Build one with python3 build-tools/preflight/build.py desktop (release build)."
+    Android = "Build one with python3 build-tools/preflight/build.py --platform android."
+    Linux   = "Build one with python3 build-tools/preflight/build.py --platform linux (release build)."
     Windows = "Build one with build-tools/scripts/build-windows.ps1 -Release."
 }
 

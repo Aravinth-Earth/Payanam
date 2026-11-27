@@ -420,12 +420,13 @@ dependencies {
 
     testImplementation(libs.junit)
     testImplementation(libs.truth)
-    // The test JVM needs a native payload to open anything at all.
+    // The test JVM needs a native payload to open anything at all; the root resolver picks it (and
+    // fails at configuration time when the host has none, or when a requested platform disagrees).
     testRuntimeOnly(
-        if (providers.systemProperty("os.name").get().lowercase().contains("linux")) {
-            libs.sqlcipher.jvm.linux.x64
-        } else {
-            libs.sqlcipher.jvm.windows.x64
+        when (rootProject.extra["payanamNativePlatform"] as String) {
+            "linux-x64" -> libs.sqlcipher.jvm.linux.x64
+            "windows-x64" -> libs.sqlcipher.jvm.windows.x64
+            else -> error("Unhandled native platform")
         },
     )
 }

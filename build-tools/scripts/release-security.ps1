@@ -1,5 +1,5 @@
 # SPDX-License-Identifier: AGPL-3.0-or-later
-# Shared release-security helpers — dot-sourced by build.py android and publish-release.ps1.
+# Shared release-security helpers — dot-sourced by build.py --platform android and publish-release.ps1.
 # Keep ONE implementation here; never copy these functions into the callers.
 # Depends on the host script defining Write-LogWithTime (both do, before dot-sourcing).
 #

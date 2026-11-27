@@ -34,10 +34,10 @@ spotless {
     }
 }
 
-// Host-OS detection at CONFIGURATION time. NOTE: the generateBuildInfo task also reads os.name, but
-// that read happens inside its doLast block (execution phase) and therefore cannot drive dependency
-// selection — dependencies resolve during configuration, not execution.
-val isLinuxHost = providers.systemProperty("os.name").get().lowercase().contains("linux")
+// The native payload comes from the single resolver in the root build file (the
+// payanamNativePlatform extra): it fails at configuration time on a host with no native and on a
+// requested platform that disagrees with the host, instead of silently taking another OS's binary.
+val payanamNative: String = rootProject.extra["payanamNativePlatform"] as String
 
 dependencies {
     implementation(project(":core:shared"))
@@ -84,7 +84,11 @@ dependencies {
     // here: that artifact is Android-only.
     implementation(libs.sqlcipher.jvm.jdbc)
     runtimeOnly(
-        if (isLinuxHost) libs.sqlcipher.jvm.linux.x64 else libs.sqlcipher.jvm.windows.x64,
+        when (payanamNative) {
+            "linux-x64" -> libs.sqlcipher.jvm.linux.x64
+            "windows-x64" -> libs.sqlcipher.jvm.windows.x64
+            else -> error("Unhandled native platform '$payanamNative'")
+        },
     )
 
     testImplementation(libs.junit)

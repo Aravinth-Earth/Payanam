@@ -3,9 +3,15 @@
 #  SPDX-License-Identifier: AGPL-3.0-or-later
 """The build orchestrator: common checks once, then each platform's checks and its build.
 
-    python3 build-tools/preflight/build.py android [--release]
-    python3 build-tools/preflight/build.py desktop [--release]
-    python3 build-tools/preflight/build.py all     [--release]
+    python3 build-tools/preflight/build.py --platform android [--release]
+    python3 build-tools/preflight/build.py --platform linux   [--release]
+    python3 build-tools/preflight/build.py --platform windows [--release]
+    python3 build-tools/preflight/build.py --platform all     [--release]
+
+The platform is an INPUT, never a guess. A build that cannot run on this host fails here, before
+Gradle is invoked, with the reason: macOS has no SQLCipher native in the version catalog, and the
+Windows installers (plus the windows-x64 native) require a Windows host because jpackage does not
+cross-build. `all` means Android plus THIS host's desktop build.
 
 Ordering is the contract: `all` runs the common layer once, then (android checks -> android build),
 then (desktop checks -> desktop build). A single-platform command runs common plus that platform only.
@@ -51,7 +57,9 @@ def _run_layer(layer: str, phase: str, root: Path, env: dict[str, str]) -> int:
 
 def _gradle(root: Path, env: dict[str, str], *tasks: str) -> int:
     print(f"\n== gradle: {' '.join(tasks)} ==")
-    result = subprocess.run(["./gradlew", *tasks], cwd=root, env=env)
+    native = env.get("PAYANAM_NATIVE_PLATFORM")
+    properties = [f"-Ppayanam.nativePlatform={native}"] if native else []
+    result = subprocess.run(["./gradlew", *properties, *tasks], cwd=root, env=env)
     return result.returncode
 
 
@@ -185,9 +193,37 @@ def desktop(root: Path, env: dict[str, str], build_type: str) -> int:
     return code
 
 
+HOST_PLATFORM = "windows" if sys.platform == "win32" else "linux" if sys.platform.startswith("linux") else "macos"
+HOST_NATIVE = {"linux": "linux-x64", "windows": "windows-x64"}
+
+
+def _refuse_platform(platform: str) -> str | None:
+    """The reason a platform cannot be built here, or None when it can."""
+    if platform == "android":
+        return None
+    if platform == "macos":
+        return (
+            "a macOS desktop build cannot be produced here: gradle/libs.versions.toml declares no macOS "
+            "SQLCipher native, so the app would fail at runtime with UnsatisfiedLinkError. There is nothing "
+            "to build until a native exists."
+        )
+    if platform != HOST_PLATFORM:
+        return (
+            f"a {platform} desktop build cannot be produced on this {HOST_PLATFORM} host: the SQLCipher "
+            f"{platform}-x64 native and the installer toolchain are host-specific (jpackage does not "
+            f"cross-build the MSI/EXE). Run this command on {platform.capitalize()}."
+        )
+    return None
+
+
 def main(argv: list[str]) -> int:
-    parser = argparse.ArgumentParser(description="Build one platform, or all of them, through the preflight.")
-    parser.add_argument("target", choices=("android", "desktop", "all"))
+    parser = argparse.ArgumentParser(description="Build one explicit platform, or all of them, through the preflight.")
+    parser.add_argument(
+        "--platform",
+        required=True,
+        choices=("android", "linux", "windows", "macos", "all"),
+        help="explicit target; never inferred. 'all' = Android + this host's desktop build",
+    )
     parser.add_argument("--release", action="store_true")
     parser.add_argument("--root", default=str(REPO))
     args = parser.parse_args(argv)
@@ -195,13 +231,21 @@ def main(argv: list[str]) -> int:
     build_type = "release" if args.release else "debug"
     env = dict(os.environ)
 
+    targets = ["android", HOST_PLATFORM] if args.platform == "all" else [args.platform]
+    for target in targets:
+        refusal = _refuse_platform(target)
+        if refusal:
+            print(f"build.py: {refusal}", file=sys.stderr)
+            return 2
+    env["PAYANAM_NATIVE_PLATFORM"] = HOST_NATIVE.get(HOST_PLATFORM, "")
+
     if _run_layer("common", "pre", root, env):
         return 1
-    if args.target in ("android", "all"):
+    if "android" in targets:
         code = android(root, env, build_type)
         if code:
             return code
-    if args.target in ("desktop", "all"):
+    if HOST_PLATFORM in targets:
         return desktop(root, env, build_type)
     return 0
 

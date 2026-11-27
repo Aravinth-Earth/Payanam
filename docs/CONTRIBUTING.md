@@ -82,7 +82,7 @@ Each segment must be `0`–`999`. `versionCode` packs them as three-digit fields
 3. On `main`: `./gradlew bumpVersion -Pto=x.y.z`.
 4. On `main`: add `## [x.y.z] - YYYY-MM-DD` to `CHANGELOG.md` (English and Tamil) and `fastlane/metadata/android/{en-US,ta-IN}/changelogs/<versionCode>.txt`.
 5. Commit `Release x.y.z` on `main` and push.
-6. `python3 build-tools/preflight/build.py all --release`.
+6. `python3 build-tools/preflight/build.py --platform all --release`.
 7. `pwsh build-tools/scripts/publish-release.ps1` — creates tag `v<x.y.z>` and the release.
 8. **Back-merge `main → dev`** so the version and changelog reach the development line.
 
@@ -103,7 +103,7 @@ Feature and fix PRs never touch the version or the changelog.
    detekt, guardrails, APK assembly):
 
    ```bash
-   python3 build-tools/preflight/build.py android
+   python3 build-tools/preflight/build.py --platform android
    ```
 
    This must pass before submitting a PR.
