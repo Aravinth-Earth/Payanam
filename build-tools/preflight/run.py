@@ -36,15 +36,20 @@ LAYER_ORDER: dict[str, list[str]] = {
         "store_assets",
         "module_ratchet",
         "string_parity",
+        "formatting_ratchet",
+        "db_auth_contract",
+        "app_logger_contract",
+        "logging_coverage",
     ],
     "android": [
         "jdk",
         "core_sources",
         "static_analysis",
+        "apk_footprint",
     ],
     "desktop": [
         "desktop_sources",
-        "formatting_ratchet",
+        "packaging",
     ],
 }
 
