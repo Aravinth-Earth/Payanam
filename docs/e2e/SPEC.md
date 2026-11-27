@@ -145,7 +145,7 @@ stand in for a reinstall BETWEEN routes, never inside one. Same for the passphra
 
 
 **Maestro tier — the cross-process complement (broad tier retired 2026-09-13).** The suite began as
-Maestro YAML flows (full ~409 s, smoke ~192 s, driven by `build.py android -RunMaestro`/`-Smoke`). The
+Maestro YAML flows (full ~409 s, smoke ~192 s, driven by build-tools/scripts/run-maestro.sh (optionally with --debug)). The
 in-process tier measured ~7× faster on the full journey and ~8× on the smoke subset, so that broad tier was
 unwired and its flow artefacts removed; the specification and the journey catalog (SCENARIOS.md) are its
 durable successors, and git history holds the removed YAML.

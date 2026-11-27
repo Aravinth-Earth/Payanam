@@ -113,7 +113,7 @@ tasks.named<JacocoCoverageVerification>("jacocoTestCoverageVerification") {
         rule {
             limit {
                 // Floor is the MEASURED value (93% of instructions), not an aspiration. It sat at 0.94
-                // and failed unnoticed because build.py android treated the coverage check as
+                // and failed unnoticed because the old Android gate treated the coverage check as
                 // non-fatal. This floor ratchets UP only.
                 minimum = "0.93".toBigDecimal()
             }

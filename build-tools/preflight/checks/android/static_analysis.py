@@ -3,7 +3,7 @@
 """The static-analysis gate: the `staticAnalysisCheck` aggregate the build already defines.
 
 Fatal on purpose. detekt carries the KDoc baseline, so a green build is also the promise that the
-documented contract still holds - the same aggregate build-android.ps1 runs.
+documented contract still holds - the same aggregate the old Android gate ran.
 """
 import subprocess
 from pathlib import Path

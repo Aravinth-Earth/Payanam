@@ -15,7 +15,7 @@ import java.io.File
 
 /**
  * Token set shared by the import rules. `plain` is the load-bearing token: it covers both the PLAIN and the
- * PLAINTEXT spellings the spec has used, matching the ps1 guard in python3 build-tools/preflight/build.py android.
+ * PLAINTEXT spellings the spec has used, matching the preflight contract in build-tools/preflight/checks/common/db_auth_contract.py.
  */
 private val PLAINTEXT_TOKENS = Regex("plain|unencrypt|cleartext", RegexOption.IGNORE_CASE)
 
