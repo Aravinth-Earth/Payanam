@@ -135,6 +135,58 @@ sudo apt remove payanam
 
 Your data is not part of the package: the database and your notes stay in `~/Documents/Payanam` after the app is removed — delete that folder yourself if you want a clean start.
 
+## Installing the Windows desktop app
+
+Payanam ships a Windows build as a `.zip` because jpackage cannot cross-build the installer: the MSI and the EXE inside the zip are produced on a Windows host.
+
+### Download
+
+From the same [Releases page](https://github.com/Aravinth-Earth/Payanam/releases), take:
+
+- `Payanam_windows_<version>_<sha>_release_<yyyyMMdd_HHmmss>.zip` — the release directory, zipped (e.g. `Payanam_windows_1.1.0_a1b2c3d_release_20261027_101500.zip`)
+
+Unzip it anywhere. Inside:
+
+- `main/msi/Payanam-<version>.msi` — the **installer** (per-user, no administrator rights)
+- `main/exe/Payanam-<version>.exe` — the **application binary** the installer lays down, beside its bundled runtime
+
+### Install
+
+Double-click the `.msi`, or run it unattended from PowerShell:
+
+```powershell
+msiexec /i "Payanam-1.1.0.msi" /qn /norestart /L*v "install.log"
+```
+
+`/qn` installs silently and `/L*v` writes a log, which is what the build itself uses when it verifies an install. Because the installer is per-user, Windows does not show an elevation prompt.
+
+**SmartScreen.** The Windows installer is not code-signed, so the first run shows *Windows protected your PC*. Choose **More info → Run anyway**. Nothing is downloaded at that point; the installer ships inside the zip you downloaded.
+
+### Where it installs, and where your data lives
+
+- **Program files:** the MSI's `InstallLocation` (read it from `HKCU\Software\Microsoft\Windows\CurrentVersion\Uninstall`); a first install falls back to `%LOCALAPPDATA%\Payanam`.
+- **Your data:** `%LOCALAPPDATA%\Payanam` — the encrypted database, logs and backups. This is the folder to keep if you reinstall.
+
+### Update
+
+Run the newer `.msi` over the installed one. The installer keeps a fixed upgrade identity (`upgradeUuid`), so Windows treats it as an upgrade rather than a second application, and the data folder is left untouched.
+
+### Uninstall
+
+Settings → Apps → Installed apps → **Payanam** → Uninstall, or:
+
+```powershell
+msiexec /x "Payanam-1.1.0.msi" /qn
+```
+
+`/x` takes the same `.msi` file you installed from. Uninstalling removes the application; `%LOCALAPPDATA%\Payanam` is left in place, so deleting that folder is the step that removes your data.
+
+### Verification status, stated plainly
+
+- The Windows installer is **not code-signed**, so Windows SmartScreen warns on first run; this guide's install step is the workaround, not a signature.
+- The release currently ships **no build-side SHA256** for the Windows zip. Unlike the Android APK and the Linux `.deb`, whose checksums the publisher verifies before publishing, the Windows asset is packaged straight from the build directory - so treat the GitHub release page as the trust anchor for that download.
+- No Windows installer has been exercised on a Windows host yet. The build-side steps exist and are tracked, but until that run happens the flow above is documented from the scripts rather than from a completed install.
+
 ## Notes
 
 - **Minimum Android version:** Android 9 (API 28)
