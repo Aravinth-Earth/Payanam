@@ -10,4 +10,4 @@ ENV_VAR = "PAYANAM_APP_TEST_BASELINE"
 
 
 def run(ctx) -> tuple[bool, str]:
-    return ratchet(Path(ctx.root), ctx.env, ENV_VAR, "app/src/main", "app/src/test", "build-tools/preflight/checks/android/added_source.py")
+    return ratchet(Path(ctx.root), ctx.env, ENV_VAR, ("app/src/main",), ("app/src/test",), "build-tools/preflight/checks/android/added_source.py")
