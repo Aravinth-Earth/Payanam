@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: Fresh setup — onboarding, passphrase, dimensions, debug logging
 tags:
   - setup
@@ -95,8 +95,9 @@ env:
     visible:
       id: "settings.debug_logging_switch"
 - takeScreenshot: 10-debug-card
-- tapOn:
-    id: "settings.debug_logging_switch"
+# Only when it is off: a debug build starts with logging on, and an unconditional tap turns it off.
+- runFlow:
+    file: subflows/setup-debug-logging.yaml
 - takeScreenshot: 11-debug-on
 
 # Auto-Backup ON, once per install. Sessions rely on it for the DB snapshot they export, and a fresh

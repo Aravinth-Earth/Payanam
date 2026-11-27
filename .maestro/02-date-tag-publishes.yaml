@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: The date dialog confirm button is reachable by id
 tags:
   - smoke

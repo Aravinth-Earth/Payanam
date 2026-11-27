@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: The timer notification offer appears while blocked and is withdrawn once granted
 tags:
   - permissions

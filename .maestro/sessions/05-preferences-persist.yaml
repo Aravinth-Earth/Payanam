@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: Session — a preference survives a cold start (theme and landing)
 tags:
   - session

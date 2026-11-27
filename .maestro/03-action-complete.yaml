@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: Complete on a dead-process reminder reaches the database after the unlock
 tags:
   - reminders

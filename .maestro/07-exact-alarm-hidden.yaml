@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: The exact-alarm affordance is gone once the permission is granted
 tags:
   - manual

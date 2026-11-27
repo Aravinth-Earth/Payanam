@@ -1,0 +1,17 @@
+appId: ${APP_ID}
+---
+# Debug logging ON, and only when it is OFF.
+#
+# A debug build ships with logging already enabled, so the unconditional tap this replaces turned it
+# OFF on every debug run - the log was then nearly empty and the verifier had nothing to read. A release
+# build starts with it off, which is what the conditional covers.
+#
+# Precondition: the Settings tab is open and the Debug card is expanded.
+- runFlow:
+    when:
+      visible:
+        id: "settings.debug_logging_switch"
+        checked: false
+    commands:
+      - tapOn:
+          id: "settings.debug_logging_switch"

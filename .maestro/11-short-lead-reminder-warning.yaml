@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: The permission warning follows whether a reminder will actually be armed
 tags:
   - reminders

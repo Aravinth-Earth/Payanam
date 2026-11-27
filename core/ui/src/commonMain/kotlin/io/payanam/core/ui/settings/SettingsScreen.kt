@@ -209,6 +209,7 @@ fun SettingsScreenContent(
                     logSectionToggle(logger, expandedSection, "dimensions", SettingsSection.DIMENSIONS)
                     expandedSection = expandedSection.toggle(SettingsSection.DIMENSIONS)
                 },
+                modifier = Modifier.testTag(TestTags.Settings.DIMENSIONS_CARD),
             ) {
                 Column(verticalArrangement = Arrangement.spacedBy(0.dp)) {
                     Text(
@@ -467,6 +468,7 @@ fun SettingsScreenContent(
                     logSectionToggle(logger, expandedSection, "security", SettingsSection.SECURITY)
                     expandedSection = expandedSection.toggle(SettingsSection.SECURITY)
                 },
+                modifier = Modifier.testTag(TestTags.Settings.SECURITY_CARD),
             ) {
                 SettingsDatabaseSecuritySection(
                     uiState = uiState,

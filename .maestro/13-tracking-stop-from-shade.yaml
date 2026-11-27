@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: Stop on the tracking notification lands on Time with the entry modal open
 tags:
   - tracking

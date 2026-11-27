@@ -53,6 +53,7 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import io.payanam.core.ui.components.DimensionBadgeLabelRow
+import io.payanam.core.ui.components.TestTags
 import io.payanam.core.ui.components.DimensionColorPicker
 import io.payanam.core.ui.components.DimensionIconPicker
 import io.payanam.core.ui.components.colorFromHex
@@ -140,7 +141,10 @@ fun DimensionPreferenceCard(
                         mapOf("dimensionId" to preference.id),
                     )
                 },
-                modifier = Modifier.size(32.dp),
+                modifier =
+                    Modifier
+                        .size(32.dp)
+                        .testTag(TestTags.Settings.dimensionEdit(preference.id)),
             ) {
                 Icon(
                     imageVector = if (isEditing) Icons.Default.Close else Icons.Default.Edit,

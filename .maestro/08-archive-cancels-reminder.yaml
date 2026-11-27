@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: Archiving a habit from its detail screen removes it and cancels its reminder
 tags:
   - reminders

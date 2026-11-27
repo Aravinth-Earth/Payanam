@@ -27,22 +27,48 @@ self-contained.
 
 ## Run
 
+Every flow declares `appId: ${APP_ID}`, so the same suite runs against the release package
+(`io.payanam`) and the debug build (`io.payanam.debug`, which carries the `.debug` suffix). The wrapper
+picks the package and passes it through:
+
+```bash
+# release build on the device
+./build-tools/scripts/run-maestro.sh
+
+# debug build on the device
+./build-tools/scripts/run-maestro.sh --debug
+
+# one journey, against either build
+./build-tools/scripts/run-maestro.sh --debug .maestro/sessions/07-settings-cards.yaml
+
+# raw CLI, if you prefer: the app id is the only variable
+maestro test -e APP_ID=io.payanam .maestro
+maestro test -e APP_ID=io.payanam.debug .maestro/sessions/07-settings-cards.yaml
+```
+
+Without the wrapper, pass `-e APP_ID=...` yourself; a flow run with no `APP_ID` fails on the missing
+variable rather than silently driving the wrong package.
+
 ```bash
 # whole suite (01, 06 and 07 excluded — see config.yaml)
-maestro test .maestro
-
-# one journey, by file
-maestro test .maestro/03-action-complete.yaml
+./build-tools/scripts/run-maestro.sh .maestro
 
 # a subset, by tag
-maestro test .maestro --include-tags reminders
-maestro test .maestro --include-tags tracking
+./build-tools/scripts/run-maestro.sh .maestro --include-tags reminders
+./build-tools/scripts/run-maestro.sh .maestro --include-tags tracking
 
 # syntax check without a device
 maestro check-syntax .maestro/03-action-complete.yaml
 
 # FRESH INSTALL — wipes the app's real database (`pm clear`)
-maestro test .maestro/01-fresh-setup.yaml
+./build-tools/scripts/run-maestro.sh .maestro/01-fresh-setup.yaml
+```
+
+**Focused loop.** For one flow, run the three phases together — setup, the flow, teardown — and pull
+the layers the verifier reads:
+
+```bash
+./build-tools/scripts/run-focused-e2e.sh --debug .maestro/sessions/07-settings-cards.yaml
 ```
 
 **Nightly recipe.** A session creates rows and does not remove them, so the database grows a little

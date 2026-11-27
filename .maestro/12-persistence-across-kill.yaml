@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: A task created before a process kill is still there on the cold start
 tags:
   - persistence

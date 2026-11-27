@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 ---
 # Auto-backup ON, or the session cannot pass: every session's epilogue taps `settings.run_backup_now`
 # and `:tools:e2e-verify` hard-fails a run with no DB snapshot, so a session that starts with the toggle

@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 ---
 # Creates a ONE-TIME task whose reminder is meant to fire a few minutes from now. The due DATE keeps
 # the form's default (today) and a one-time task does not advance, so after the action the row is

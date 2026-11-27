@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 name: Miss on a dead-process habit reminder writes the missed status after the unlock
 tags:
   - reminders

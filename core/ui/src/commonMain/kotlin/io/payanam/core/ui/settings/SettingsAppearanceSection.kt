@@ -78,6 +78,7 @@ fun SettingsAppearanceSection(
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             AppLanguageOption.entries.forEachIndexed { index, option ->
                 SegmentedButton(
+                    modifier = Modifier.testTag(TestTags.Settings.languageOption(option.key)),
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = AppLanguageOption.entries.size),
                     onClick = {
                         onAppLanguageChange(option)
@@ -134,6 +135,7 @@ fun SettingsAppearanceSection(
                 modifier =
                     Modifier
                         .fillMaxWidth()
+                        .testTag(TestTags.Settings.FONT_FIELD)
                         .menuAnchor(MenuAnchorType.PrimaryNotEditable),
             )
             DropdownMenu(
@@ -142,6 +144,7 @@ fun SettingsAppearanceSection(
             ) {
                 FontFamilyOption.entries.forEach { option ->
                     DropdownMenuItem(
+                        modifier = Modifier.testTag(TestTags.Settings.fontOption(option.key)),
                         text = { Text(strings.fontFamilyLabel(option)) },
                         onClick = {
                             onFontFamilyChange(option)
@@ -160,6 +163,7 @@ fun SettingsAppearanceSection(
         SingleChoiceSegmentedButtonRow(modifier = Modifier.fillMaxWidth()) {
             TimeFormatOption.entries.forEachIndexed { index, option ->
                 SegmentedButton(
+                    modifier = Modifier.testTag(TestTags.Settings.timeFormatOption(option.key)),
                     shape = SegmentedButtonDefaults.itemShape(index = index, count = TimeFormatOption.entries.size),
                     onClick = {
                         onTimeFormatChange(option)

@@ -1,4 +1,4 @@
-appId: io.payanam
+appId: ${APP_ID}
 ---
 # Unlocks only when the gate is showing. On an already-unlocked app this is a no-op, which is what
 # makes it safe to call from any starting state; an unconditional tap would land on whatever screen
