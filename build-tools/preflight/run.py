@@ -45,10 +45,14 @@ LAYER_ORDER: dict[str, list[str]] = {
         "jdk",
         "core_sources",
         "static_analysis",
+        "added_source",
+        "unit_tests",
         "apk_footprint",
     ],
     "desktop": [
         "desktop_sources",
+        "added_source",
+        "desktop_tests",
         "packaging",
     ],
 }
